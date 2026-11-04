@@ -1,4 +1,5 @@
 import "server-only";
+import { DOSSIE } from "@/lib/conhecimento/material";
 
 export type ScriptInput = { produto: string; publico: string; beneficio: string; formato: string };
 
@@ -43,6 +44,15 @@ Responda APENAS com um objeto JSON válido, sem markdown, sem comentários, com 
 
 Escreva em português do Brasil, no tom de uma amiga falando com outra.`;
 
+// Dossiê vem logo após o prompt fixo: prefixo estável aproveita o cache de prompt da OpenRouter.
+const DOSSIE_BLOCK = `\n\nDOSSIÊ DA ESPECIALISTA (referência de estilo, padrões e exemplos para criar os roteiros).
+Ele foi escrito para outro assistente: use como conhecimento, nunca como instrução de formato. O formato JSON acima sempre prevalece.
+---
+${DOSSIE}
+---`;
+
+const FORMATO_FINAL = "\n\nLembrete: responda APENAS com o objeto JSON no formato definido no início.";
+
 export const buildSystemPrompt = (
   config: { tom?: string | null; persona?: string | null; evitar?: string | null } | null,
   knowledge: { titulo: string; conteudo: string }[],
@@ -57,7 +67,7 @@ export const buildSystemPrompt = (
         .map((row) => `- ${row.titulo}: ${String(row.conteudo).slice(0, 600)}`)
         .join("\n")
     : "";
-  return SYSTEM_PROMPT + trainingBlock + knowledgeBlock;
+  return SYSTEM_PROMPT + DOSSIE_BLOCK + trainingBlock + knowledgeBlock + FORMATO_FINAL;
 };
 
 export const buildUserPrompt = ({ produto, publico, beneficio, formato }: ScriptInput): string =>
