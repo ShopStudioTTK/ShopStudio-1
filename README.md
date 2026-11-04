@@ -18,10 +18,11 @@ Histórico de decisões: [`DEVLOG.md`](DEVLOG.md). Instruções para agentes de 
 6. [Como o app funciona](#como-o-app-funciona)
 7. [IA: assistente, roteiros e custos](#ia-assistente-roteiros-e-custos)
 8. [Banco de dados](#banco-de-dados)
-9. [Acesso e códigos](#acesso-e-códigos)
-10. [Testes](#testes)
-11. [Produção](#produção)
-12. [Problemas comuns](#problemas-comuns)
+9. [Login com Google](#login-com-google)
+10. [Acesso e códigos](#acesso-e-códigos)
+11. [Testes](#testes)
+12. [Produção](#produção)
+13. [Problemas comuns](#problemas-comuns)
 
 ---
 
@@ -43,9 +44,11 @@ pnpm db:reset          # cria o banco a partir das migrations
 pnpm dev               # http://localhost:3000
 ```
 
-Preencha também `OPENROUTER_API_KEY` e `OPENROUTER_MODEL` no `.env.local`. Sem elas, o assistente e o gerador de roteiros não funcionam.
+Preencha também no `.env.local`:
+- `OPENROUTER_API_KEY` e `OPENROUTER_MODEL`, sem as quais o assistente e o gerador de roteiros não funcionam;
+- `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` e `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`, para o login (ver [Login com Google](#login-com-google)).
 
-Os e-mails do Supabase local (confirmação, link mágico, redefinição de senha) não saem de verdade. Eles aparecem no **Mailpit**, no endereço que o `pnpm supabase status` mostra.
+O `pnpm db:start` carrega o `.env.local` antes de subir o Supabase. Se você mudar as chaves do Google, rode `pnpm supabase stop` e depois `pnpm db:start`.
 
 > Use **http://localhost:3000**. Pelo `127.0.0.1` o Next 16 em modo dev bloqueia scripts de outra origem e a página fica presa no carregamento. O `next.config.ts` libera `127.0.0.1`, mas `localhost` é o endereço configurado no Supabase.
 
@@ -58,6 +61,8 @@ Os e-mails do Supabase local (confirmação, link mágico, redefinição de senh
 | `SUPABASE_SERVICE_ROLE_KEY` | só servidor (`src/lib/supabase/admin.ts`) | **sim** |
 | `OPENROUTER_API_KEY` | só servidor (rotas `/api/*`) | **sim** |
 | `OPENROUTER_MODEL` | só servidor. Hoje: `deepseek/deepseek-v4.1-flash-1017` | não |
+| `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | Supabase local (`supabase/config.toml`) | não |
+| `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` | Supabase local (`supabase/config.toml`) | **sim** |
 
 Só as variáveis `NEXT_PUBLIC_*` chegam ao navegador. O `.env.local` está no `.gitignore` e nunca deve ser commitado.
 
@@ -69,7 +74,7 @@ Só as variáveis `NEXT_PUBLIC_*` chegam ao navegador. O `.env.local` está no `
 | `pnpm build` / `pnpm start` | build de produção / servir o build |
 | `pnpm test` | testes (Vitest, pasta `tests/`) |
 | `pnpm lint` | ESLint |
-| `pnpm db:start` | sobe o Supabase local |
+| `pnpm db:start` | carrega o `.env.local` e sobe o Supabase local |
 | `pnpm db:reset` | recria o banco local a partir de `supabase/migrations` (apaga os dados locais) |
 | `pnpm supabase migration up` | aplica só as migrations novas, mantendo os dados |
 | `pnpm db:types` | regera `src/integrations/supabase/types.ts` a partir do banco local |
@@ -80,7 +85,7 @@ Só as variáveis `NEXT_PUBLIC_*` chegam ao navegador. O `.env.local` está no `
 src/
   app/                        rotas (App Router)
     page.tsx                  / → redireciona para /app ou /entrar
-    entrar/  redefinir/       login, cadastro, link mágico, nova senha
+    entrar/                   login com Google
     app/                      área logada; layout.tsx = guarda de login + acesso + menu
       page.tsx                painel
       capitulos/[slug]/       leitor do capítulo ("Perguntar à assistente" ao selecionar texto)
@@ -111,7 +116,7 @@ docs/superpowers/             design e plano da migração do Enter
 
 ## Como o app funciona
 
-- **Login:** e-mail e senha, link mágico e redefinição de senha, pelo Supabase Auth. A sessão fica no navegador (`localStorage`), e as rotas de API recebem o token no header `Authorization: Bearer`.
+- **Login:** só com **Google**, pelo Supabase Auth com fluxo PKCE. Na primeira vez, o perfil é criado com o nome que vem do Google; quem já tem conta segue direto para o app. A sessão fica no navegador (`localStorage`), e as rotas de API recebem o token no header `Authorization: Bearer`.
 - **Guarda da área logada** (`src/app/app/layout.tsx`): sem sessão, manda para `/entrar?de=<caminho>`. Com sessão e sem acesso, mostra a tela de desbloqueio por código.
 - **Dados da aluna:** progresso, checklist, roteiros salvos e resultados são gravados direto do navegador no Supabase. As regras RLS garantem que cada aluna só lê e escreve o que é dela.
 - **Seleção de texto no capítulo:** ao selecionar um trecho, aparece "Perguntar à assistente". O clique leva para `/app/assistente?capitulo=<slug>&trecho=<texto>`, e o trecho vira a primeira pergunta.
@@ -166,6 +171,21 @@ Ainda não existe página de administração. Códigos, vídeos, persona e base 
 
 Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql`, rode `pnpm supabase migration up` e depois `pnpm db:types`.
 
+## Login com Google
+
+**Cliente OAuth no Google Cloud** (APIs e serviços → Credenciais → ID do cliente OAuth, tipo **Aplicativo da Web**):
+
+| Campo | Local | Produção |
+|---|---|---|
+| Origens JavaScript autorizadas | `http://localhost:3000` | `https://<domínio>` |
+| URIs de redirecionamento autorizados | `http://127.0.0.1:54321/auth/v1/callback` | `https://<ref>.supabase.co/auth/v1/callback` |
+
+O Google devolve a pessoa para o **Supabase**, e o Supabase devolve para o app (`/entrar`, que segue para `/app` ou para o `?de=`). Na tela de consentimento, use tipo **Externo**, escopos `openid`, `email` e `profile`, e, enquanto estiver em teste, cadastre os Gmails em **Usuários de teste**.
+
+No Supabase local, o provedor fica em `[auth.external.google]` no `supabase/config.toml` (com `skip_nonce_check = true`, exigido localmente). O Client ID e o Secret vêm do `.env.local`.
+
+O provedor de e-mail continua ativo no Supabase, embora a tela não ofereça mais e-mail e senha. Isso permite criar usuários de teste pela API.
+
 ## Acesso e códigos
 
 - **Modo revisão:** `ACESSO_ABERTO_PARA_REVISAO` em `src/lib/access.ts`. Com `true`, que é o valor atual, qualquer conta entra sem código. Essa regra vale na tela e nas rotas de IA.
@@ -186,10 +206,10 @@ pnpm test
 ## Produção
 
 1. Crie o projeto no Supabase e rode `pnpm supabase link --project-ref <ref>` e `pnpm supabase db push`.
-2. Em **Auth → URL Configuration**, defina a **Site URL** (o domínio de produção) e as **Redirect URLs** (`https://<domínio>/**`, que cobre `/redefinir`).
-3. Configure um provedor de e-mail (SMTP) no Supabase. O envio padrão tem limite baixo e só manda para a equipe do projeto.
+2. Em **Auth → URL Configuration**, defina a **Site URL** (o domínio de produção) e as **Redirect URLs** (`https://<domínio>/**`, que cobre `/entrar`).
+3. Em **Auth → Providers → Google**, ative e cole o Client ID e o Secret. No Google Cloud, acrescente ao cliente OAuth a origem `https://<domínio>` e a URI `https://<ref>.supabase.co/auth/v1/callback`, e publique a tela de consentimento (em modo de teste, só os usuários de teste entram).
 4. Na hospedagem (pensado para a Vercel), cadastre as 5 variáveis de ambiente.
-5. Faça um teste rápido: criar conta, entrar, marcar um capítulo, gerar um roteiro e perguntar ao assistente.
+5. Faça um teste rápido: entrar com Google, marcar um capítulo, gerar um roteiro e perguntar ao assistente.
 6. **Antes de abrir ao público:** mude o modo revisão para `false` e coloque um **limite de crédito** na chave da OpenRouter.
 
 ## Problemas comuns
@@ -199,7 +219,9 @@ pnpm test
 | Página presa na tela "shop studio." com a barrinha | Foi aberta por `127.0.0.1`. Use `localhost:3000`. |
 | "IA não configurada." | Falta `OPENROUTER_API_KEY` ou `OPENROUTER_MODEL`. Reinicie o `pnpm dev`. |
 | Erro 404 "No endpoints found" da OpenRouter | O modelo mudou e os `PROVEDORES` não existem para ele. Revise `src/lib/api-auth.ts`. |
-| Link de redefinir senha cai na página errada | Confira a Site URL e as Redirect URLs no Auth do Supabase. |
+| Google mostra "redirect_uri_mismatch" | A URI no Google Cloud precisa ser exatamente `http://127.0.0.1:54321/auth/v1/callback` (local) ou `https://<ref>.supabase.co/auth/v1/callback` (produção). |
+| Google diz "acesso bloqueado" / app não verificado | A tela de consentimento está em teste; adicione a conta em **Usuários de teste** ou publique o app. |
+| Volta do Google e não entra | Confira se a Site URL e as Redirect URLs do Supabase incluem o endereço do app (`http://localhost:3000/**` no local). |
 | `supabaseUrl is required` no build | Faltam as variáveis do Supabase no ambiente de build. |
 | Assistente sem o material em produção | Os `.md` ficaram fora do deploy. Confira o `outputFileTracingIncludes` no `next.config.ts`. |
 | Tipos do banco desatualizados | Rode `pnpm db:types`. |

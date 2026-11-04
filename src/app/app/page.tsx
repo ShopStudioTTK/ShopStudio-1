@@ -1,5 +1,6 @@
 "use client";
 
+import { primeiroNome } from "@/lib/nome";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -61,9 +62,7 @@ const Dashboard = () => {
   const { isDone, toggle } = useChecklistProgress();
   const { data: campeoes = [] } = useChampionVideos();
 
-  const firstName =
-    ((user?.user_metadata?.nome as string | undefined) ?? user?.email ?? "").split(/[\s@]/)[0] ||
-    "Shop Girl";
+  const firstName = primeiroNome(user?.user_metadata, user?.email) || "Shop Girl";
 
   const nextChapter =
     chapters.find((chapter) => !completed.has(chapter.slug)) ?? chapters[chapters.length - 1];

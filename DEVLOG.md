@@ -4,6 +4,30 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-04: Login só com Google
+
+**Pedido da dona:** deixar apenas o Google como forma de entrar. Na primeira vez, o app cria o acesso; quem já tem conta segue o fluxo normal. Motivo da escolha do Google: é o provedor mais simples de configurar.
+
+**O que mudou:**
+- `/entrar` agora tem só o botão "Entrar com Google" (`supabase.auth.signInWithOAuth`). Saíram e-mail/senha, as abas "Entrar/Primeiro acesso", o link mágico, o "esqueci minha senha" e a página `/redefinir`, e com ela o redirecionamento do `PASSWORD_RECOVERY` (que era o único aviso do lint).
+- O cliente do Supabase passou a usar **PKCE** (`flowType: "pkce"`): o Google devolve `?code=` e o cliente troca pela sessão sozinho.
+- **Primeiro acesso:** o `ensureProfile` já gravava o perfil só uma vez (`ignoreDuplicates`). Agora o nome vem do Google (`full_name`/`name`, em `src/lib/nome.ts`, com teste), e o painel cumprimenta pelo primeiro nome. Depois disso, a aluna segue o fluxo de sempre: código de acesso, ou entrada direta no modo revisão.
+- **Supabase local:** `[auth.external.google]` no `config.toml` lê o Client ID e o Secret do `.env.local` (`env(...)`), com `skip_nonce_check = true`, que o Supabase local exige. O `pnpm db:start` agora carrega o `.env.local` antes de subir.
+- **Cliente OAuth no Google Cloud** (tipo Aplicativo da Web): origem `http://localhost:3000`; redirecionamento `http://127.0.0.1:54321/auth/v1/callback`. Em produção, origem `https://<domínio>` e redirecionamento `https://<ref>.supabase.co/auth/v1/callback`.
+- O provedor de e-mail continua ativo no servidor, só fora da interface, para permitir criar usuários de teste pela API.
+
+**Achado no caminho (corrigido):** duas falhas vinham da migração, ambas porque o Next não tem o `#root` do Vite.
+- A tela de entrada não ocupava a altura toda. Corrigido com `min-h-dvh` no lugar de `min-h-full`.
+- O menu lateral rolava junto com o capítulo. O `overflow-x: hidden` em `html`/`body` transformava o body em contêiner de rolagem, e o `sticky` deixava de funcionar. Trocado por `overflow-x: clip`, que corta a rolagem lateral do mesmo jeito sem esse efeito.
+
+**Verificado:**
+- 52 testes, lint sem avisos, build ok.
+- O `/auth/v1/authorize?provider=google` do Supabase local redireciona ao Google com a URI de callback correta.
+- No navegador, a tela nova ocupa a altura toda e o menu lateral fica parado ao rolar.
+- **Ainda não testado:** a volta do Google com uma conta real, que precisa de uma pessoa logando.
+
+---
+
 ## 2026-11-04: Documentação e organização
 
 - Criados `CLAUDE.md` (guia para agentes) e este `DEVLOG.md`. O `README.md` foi refeito.

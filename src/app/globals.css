@@ -125,10 +125,11 @@
     text-size-adjust: 100%;
   }
 
-  /* nada de rolagem horizontal acidental no celular */
+  /* nada de rolagem horizontal acidental no celular. `clip` e não `hidden`:
+     hidden transforma o body em contêiner de rolagem e o menu lateral (sticky) deixa de grudar. */
   html,
   body {
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   ::selection {

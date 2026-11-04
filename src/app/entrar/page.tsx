@@ -1,18 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Loader2, Mail } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Wordmark } from "@/components/brand";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 
-type Mode = "login" | "signup";
+const GoogleIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
+    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+    <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.06H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.94l3.66-2.84z" />
+    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15A10.96 10.96 0 0 0 12 1 11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z" />
+  </svg>
+);
 
 const Auth = () => {
   const router = useRouter();
@@ -20,107 +24,33 @@ const Auth = () => {
   const destino = params.get("de");
   const aposEntrar = destino && destino.startsWith("/app") ? destino : "/app";
   const { user, loading } = useAuth();
-  const [mode, setMode] = useState<Mode>("login");
-  const [nome, setNome] = useState("");
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [enviando, setEnviando] = useState<"link" | "senha" | null>(null);
+  const [indo, setIndo] = useState(false);
+  // O Supabase devolve o erro na URL quando o Google recusa ou a pessoa cancela.
+  const [error, setError] = useState<string | null>(
+    params.get("error_description") ? "Não consegui entrar com o Google. Tente de novo." : null,
+  );
 
+  // Quem já tem sessão (inclusive voltando do Google) segue direto para o app.
   useEffect(() => {
     if (!loading && user) router.replace(aposEntrar);
   }, [loading, user, router, aposEntrar]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const entrarComGoogle = async () => {
     setError(null);
-    setNotice(null);
-    setSubmitting(true);
-
-    try {
-      if (mode === "signup") {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password: senha,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: { nome },
-          },
-        });
-        if (signUpError) throw signUpError;
-        if (!data.session) {
-          setNotice("Conta criada. Confira seu e-mail para confirmar o acesso.");
-        }
-        return;
-      }
-
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: senha });
-      if (signInError) throw signInError;
-      router.replace(aposEntrar);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Não foi possível continuar.";
-      setError(
-        message.toLowerCase().includes("invalid login credentials")
-          ? "E-mail ou senha incorretos."
-          : message.toLowerCase().includes("already registered")
-            ? "Esse e-mail já tem uma conta. Faça login."
-            : message,
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const enviarLinkDeAcesso = async () => {
-    if (!email.trim()) {
-      setError("Escreva seu e-mail para eu te enviar o link.");
-      return;
-    }
-    setError(null);
-    setNotice(null);
-    setEnviando("link");
-    try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
-      if (otpError) throw otpError;
-      setNotice("Enviei um link de acesso para o seu e-mail. Abra pelo celular para entrar direto.");
-    } catch {
-      setError("Não consegui enviar agora. Espere um minuto e tente de novo.");
-    } finally {
-      setEnviando(null);
-    }
-  };
-
-  const enviarNovaSenha = async () => {
-    if (!email.trim()) {
-      setError("Escreva seu e-mail para eu enviar o link de nova senha.");
-      return;
-    }
-    setError(null);
-    setNotice(null);
-    setEnviando("senha");
-    try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/redefinir`,
-      });
-      if (resetError) throw resetError;
-      setNotice("Enviamos um link para você criar uma senha nova. Confira o e-mail (e o spam).");
-    } catch {
-      setError("Não consegui enviar agora. Espere um minuto e tente de novo.");
-    } finally {
-      setEnviando(null);
+    setIndo(true);
+    const volta = `${window.location.origin}/entrar${destino ? `?de=${encodeURIComponent(destino)}` : ""}`;
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: volta },
+    });
+    if (oauthError) {
+      setError("Não consegui abrir o login do Google. Tente de novo.");
+      setIndo(false);
     }
   };
 
   return (
-    <div className="grid min-h-full lg:grid-cols-[1fr_1fr]">
+    <div className="grid min-h-dvh lg:grid-cols-[1fr_1fr]">
       <aside className="hero-surface relative hidden overflow-hidden p-12 text-cream lg:flex lg:flex-col lg:justify-between">
         <div className="grain absolute inset-0 opacity-40" aria-hidden="true" />
         <div
@@ -136,7 +66,7 @@ const Auth = () => {
             Acesso exclusivo para alunas do Shop Studio.
           </p>
           <p className="mt-4 text-[14px] leading-relaxed text-cream/65">
-            Entre com o e-mail da sua compra e use o código que você recebeu para liberar o guia, o
+            Entre com a sua conta Google e use o código que você recebeu para liberar o guia, o
             assistente de IA e as ferramentas.
           </p>
         </div>
@@ -154,135 +84,32 @@ const Auth = () => {
 
         <div className="flex flex-1 items-center">
           <div className="mx-auto w-full max-w-sm py-10">
-            <p className="eyebrow">{mode === "login" ? "Bem-vinda de volta" : "Primeiro acesso"}</p>
+            <p className="eyebrow">Bem-vinda</p>
             <h1 className="mt-3 font-display text-4xl leading-[1.05] tracking-[-0.02em]">
-              {mode === "login" ? "Entrar no app" : "Criar seu acesso"}
+              Entrar no app
             </h1>
             <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
-              {mode === "login"
-                ? "Continue de onde parou: capítulos, checklists e roteiros salvos."
-                : "Crie a conta com o e-mail da sua compra. No próximo passo você digita o código de acesso que recebeu."}
+              Use a sua conta Google. Na primeira vez a gente cria o seu acesso na hora; depois é só
+              continuar de onde parou: capítulos, checklists e roteiros salvos.
             </p>
 
-            <div className="mt-8 flex rounded-full border border-border bg-secondary/50 p-1">
-              {(["login", "signup"] as Mode[]).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => {
-                    setMode(option);
-                    setError(null);
-                    setNotice(null);
-                  }}
-                  className={
-                    "flex-1 rounded-full px-4 py-2 text-[13px] font-medium transition-colors " +
-                    (mode === option
-                      ? "bg-card text-foreground shadow-soft"
-                      : "text-muted-foreground hover:text-foreground")
-                  }
-                >
-                  {option === "login" ? "Entrar" : "Primeiro acesso"}
-                </button>
-              ))}
-            </div>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="mt-8 w-full bg-card"
+              onClick={entrarComGoogle}
+              disabled={indo}
+            >
+              {indo ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+              Entrar com Google
+            </Button>
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              {mode === "signup" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="nome" className="text-[12px] uppercase tracking-[0.14em] text-muted-foreground">
-                    Como te chamamos
-                  </Label>
-                  <Input
-                    id="nome"
-                    value={nome}
-                    onChange={(event) => setNome(event.target.value)}
-                    placeholder="Seu primeiro nome"
-                    autoComplete="given-name"
-                    className="h-11 rounded-xl bg-card"
-                  />
-                </div>
-              ) : null}
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-[12px] uppercase tracking-[0.14em] text-muted-foreground">
-                  E-mail
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="voce@email.com"
-                  autoComplete="email"
-                  className="h-11 rounded-xl bg-card"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="senha" className="text-[12px] uppercase tracking-[0.14em] text-muted-foreground">
-                  Senha
-                </Label>
-                <Input
-                  id="senha"
-                  type="password"
-                  required
-                  minLength={6}
-                  value={senha}
-                  onChange={(event) => setSenha(event.target.value)}
-                  placeholder="Mínimo de 6 caracteres"
-                  autoComplete={mode === "login" ? "current-password" : "new-password"}
-                  className="h-11 rounded-xl bg-card"
-                />
-              </div>
-
-              {error ? (
-                <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-[13px] text-destructive">
-                  {error}
-                </p>
-              ) : null}
-              {notice ? (
-                <p className="rounded-xl border border-rose/30 bg-rose-soft/40 px-3.5 py-2.5 text-[13px] text-foreground">
-                  {notice}
-                </p>
-              ) : null}
-
-              <Button type="submit" size="lg" className="w-full" disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {mode === "login" ? "Entrar" : "Criar acesso"}
-                {!submitting ? <ArrowRight className="h-4 w-4" /> : null}
-              </Button>
-            </form>
-
-            <div className="mt-6 space-y-3 border-t border-border pt-5">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={enviarLinkDeAcesso}
-                disabled={enviando !== null}
-              >
-                {enviando === "link" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Mail className="h-4 w-4" />
-                )}
-                Receber link de acesso no e-mail
-              </Button>
-              {mode === "login" ? (
-                <button
-                  type="button"
-                  onClick={enviarNovaSenha}
-                  disabled={enviando !== null}
-                  className="w-full text-center text-[12.5px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
-                >
-                  {enviando === "senha" ? "Enviando..." : "Esqueci minha senha"}
-                </button>
-              ) : null}
-              <p className="text-center text-[11.5px] leading-relaxed text-muted-foreground">
-                O link abre a área de membros direto no celular. Sem senha, sem complicação.
+            {error ? (
+              <p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-[13px] text-destructive">
+                {error}
               </p>
-            </div>
+            ) : null}
 
             <p className="mt-6 text-[12px] leading-relaxed text-muted-foreground">
               Ao continuar você concorda em usar o material para o seu próprio negócio, sem

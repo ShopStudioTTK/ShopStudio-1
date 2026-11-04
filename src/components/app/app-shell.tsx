@@ -92,7 +92,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
   );
 
   return (
-    <div className="flex min-h-full w-full max-w-full overflow-x-clip bg-background">
+    <div className="flex min-h-dvh w-full max-w-full overflow-x-clip bg-background">
       <aside className="sticky top-0 hidden h-screen w-[264px] shrink-0 flex-col justify-between border-r border-border bg-secondary/25 px-4 py-6 lg:flex">
         <div>
           <Link href="/app" className="px-2">

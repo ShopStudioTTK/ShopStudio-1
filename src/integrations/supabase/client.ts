@@ -10,6 +10,8 @@ export const supabase = createClient<Database>(
       storage: typeof window !== "undefined" ? window.localStorage : undefined,
       persistSession: true,
       autoRefreshToken: true,
+      // Login com Google: o retorno traz ?code= e o cliente troca pela sessão sozinho.
+      flowType: "pkce",
     },
   },
 );

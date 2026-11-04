@@ -323,6 +323,17 @@ max_frequency = "5s"
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
 # `twitter`, `x`, `slack_oidc`, `spotify`, `workos`, `zoom`.
+# Login com Google (único método na tela). Client ID e secret vêm do .env.local
+# (o `pnpm db:start` carrega esse arquivo); nunca commitar os valores.
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+redirect_uri = ""
+url = ""
+# Exigido pelo Supabase local para o login com Google funcionar.
+skip_nonce_check = true
+
 [auth.external.apple]
 enabled = false
 client_id = ""

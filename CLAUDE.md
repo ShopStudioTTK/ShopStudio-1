@@ -21,11 +21,12 @@ pnpm db:reset                # recria o banco do zero (APAGA dados locais)
 pnpm db:types                # regera src/integrations/supabase/types.ts
 ```
 
-Antes de dar uma tarefa por concluída: `pnpm test && pnpm lint && pnpm build`. O lint tem 1 aviso conhecido em `src/hooks/use-auth.tsx` (`window.location.assign` no `PASSWORD_RECOVERY`, que é intencional).
+Antes de dar uma tarefa por concluída: `pnpm test && pnpm lint && pnpm build` (todos limpos, sem avisos).
 
 ## Arquitetura (o essencial)
 
 - **Páginas** em `src/app/**`, quase todas componentes cliente (`"use client"`), portadas do original. A sessão do Supabase fica no navegador (`localStorage`), sem `@supabase/ssr` nem middleware.
+- **Login só com Google** (`src/app/entrar/page.tsx`, `signInWithOAuth`, cliente com `flowType: "pkce"`). O retorno volta para `/entrar?de=…`, e a página segue para o app quando a sessão aparece. O primeiro login cria o perfil em `ensureProfile` (`src/hooks/use-auth.tsx`, `ignoreDuplicates`), com o nome vindo de `nomeDoPerfil` (`src/lib/nome.ts`: `full_name` → `name` → `nome`). Não há mais e-mail/senha, link mágico nem `/redefinir` na interface.
 - **Guarda da área logada:** `src/app/app/layout.tsx` (login → acesso → `AppShell`).
 - **Regra de acesso:** `src/lib/access.ts` (`ACESSO_ABERTO_PARA_REVISAO`, `temAcesso`). É usada na tela **e** nas rotas de API. Mantenha as duas em sincronia por esse módulo.
 - **Rotas de IA** (`src/app/api/{assistente,roteiro}/route.ts`) passam por `autorizar()` em `src/lib/api-auth.ts`, que checa nesta ordem: env OpenRouter → token Bearer → `entitlements`. A função devolve uma `Response` de erro ou `{ apiKey, model, supabase, userId }`. Chame a OpenRouter sempre por `chamarOpenRouter()`, que injeta `PROVEDORES`.
@@ -47,7 +48,10 @@ Antes de dar uma tarefa por concluída: `pnpm test && pnpm lint && pnpm build`. 
 
 ## Armadilhas conhecidas
 
-- **`127.0.0.1` trava o app em dev:** o Next 16 bloqueia recursos de dev de outra origem e a página fica no loader. Use `localhost:3000`. O Supabase local também usa `localhost` como `site_url`.
+- **`127.0.0.1` trava o app em dev:** o Next 16 bloqueia recursos de dev de outra origem e a página fica no loader. Use `localhost:3000`. O Supabase local também usa `localhost` como `site_url`. A exceção é o callback do Google, que é `http://127.0.0.1:54321/auth/v1/callback`, a URL do próprio Supabase local, cadastrada assim no Google Cloud.
+- **Chaves do Google no Supabase local:** o `config.toml` lê `env(SUPABASE_AUTH_EXTERNAL_GOOGLE_*)`. O script `pnpm db:start` carrega o `.env.local` antes de subir. Rodar `supabase start` direto deixa o Google sem chaves.
+- **Testar o Google ponta a ponta exige um humano:** um agente não entra em contas Google. Para testar telas logadas, crie um usuário de teste por e-mail/senha pela API do Supabase local (o provedor de e-mail continua ativo no servidor) e injete a sessão no `localStorage` (`sb-127-auth-token`).
+- **`overflow-x: clip`, não `hidden`, em `html`/`body`:** com `hidden`, o body vira contêiner de rolagem e o menu lateral `sticky` para de grudar. A altura cheia das telas usa `min-h-dvh`, porque não existe `#root` como no Vite.
 - **Modelo com raciocínio:** o DeepSeek v4.1 Flash gasta tokens de saída "pensando". Por isso `max_tokens: 4000`, e não os 1400/700 do original, e a resposta com `finish_reason: "length"` vira erro claro.
 - **Provedores:** `PROVEDORES` (`morph/fp8`, `deepinfra/fp8`, só fp8) vale **só para o modelo atual**. Trocar `OPENROUTER_MODEL` exige revisar essa lista; senão vem 404 "No endpoints found". O provedor oficial `deepseek` é bloqueado pela configuração de privacidade da conta (provedores que treinam com os dados). Não mude isso sem a dona do produto pedir.
 - **`session_id` fixo prende o provedor:** testado e descartado. Ele grudou num provedor caro e o cache falhou. Use `provider.order`.
@@ -59,9 +63,8 @@ Antes de dar uma tarefa por concluída: `pnpm test && pnpm lint && pnpm build`. 
 ## Estado atual e próximos passos
 
 - Branches locais: `feat/migracao-next` (migração) → `feat/assistente-ia` (assistente, limite, cache). Nada foi mergeado no `master` nem enviado a remoto.
-- **Pendente, combinado com a dona:** login só com Google (sai e-mail/senha, link mágico e `/redefinir`; o primeiro acesso cria o perfil com o nome do Google e segue para o código ou para o modo revisão). A descrição ainda aguarda confirmação.
+- **Login com Google:** implementado. O fluxo completo com uma conta Google real ainda precisa ser testado pela dona (ver Armadilhas).
 - **Bugs/ajustes conhecidos:**
-  - no leitor de capítulo, o menu lateral rola junto com a página (o `sticky` não segura);
   - no celular, o menu não fecha ao navegar;
   - a largura de 375 px não foi conferida no navegador.
 - **Ideias em aberto:** página de admin; conjunto de ~20 perguntas de referência para avaliar a qualidade do assistente; RAG só se o material crescer muito.
