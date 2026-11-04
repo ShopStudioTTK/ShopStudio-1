@@ -1,0 +1,248 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 354 42% 95%;
+    --foreground: 16 38% 14%;
+
+    --card: 354 50% 99%;
+    --card-foreground: 16 38% 14%;
+
+    --popover: 354 50% 99%;
+    --popover-foreground: 16 38% 14%;
+
+    --primary: 16 42% 15%;
+    --primary-foreground: 354 45% 96%;
+
+    --secondary: 354 40% 91%;
+    --secondary-foreground: 16 38% 14%;
+
+    --muted: 354 32% 92%;
+    --muted-foreground: 12 14% 42%;
+
+    --accent: 352 55% 82%;
+    --accent-foreground: 16 42% 15%;
+
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 354 45% 96%;
+
+    --border: 354 28% 87%;
+    --input: 354 28% 87%;
+    --ring: 352 40% 55%;
+
+    --radius: 0.75rem;
+
+    /* Identidade do curso: rosa + chocolate quente */
+    --rose: 352 42% 52%;
+    --rose-soft: 352 72% 90%;
+    --gold: 30 45% 60%;
+    --cream: 354 45% 96%;
+    --sand: 354 30% 90%;
+
+    --gradient-hero: linear-gradient(158deg, hsl(16 44% 11%) 0%, hsl(8 40% 17%) 52%, hsl(20 46% 9%) 100%);
+    --gradient-rose: linear-gradient(135deg, hsl(var(--rose)) 0%, hsl(348 48% 68%) 100%);
+    --gradient-paper: linear-gradient(180deg, hsl(354 50% 99%) 0%, hsl(354 42% 95%) 100%);
+
+    --shadow-elegant: 0 30px 70px -40px hsl(16 42% 16% / 0.45);
+    --shadow-card: 0 1px 2px hsl(16 40% 20% / 0.04), 0 16px 40px -30px hsl(16 42% 20% / 0.38);
+    --shadow-glow: 0 0 60px hsl(var(--rose) / 0.28);
+
+    --sidebar-background: 354 38% 93%;
+    --sidebar-foreground: 16 38% 14%;
+    --sidebar-primary: 16 42% 15%;
+    --sidebar-primary-foreground: 354 45% 96%;
+    --sidebar-accent: 352 55% 90%;
+    --sidebar-accent-foreground: 16 42% 15%;
+    --sidebar-border: 354 28% 87%;
+    --sidebar-ring: 352 40% 55%;
+  }
+
+  .dark {
+    --background: 16 30% 7%;
+    --foreground: 354 40% 93%;
+
+    --card: 16 26% 11%;
+    --card-foreground: 354 40% 93%;
+
+    --popover: 16 26% 11%;
+    --popover-foreground: 354 40% 93%;
+
+    --primary: 354 40% 92%;
+    --primary-foreground: 16 32% 8%;
+
+    --secondary: 16 20% 16%;
+    --secondary-foreground: 354 40% 93%;
+
+    --muted: 16 20% 15%;
+    --muted-foreground: 354 12% 66%;
+
+    --accent: 352 42% 58%;
+    --accent-foreground: 354 45% 95%;
+
+    --destructive: 0 55% 48%;
+    --destructive-foreground: 354 45% 95%;
+
+    --border: 16 20% 19%;
+    --input: 16 20% 19%;
+    --ring: 352 42% 62%;
+
+    --rose: 352 45% 65%;
+    --rose-soft: 352 24% 24%;
+    --gold: 30 40% 62%;
+    --cream: 354 40% 92%;
+    --sand: 16 20% 21%;
+
+    --gradient-hero: linear-gradient(158deg, hsl(16 28% 8%) 0%, hsl(8 26% 13%) 55%, hsl(20 30% 7%) 100%);
+    --gradient-paper: linear-gradient(180deg, hsl(16 26% 11%) 0%, hsl(16 30% 7%) 100%);
+
+    --shadow-elegant: 0 30px 70px -40px hsl(0 0% 0% / 0.75);
+    --shadow-card: 0 1px 2px hsl(0 0% 0% / 0.3), 0 16px 40px -30px hsl(0 0% 0% / 0.6);
+
+    --sidebar-background: 16 26% 9%;
+    --sidebar-foreground: 354 40% 93%;
+    --sidebar-primary: 354 40% 92%;
+    --sidebar-primary-foreground: 16 32% 8%;
+    --sidebar-accent: 352 20% 19%;
+    --sidebar-accent-foreground: 354 40% 93%;
+    --sidebar-border: 16 20% 19%;
+    --sidebar-ring: 352 42% 62%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    /* impede o iOS de "inflar" ou encolher o texto por conta própria */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* nada de rolagem horizontal acidental no celular */
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: hsl(var(--rose) / 0.24);
+  }
+}
+
+@layer components {
+  .display-xl {
+    @apply font-display font-normal tracking-[-0.02em];
+    font-variation-settings: "opsz" 120;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-[0.28em] text-muted-foreground;
+  }
+
+  .paper {
+    background: var(--gradient-paper);
+  }
+
+  .hero-surface {
+    background: var(--gradient-hero);
+  }
+
+  .grain {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.05) 0.5px, transparent 0.5px);
+    background-size: 4px 4px;
+  }
+
+  .shadow-editorial {
+    box-shadow: var(--shadow-elegant);
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-card);
+  }
+
+  .rule-link {
+    @apply relative inline-flex items-center gap-2 text-sm text-foreground/70 transition-colors hover:text-foreground;
+  }
+}
+
+@layer components {
+  /* Marca-texto rosa, como se fosse caneta */
+  .marker {
+    background-image: linear-gradient(180deg, transparent 62%, hsl(var(--rose) / 0.35) 62%);
+    background-repeat: no-repeat;
+    padding: 0 0.12em;
+  }
+
+  .sticker {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.18em];
+    border-color: hsl(var(--foreground) / 0.12);
+    background: hsl(var(--card) / 0.85);
+    box-shadow: 0 1px 0 hsl(var(--foreground) / 0.05);
+  }
+
+  .hover-lift {
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card);
+  }
+
+  .rule-dotted {
+    background-image: linear-gradient(to right, hsl(var(--foreground) / 0.22) 33%, transparent 0);
+    background-size: 9px 1px;
+    background-repeat: repeat-x;
+    height: 1px;
+  }
+}
+
+@layer utilities {
+  .animate-marquee {
+    animation: marquee 32s linear infinite;
+  }
+
+  .animate-rise {
+    animation: rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-fade {
+    animation: fade 0.6s ease-out both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
