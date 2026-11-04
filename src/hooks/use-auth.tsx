@@ -9,6 +9,8 @@ type AuthContextValue = {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  /** true depois que a pessoa clicou em "Sair" (e não por sessão expirada). */
+  saiu: boolean;
   signOut: () => Promise<void>;
 };
 
@@ -16,6 +18,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   session: null,
   loading: true,
+  saiu: false,
   signOut: async () => {},
 });
 
@@ -35,6 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saiu, setSaiu] = useState(false);
 
   useEffect(() => {
     const {
@@ -43,6 +47,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       setLoading(false);
+
+      if (event === "SIGNED_IN") setSaiu(false);
 
       if (nextSession?.user && event === "SIGNED_IN") {
         const currentUser = nextSession.user;
@@ -62,13 +68,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    // Antes do signOut: a guarda da área logada reage à sessão sumindo e precisa já saber o motivo.
+    setSaiu(true);
     await supabase.auth.signOut();
     setSession(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, saiu, signOut }}>
       {children}
     </AuthContext.Provider>
   );

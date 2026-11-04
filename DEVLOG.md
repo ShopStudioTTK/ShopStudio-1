@@ -4,6 +4,26 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-04: Bug: a conta nova caía na última página da conta anterior
+
+**Sintoma relatado:** ao entrar com uma conta Google nova, o app parava na última página em que a outra conta estava.
+
+**Investigação:**
+- Os logs do Supabase mostraram que **o login em si funcionou**: as duas contas Google foram criadas, a troca PKCE deu certo e os perfis foram gravados com o nome do Google.
+- A pista estava no início do segundo login, que partiu de `/entrar?de=/app/assistente`.
+- Reproduzido: no assistente, clicar em "Sair da conta" levava a `/entrar?de=%2Fapp%2Fassistente`.
+
+**Causa raiz:** a guarda da área logada (`src/app/app/layout.tsx`) via a sessão sumir e não sabia o motivo. Tratava o "Sair" como uma sessão expirada e guardava a página atual para voltar depois do login. Quem entrasse em seguida, com qualquer conta, era levada para lá.
+
+**Correção:**
+- O `AuthProvider` ganhou `saiu`: vira `true` no `signOut()`, antes da sessão sumir, e volta a `false` no próximo `SIGNED_IN`.
+- A guarda usa `destinoSemSessao(pathname, saiu)` (`src/lib/navegacao.ts`, com teste): quem clicou em sair vai para `/entrar` limpo, e quem perdeu a sessão sozinha continua voltando para onde estava.
+- Conferido que os caches de dados pessoais (progresso, checklist, acesso, perguntas) já eram separados por usuário, então não havia vazamento de dados entre contas.
+
+**Verificado no navegador:** sair do assistente leva a `/entrar`. Abrir `/app/roteiros` sem sessão leva a `/entrar?de=%2Fapp%2Froteiros`.
+
+---
+
 ## 2026-11-04: Login só com Google
 
 **Pedido da dona:** deixar apenas o Google como forma de entrar. Na primeira vez, o app cria o acesso; quem já tem conta segue o fluxo normal. Motivo da escolha do Google: é o provedor mais simples de configurar.

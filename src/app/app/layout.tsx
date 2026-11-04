@@ -7,16 +7,17 @@ import { Loader } from "@/components/app/loader";
 import Unlock from "@/components/app/unlock";
 import { useAccess } from "@/hooks/use-access";
 import { useAuth } from "@/hooks/use-auth";
+import { destinoSemSessao } from "@/lib/navegacao";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, saiu } = useAuth();
   const { hasAccess, isLoading } = useAccess();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) router.replace(`/entrar?de=${encodeURIComponent(pathname)}`);
-  }, [loading, user, router, pathname]);
+    if (!loading && !user) router.replace(destinoSemSessao(pathname, saiu));
+  }, [loading, user, saiu, router, pathname]);
 
   if (loading || !user || isLoading) return <Loader />;
   if (!hasAccess) return <Unlock />;
