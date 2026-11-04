@@ -42,6 +42,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(nextSession?.user ?? null);
       setLoading(false);
 
+      if (event === "PASSWORD_RECOVERY" && window.location.pathname !== "/redefinir")
+        window.location.href = "/redefinir";
+
       if (nextSession?.user && event === "SIGNED_IN") {
         const currentUser = nextSession.user;
         setTimeout(() => {

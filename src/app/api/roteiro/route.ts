@@ -7,6 +7,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const erro = (message: string, status: number) =>
   Response.json({ error: { message } }, { status });
@@ -25,21 +26,26 @@ export async function POST(req: Request) {
     supabase = createAdminClient();
     const { data: auth, error: authError } = await supabase.auth.getUser(token);
     userId = authError ? undefined : auth?.user?.id;
-  } catch {
+  } catch (e) {
+    console.error("roteiro: falha ao verificar login", e);
     return erro("Não consegui verificar seu login agora. Tente de novo.", 500);
   }
   if (!userId) return erro("Faça login para gerar roteiros.", 401);
 
-  const { data: entitlement } = await supabase
+  const { data: entitlement, error: entError } = await supabase
     .from("entitlements")
     .select("user_id")
     .eq("user_id", userId)
     .maybeSingle();
+  if (entError) {
+    console.error("roteiro: falha ao ler entitlement", entError);
+    return erro("Não consegui verificar seu acesso agora.", 500);
+  }
   if (!temAcesso(Boolean(entitlement)))
     return erro("Seu acesso ainda não foi liberado.", 403);
 
   const body = await req.json().catch(() => null);
-  const field = (k: string) => String(body?.[k] ?? "").trim();
+  const field = (k: string) => String(body?.[k] ?? "").trim().slice(0, 500);
   const input = {
     produto: field("produto"),
     publico: field("publico"),
@@ -82,12 +88,14 @@ export async function POST(req: Request) {
         max_tokens: 4000,
       }),
     });
-  } catch {
+  } catch (e) {
+    console.error("roteiro: falha na chamada à OpenRouter", e);
     return erro("Não consegui gerar o roteiro agora.", 502);
   }
 
   if (!response.ok) {
     const parsed = await response.json().catch(() => null);
+    console.error("roteiro: OpenRouter respondeu", response.status, parsed?.error?.message);
     return erro(
       parsed?.error?.message || "Não consegui gerar o roteiro agora.",
       502,
@@ -102,6 +110,7 @@ export async function POST(req: Request) {
       extractScriptJson(payload?.choices?.[0]?.message?.content ?? ""),
     );
   } catch (e) {
+    console.error("roteiro: JSON inválido na resposta da IA", e);
     return erro((e as Error).message, 502);
   }
 }

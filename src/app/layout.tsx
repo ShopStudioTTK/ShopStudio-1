@@ -35,7 +35,7 @@ export const viewport: Viewport = { themeColor: "#F6E3E5" };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR" className={`${display.variable} ${sans.variable}`}>
-      <body>
+      <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

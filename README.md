@@ -1,16 +1,55 @@
 # Shop Studio
 
-Guia prático para começar no TikTok Shop em formato de app: 12 capítulos, assistente de IA e gerador de roteiros. Next.js + Tailwind + Supabase.
+Aplicativo web (Next.js 16 + Supabase) que ajuda vendedores da TikTok Shop a criar roteiros de vídeo com IA e acompanhar o progresso no curso.
 
-## Rodando
+## Requisitos
+
+Node 20+, pnpm e Docker (para o Supabase local).
+
+## Primeiros passos
 
 ```bash
 pnpm install
-cp .env.example .env.local   # preencha as variáveis
-pnpm dev
-pnpm test
+cp .env.example .env.local
 ```
+
+Variáveis do `.env.local`:
+
+- `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`: URL e chave anon (públicas).
+- `SUPABASE_SERVICE_ROLE_KEY`: chave service role (secreta, só servidor).
+- `OPENROUTER_API_KEY`: chave do OpenRouter (secreta, só servidor).
+- `OPENROUTER_MODEL`: qualquer id de modelo do OpenRouter (ex.: `anthropic/claude-sonnet-4.5`).
 
 ## Supabase local
 
-Será configurado na Tarefa 2 (migrações em `supabase/`).
+```bash
+pnpm db:start     # sobe o Supabase no Docker; preencha o .env.local com a saída de `pnpm supabase status`
+pnpm db:reset     # recria o banco a partir das migrations
+pnpm db:types     # regera src/integrations/supabase/types.ts
+```
+
+## Desenvolvimento
+
+```bash
+pnpm dev          # http://localhost:3000
+pnpm test
+pnpm build
+```
+
+## Produção
+
+1. `pnpm supabase link --project-ref <ref>` e `pnpm supabase db push`.
+2. No painel do Supabase, em Auth, configure a Site URL e as redirect URLs (inclua `/redefinir`).
+3. Teste login e progresso (smoke test).
+
+Para criar um código de acesso, no SQL editor:
+
+```sql
+insert into public.access_codes (code) values ('SHOPSTUDIO-XXXXXXXX');
+```
+
+## Modo revisão
+
+`ACESSO_ABERTO_PARA_REVISAO` em `src/lib/access.ts` libera o app para qualquer conta criada, sem código.
+
+> Atenção: antes de abrir ao público, troque essa chave para `false` e defina um limite de crédito na chave do OpenRouter.

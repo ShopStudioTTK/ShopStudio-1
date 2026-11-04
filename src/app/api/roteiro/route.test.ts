@@ -41,6 +41,7 @@ beforeEach(() => {
   tables.entitlements = { data: { user_id: "u1" } };
   tables.ai_config = { data: { tom: "alegre", persona: null, evitar: null } };
   tables.ai_knowledge = { data: [{ titulo: "t", conteudo: "c" }] };
+  vi.spyOn(console, "error").mockImplementation(() => {});
   global.fetch = vi.fn().mockResolvedValue(ia('{"ganchos":["a"]}')) as typeof fetch;
 });
 
@@ -77,6 +78,30 @@ describe("POST /api/roteiro", () => {
     const res = await POST(req());
     expect(res.status).toBe(403);
     expect(await msg(res)).toBe("Seu acesso ainda não foi liberado.");
+  });
+
+  it("temAcesso recebe true com entitlement e false sem", async () => {
+    await POST(req());
+    expect(temAcesso).toHaveBeenLastCalledWith(true);
+    tables.entitlements = { data: null };
+    await POST(req());
+    expect(temAcesso).toHaveBeenLastCalledWith(false);
+  });
+
+  it("500 quando a leitura do entitlement falha", async () => {
+    tables.entitlements = { data: null, error: { message: "db" } };
+    const res = await POST(req());
+    expect(res.status).toBe(500);
+    expect(await msg(res)).toBe("Não consegui verificar seu acesso agora.");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("limita campos a 500 caracteres", async () => {
+    await POST(req({ produto: "x".repeat(600) }));
+    const body = JSON.parse((vi.mocked(fetch).mock.calls[0][1] as RequestInit).body as string);
+    const user = body.messages[1].content as string;
+    expect(user).toContain("x".repeat(500));
+    expect(user).not.toContain("x".repeat(501));
   });
 
   it("400 sem produto", async () => {
