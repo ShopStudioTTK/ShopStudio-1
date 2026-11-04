@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Check, Flame, PlayCircle, Sparkles, Trophy } fro
 import { Button } from "@/components/ui/button";
 import { ChapterBlocks } from "@/components/chapter-blocks";
 import { ChapterCover } from "@/components/chapter-cover";
+import { PerguntarSelecao } from "@/components/perguntar-selecao";
 import { StarBurst } from "@/components/doodles";
 import { VideoEmbed } from "@/components/video-embed";
 import { useChapterVideos } from "@/hooks/use-videos";
@@ -114,15 +115,17 @@ const ChapterReader = () => {
           </section>
         ) : null}
 
-        <div className="mt-9">
-          <ChapterBlocks
-            blocks={chapter.blocks}
-            scope={chapter.slug}
-            interactive
-            done={checkedKeys}
-            onToggle={toggle}
-          />
-        </div>
+        <PerguntarSelecao slug={chapter.slug}>
+          <div className="mt-9">
+            <ChapterBlocks
+              blocks={chapter.blocks}
+              scope={chapter.slug}
+              interactive
+              done={checkedKeys}
+              onToggle={toggle}
+            />
+          </div>
+        </PerguntarSelecao>
 
         {chapter.slug === "seu-plano-para-comecar" ? (
           <div className="mt-10 grid gap-3 sm:grid-cols-2">

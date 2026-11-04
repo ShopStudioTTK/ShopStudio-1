@@ -1,12 +1,15 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUp, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAiChat } from "@/hooks/use-ai-chat";
+import { useAuth } from "@/hooks/use-auth";
+import { usePerguntasHoje } from "@/hooks/use-perguntas-hoje";
 import { getChapter } from "@/content/chapters";
+import { LIMITE_DIARIO, mensagemDeLimite } from "@/lib/limite";
 import { cn } from "@/lib/utils";
 
 const suggestions = [
@@ -20,17 +23,38 @@ const Assistant = () => {
   const searchParams = useSearchParams();
   const chapterSlug = searchParams.get("capitulo") ?? "";
   const chapter = chapterSlug ? getChapter(chapterSlug) : undefined;
+  const trecho = (searchParams.get("trecho") ?? "").trim().slice(0, 500);
+  const router = useRouter();
+  const pathname = usePathname();
+  const { session } = useAuth();
   const { messages, isLoading, error, sendMessage, reset } = useAiChat(chapter?.title);
+  const { data: usadas = 0, isSuccess: contagemPronta } = usePerguntasHoje();
+  const esgotado = usadas >= LIMITE_DIARIO;
+  const aviso = mensagemDeLimite(usadas);
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const trechoEnviado = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
+  // Trecho selecionado no capítulo: vira a primeira pergunta, uma vez só.
+  useEffect(() => {
+    if (!trecho || trechoEnviado.current || !session || !contagemPronta) return;
+    trechoEnviado.current = true;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("trecho");
+    router.replace(params.size ? `${pathname}?${params}` : pathname);
+    if (esgotado) return;
+    void sendMessage(
+      `Me explica melhor este trecho${chapter ? ` do capítulo "${chapter.title}"` : ""}: "${trecho}"`,
+    );
+  }, [trecho, session, contagemPronta, esgotado, chapter, pathname, router, searchParams, sendMessage]);
+
   const handleSend = (value?: string) => {
     const text = (value ?? input).trim();
-    if (!text) return;
+    if (!text || esgotado) return;
     void sendMessage(text);
     setInput("");
   };
@@ -82,7 +106,8 @@ const Assistant = () => {
                   key={suggestion}
                   type="button"
                   onClick={() => handleSend(suggestion)}
-                  className="rounded-full border border-border bg-background px-3.5 py-1.5 text-left text-[12.5px] text-foreground/75 transition-colors hover:border-rose/50 hover:text-foreground"
+                  disabled={esgotado}
+                  className="rounded-full border border-border bg-background px-3.5 py-1.5 text-left text-[12.5px] text-foreground/75 transition-colors hover:border-rose/50 hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
                 >
                   {suggestion}
                 </button>
@@ -136,8 +161,14 @@ const Assistant = () => {
       ) : null}
 
       <div className="sticky bottom-0 -mx-1 border-t border-border bg-background/95 px-1 pb-2 pt-4 backdrop-blur">
+        {aviso ? (
+          <p className="mb-2 text-center text-[12px] text-rose" role="status">
+            {aviso}
+          </p>
+        ) : null}
         <div className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-soft focus-within:border-rose/50">
           <Textarea
+            disabled={esgotado}
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
@@ -153,7 +184,7 @@ const Assistant = () => {
           <Button
             size="icon"
             onClick={() => handleSend()}
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || esgotado || !input.trim()}
             aria-label="Enviar"
             className="shrink-0"
           >

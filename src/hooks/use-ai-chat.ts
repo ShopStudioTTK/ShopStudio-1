@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { PERGUNTAS_HOJE_KEY } from "@/hooks/use-perguntas-hoje";
 import { lerEventos } from "@/lib/sse";
 
 export type ChatMessage = {
@@ -15,6 +17,7 @@ const FALHA = "Não consegui responder agora. Tente de novo.";
 
 export const useAiChat = (chapterTitle?: string) => {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,9 +95,10 @@ export const useAiChat = (chapterTitle?: string) => {
       } finally {
         finishLast();
         setIsLoading(false);
+        void queryClient.invalidateQueries({ queryKey: [PERGUNTAS_HOJE_KEY] });
       }
     },
-    [chapterTitle, isLoading, messages, session?.access_token],
+    [chapterTitle, isLoading, messages, session?.access_token, queryClient],
   );
 
   const reset = useCallback(() => {

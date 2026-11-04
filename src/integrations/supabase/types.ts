@@ -65,6 +65,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"ai_perguntas": {
+                  Row: {
+                    "capitulo": string | null,"created_at": string,"custo_usd": number | null,"id": string,"pergunta": string,"tokens_entrada": number | null,"tokens_saida": number | null,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "capitulo"?: string | null,"created_at"?: string,"custo_usd"?: number | null,"id"?: string,"pergunta": string,"tokens_entrada"?: number | null,"tokens_saida"?: number | null,"user_id": string
+                  }
+                  Update: {
+                    "capitulo"?: string | null,"created_at"?: string,"custo_usd"?: number | null,"id"?: string,"pergunta"?: string,"tokens_entrada"?: number | null,"tokens_saida"?: number | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"chapter_progress": {
                   Row: {
                     "chapter_slug": string,"completed_at": string,"id": string,"user_id": string
