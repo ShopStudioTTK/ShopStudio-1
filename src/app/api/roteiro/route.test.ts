@@ -115,7 +115,31 @@ describe("POST /api/roteiro", () => {
     expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
     const i = init as RequestInit;
     expect(JSON.parse(i.body as string).model).toBe(process.env.OPENROUTER_MODEL);
+    expect(JSON.parse(i.body as string).max_tokens).toBe(4000);
     expect((i.headers as Record<string, string>).Authorization).toBe("Bearer chave-teste");
+  });
+
+  it("502 quando o fetch da OpenRouter lança", async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error("net"));
+    const res = await POST(req());
+    expect(res.status).toBe(502);
+    expect(await msg(res)).toBe("Não consegui gerar o roteiro agora.");
+  });
+
+  it("500 em JSON quando getUser lança", async () => {
+    getUser.mockRejectedValue(new Error("net"));
+    const res = await POST(req());
+    expect(res.status).toBe(500);
+    expect(typeof (await msg(res))).toBe("string");
+  });
+
+  it("502 quando a resposta foi cortada por tamanho", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ choices: [{ finish_reason: "length", message: { content: '{"ganchos":' } }] })),
+    );
+    const res = await POST(req());
+    expect(res.status).toBe(502);
+    expect(await msg(res)).toBe("A resposta da IA veio cortada. Tente de novo.");
   });
 
   it("segue sem treino se as leituras opcionais falham", async () => {

@@ -55,6 +55,7 @@ export const ScriptGenerator = () => {
     mutationFn: async () => {
       const { data: sessao } = await supabase.auth.getSession();
       const token = sessao.session?.access_token;
+      if (!token) throw new Error("Faça login para gerar roteiros.");
       const res = await fetch("/api/roteiro", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
