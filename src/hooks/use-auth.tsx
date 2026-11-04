@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
 
       if (event === "PASSWORD_RECOVERY" && window.location.pathname !== "/redefinir")
-        window.location.href = "/redefinir";
+        window.location.assign(`${window.location.origin}/redefinir`);
 
       if (nextSession?.user && event === "SIGNED_IN") {
         const currentUser = nextSession.user;
