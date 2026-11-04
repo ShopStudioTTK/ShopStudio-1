@@ -53,3 +53,15 @@ insert into public.access_codes (code) values ('SHOPSTUDIO-XXXXXXXX');
 `ACESSO_ABERTO_PARA_REVISAO` em `src/lib/access.ts` libera o app para qualquer conta criada, sem código.
 
 > Atenção: antes de abrir ao público, troque essa chave para `false` e defina um limite de crédito na chave do OpenRouter.
+
+## Material da IA (aulas e dossiê)
+
+O assistente responde com base no resumo dos capítulos, na transcrição das aulas e no dossiê da especialista. O gerador de roteiros também usa o dossiê. Os dois documentos viram texto em `src/lib/conhecimento/material.ts`, que só roda no servidor e nunca vai para o navegador.
+
+Quando a transcrição (PDF) ou o dossiê (DOCX) mudarem, gere o arquivo de novo (precisa do `pdftotext`, do pacote poppler-utils):
+
+```bash
+python3 -I scripts/gerar-conhecimento.py caminho/transcricao.pdf caminho/dossie.docx
+```
+
+O script remove capa, sumário e rodapés, ignora os vídeos de upsell e troca "Shop Club" por "Shop Studio".
