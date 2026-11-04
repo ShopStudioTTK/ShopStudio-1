@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/conhecimento/material", () => ({ DOSSIE: "DOSSIE-TESTE", TRANSCRICAO: "TRANSCRICAO-TESTE" }));
 
-import { buildAssistantSystemPrompt, BASE_PROMPT, sanitizeMessages } from "./assistente";
+import { buildAssistantSystemPrompt, BASE_PROMPT, sanitizeMessages } from "@/lib/assistente";
 
 describe("buildAssistantSystemPrompt", () => {
   it("começa pelo prompt fixo com guia, transcrição e dossiê (prefixo estável para cache)", () => {

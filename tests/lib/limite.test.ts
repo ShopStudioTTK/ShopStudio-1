@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AVISO_A_PARTIR_DE, inicioDoDiaSP, LIMITE_DIARIO, mensagemDeLimite } from "./limite";
+import { AVISO_A_PARTIR_DE, inicioDoDiaSP, LIMITE_DIARIO, mensagemDeLimite } from "@/lib/limite";
 
 describe("inicioDoDiaSP", () => {
   it("meia-noite de Brasília é 03:00 UTC", () => {

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/conhecimento/material", () => ({ DOSSIE: "DOSSIE-TESTE", TRANSCRICAO: "T" }));
 
-import { buildSystemPrompt, buildUserPrompt, extractScriptJson, SYSTEM_PROMPT } from "./roteiro";
+import { buildSystemPrompt, buildUserPrompt, extractScriptJson, SYSTEM_PROMPT } from "@/lib/roteiro";
 
 describe("extractScriptJson", () => {
   it("tira cercas de código", () => {

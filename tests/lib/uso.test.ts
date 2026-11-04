@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { comRegistroDeUso } from "./uso";
+import { comRegistroDeUso } from "@/lib/uso";
 
 const stream = (partes: string[]) =>
   new ReadableStream<Uint8Array>({

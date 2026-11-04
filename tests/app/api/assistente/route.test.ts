@@ -33,7 +33,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 const temAcesso = vi.fn();
 vi.mock("@/lib/access", () => ({ temAcesso: (v: boolean) => temAcesso(v) }));
 
-import { POST } from "./route";
+import { POST } from "@/app/api/assistente/route";
 
 const conversa = [{ role: "user", content: "Como pedir amostra?" }];
 const req = (body: unknown = { messages: conversa }, auth: string | null = "Bearer tok") =>

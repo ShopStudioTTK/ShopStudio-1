@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lerEventos } from "./sse";
+import { lerEventos } from "@/lib/sse";
 
 describe("lerEventos", () => {
   it("separa eventos completos, ignora comentários e guarda o pedaço incompleto", () => {

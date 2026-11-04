@@ -18,7 +18,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 const temAcesso = vi.fn();
 vi.mock("@/lib/access", () => ({ temAcesso: (v: boolean) => temAcesso(v) }));
 
-import { POST } from "./route";
+import { POST } from "@/app/api/roteiro/route";
 
 const req = (body: unknown = { produto: "Sérum" }, auth: string | null = "Bearer tok") =>
   new Request("http://x/api/roteiro", {
