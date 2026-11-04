@@ -1,0 +1,126 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
+const getUser = vi.fn();
+const tables: Record<string, { data: unknown; error?: unknown }> = {};
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    auth: { getUser },
+    from: (t: string) => {
+      const r = () => Promise.resolve(tables[t] ?? { data: null, error: null });
+      const q = { select: () => q, eq: () => q, maybeSingle: r, order: r };
+      return q;
+    },
+  }),
+}));
+
+const temAcesso = vi.fn();
+vi.mock("@/lib/access", () => ({ temAcesso: (v: boolean) => temAcesso(v) }));
+
+import { POST } from "./route";
+
+const req = (body: unknown = { produto: "Sérum" }, auth: string | null = "Bearer tok") =>
+  new Request("http://x/api/roteiro", {
+    method: "POST",
+    headers: auth ? { Authorization: auth } : {},
+    body: JSON.stringify(body),
+  });
+
+const ia = (content: string) => new Response(JSON.stringify({ choices: [{ message: { content } }] }));
+const msg = async (res: Response) => (await res.json()).error.message;
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+  vi.stubEnv("OPENROUTER_API_KEY", "chave-teste");
+  vi.stubEnv("OPENROUTER_MODEL", "modelo/teste");
+  getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+  temAcesso.mockReset().mockReturnValue(true);
+  for (const k of Object.keys(tables)) delete tables[k];
+  tables.entitlements = { data: { user_id: "u1" } };
+  tables.ai_config = { data: { tom: "alegre", persona: null, evitar: null } };
+  tables.ai_knowledge = { data: [{ titulo: "t", conteudo: "c" }] };
+  global.fetch = vi.fn().mockResolvedValue(ia('{"ganchos":["a"]}')) as typeof fetch;
+});
+
+describe("POST /api/roteiro", () => {
+  it("500 sem env, antes de getUser e fetch", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "");
+    const res = await POST(req());
+    expect(res.status).toBe(500);
+    expect(await msg(res)).toBe("IA não configurada.");
+    expect(getUser).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("500 sem modelo", async () => {
+    vi.stubEnv("OPENROUTER_MODEL", "");
+    expect((await POST(req())).status).toBe(500);
+  });
+
+  it("401 sem Bearer", async () => {
+    const res = await POST(req(undefined, null));
+    expect(res.status).toBe(401);
+    expect(await msg(res)).toBe("Faça login para gerar roteiros.");
+  });
+
+  it("401 com token inválido", async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: { message: "bad" } });
+    const res = await POST(req());
+    expect(res.status).toBe(401);
+    expect(await msg(res)).toBe("Faça login para gerar roteiros.");
+  });
+
+  it("403 sem acesso", async () => {
+    temAcesso.mockReturnValue(false);
+    const res = await POST(req());
+    expect(res.status).toBe(403);
+    expect(await msg(res)).toBe("Seu acesso ainda não foi liberado.");
+  });
+
+  it("400 sem produto", async () => {
+    const res = await POST(req({ produto: "  " }));
+    expect(res.status).toBe(400);
+    expect(await msg(res)).toBe("Diga qual é o produto.");
+  });
+
+  it("502 com erro da OpenRouter", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ error: { message: "sem crédito" } }), { status: 402 }));
+    const res = await POST(req());
+    expect(res.status).toBe(502);
+    expect(await msg(res)).toBe("sem crédito");
+  });
+
+  it("502 com mensagem padrão quando a OpenRouter não explica", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response("boom", { status: 500 }));
+    const res = await POST(req());
+    expect(res.status).toBe(502);
+    expect(await msg(res)).toBe("Não consegui gerar o roteiro agora.");
+  });
+
+  it("502 com resposta sem JSON", async () => {
+    vi.mocked(fetch).mockResolvedValue(ia("sem json"));
+    const res = await POST(req());
+    expect(res.status).toBe(502);
+    expect(await msg(res)).toBe("A resposta da IA veio em formato inesperado. Tente de novo.");
+  });
+
+  it("200 chama a OpenRouter uma vez e devolve o JSON", async () => {
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ganchos: ["a"] });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = vi.mocked(fetch).mock.calls[0];
+    expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    const i = init as RequestInit;
+    expect(JSON.parse(i.body as string).model).toBe(process.env.OPENROUTER_MODEL);
+    expect((i.headers as Record<string, string>).Authorization).toBe("Bearer chave-teste");
+  });
+
+  it("segue sem treino se as leituras opcionais falham", async () => {
+    tables.ai_config = { data: null, error: { message: "x" } };
+    tables.ai_knowledge = { data: null, error: { message: "x" } };
+    expect((await POST(req())).status).toBe(200);
+  });
+});

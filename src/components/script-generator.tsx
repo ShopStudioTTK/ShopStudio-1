@@ -53,12 +53,16 @@ export const ScriptGenerator = () => {
 
   const generate = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("ai-script", {
-        body: { produto, publico, beneficio, formato },
+      const { data: sessao } = await supabase.auth.getSession();
+      const token = sessao.session?.access_token;
+      const res = await fetch("/api/roteiro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ produto, publico, beneficio, formato }),
       });
-      if (error) throw new Error(error.message || "Não consegui gerar o roteiro.");
-      if (data?.error) throw new Error(data.error.message || "Não consegui gerar o roteiro.");
-      return data as ScriptResult;
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error?.message ?? "Não consegui gerar o roteiro.");
+      return json as ScriptResult;
     },
     onSuccess: (data) => {
       setResult(data);
