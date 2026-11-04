@@ -56,6 +56,9 @@ const Assistente = () => {
             <ArrowUp className="h-4 w-4" />
           </Button>
         </div>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+          O assistente usa o guia como base. Regras da plataforma podem mudar — confirme no app.
+        </p>
       </div>
     </div>
   );
