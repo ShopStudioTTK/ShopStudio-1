@@ -83,7 +83,12 @@ export async function POST(req: Request) {
     if (!uso) return;
     const { error } = await supabase
       .from("ai_perguntas")
-      .update({ tokens_entrada: uso.prompt_tokens, tokens_saida: uso.completion_tokens, custo_usd: uso.cost })
+      .update({
+        tokens_entrada: uso.prompt_tokens,
+        tokens_saida: uso.completion_tokens,
+        tokens_cache: uso.prompt_tokens_details?.cached_tokens,
+        custo_usd: uso.cost,
+      })
       .eq("id", registro.id);
     if (error) console.error("assistente: falha ao gravar custo", error);
   });

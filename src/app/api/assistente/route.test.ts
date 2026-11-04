@@ -45,7 +45,7 @@ const req = (body: unknown = { messages: conversa }, auth: string | null = "Bear
 const msg = async (res: Response) => (await res.json()).error.message;
 const sse =
   'data: {"choices":[{"delta":{"content":"Oi"}}]}\n\n' +
-  'data: {"choices":[],"usage":{"prompt_tokens":90000,"completion_tokens":800,"cost":0.0081}}\n\ndata: [DONE]\n\n';
+  'data: {"choices":[],"usage":{"prompt_tokens":90000,"completion_tokens":800,"cost":0.0081,"prompt_tokens_details":{"cached_tokens":89000}}}\n\ndata: [DONE]\n\n';
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -105,6 +105,7 @@ describe("POST /api/assistente", () => {
     expect(update).toHaveBeenCalledWith("ai_perguntas", {
       tokens_entrada: 90000,
       tokens_saida: 800,
+      tokens_cache: 89000,
       custo_usd: 0.0081,
     });
   });
@@ -123,6 +124,7 @@ describe("POST /api/assistente", () => {
     const body = JSON.parse(String(init?.body));
     expect(body.stream).toBe(true);
     expect(body.usage).toEqual({ include: true });
+    expect(body.provider).toEqual({ order: ["morph/fp8", "deepinfra/fp8"], quantizations: ["fp8"] });
     expect(body.model).toBe("modelo/teste");
     expect(body.messages[0].content).toContain('capítulo "Amostras"');
     expect(body.messages.slice(1)).toEqual(conversa);

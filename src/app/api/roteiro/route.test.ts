@@ -141,6 +141,10 @@ describe("POST /api/roteiro", () => {
     const i = init as RequestInit;
     expect(JSON.parse(i.body as string).model).toBe(process.env.OPENROUTER_MODEL);
     expect(JSON.parse(i.body as string).max_tokens).toBe(4000);
+    expect(JSON.parse(i.body as string).provider).toEqual({
+      order: ["morph/fp8", "deepinfra/fp8"],
+      quantizations: ["fp8"],
+    });
     expect((i.headers as Record<string, string>).Authorization).toBe("Bearer chave-teste");
   });
 

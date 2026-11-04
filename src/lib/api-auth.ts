@@ -54,6 +54,13 @@ export async function autorizar(
   return { apiKey, model, supabase, userId };
 }
 
+/**
+ * Provedores do modelo DeepSeek v4.1 Flash: Morph primeiro (mais barato em fp8, cache confiável
+ * nos testes), DeepInfra de reserva. Só fp8: as versões fp4 respondem pior.
+ * Revisar ao trocar OPENROUTER_MODEL — outros modelos têm outros provedores.
+ */
+export const PROVEDORES = { order: ["morph/fp8", "deepinfra/fp8"], quantizations: ["fp8"] };
+
 export const chamarOpenRouter = (apiKey: string, body: object) =>
   fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -62,5 +69,5 @@ export const chamarOpenRouter = (apiKey: string, body: object) =>
       "Content-Type": "application/json",
       "X-Title": "Shop Studio",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ provider: PROVEDORES, ...body }),
   });

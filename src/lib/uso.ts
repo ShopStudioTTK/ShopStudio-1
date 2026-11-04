@@ -1,6 +1,11 @@
 import { lerEventos } from "@/lib/sse";
 
-export type Uso = { prompt_tokens?: number; completion_tokens?: number; cost?: number };
+export type Uso = {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  cost?: number;
+  prompt_tokens_details?: { cached_tokens?: number };
+};
 
 /** Repassa o SSE da OpenRouter sem alterar e, ao fim, entrega o `usage` (tokens e custo) do stream. */
 export const comRegistroDeUso = (
