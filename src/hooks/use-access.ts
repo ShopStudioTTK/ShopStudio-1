@@ -29,7 +29,12 @@ export const useAccess = () => {
       const { data, error } = await supabase.rpc("redeem_access_code", {
         codigo_input: code.trim(),
       });
-      if (error) throw new Error("Não consegui validar o código agora. Tente de novo.");
+      if (error) {
+        // P0001 = mensagem escrita pela própria função (ex.: muitas tentativas erradas).
+        throw new Error(
+          error.code === "P0001" ? error.message : "Não consegui validar o código agora. Tente de novo.",
+        );
+      }
       return Boolean(data);
     },
     onSuccess: (liberado) => {

@@ -23,7 +23,21 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "access_codes": {
+            "access_code_tentativas": {
+                  Row: {
+                    "created_at": string,"id": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: never,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: never,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"access_codes": {
                   Row: {
                     "ativo": boolean,"code": string,"criado_em": string,"limite_usos": number | null,"usos": number
                   }
