@@ -220,7 +220,10 @@ web3 = 30
 [auth.email]
 # Allow/disallow the email provider. When false, users can't sign up or sign in with email.
 # To block new signups only, set enable_signup = false under [auth] instead.
-enabled = true
+# Desligado: o único jeito de entrar é o Google. Ligado, qualquer pessoa criava conta com a chave pública
+# (a anon key está no navegador) e, com o modo revisão, ganhava acesso a tudo. Em produção, desligue
+# também em Auth → Providers → Email.
+enabled = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
