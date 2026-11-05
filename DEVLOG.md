@@ -4,6 +4,43 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-04: Auditoria de segurança
+
+**Pedido:** testar a segurança antes de ir para produção, com atenção ao login social, aos cookies e à sessão, e corrigir o que aparecesse.
+
+**Contexto importante:** o app **não usa cookies** para a sessão. O Supabase guarda a sessão no `localStorage`, e as rotas de IA recebem o token no cabeçalho. Por isso CSRF não se aplica, mas um script injetado (XSS) conseguiria ler o token. Isso definiu as prioridades.
+
+**Como foi testado:** no ambiente local, com duas contas de teste ("aluna A" e "aluna B") criadas e apagadas no fim. Usei chamadas diretas à API do Supabase com a chave pública (o que qualquer pessoa pode fazer), chamadas às rotas do app e o navegador. Também rodei `pnpm audit`, sem vulnerabilidades conhecidas.
+
+**Achados e correções:**
+
+| # | Gravidade | Achado | Correção |
+|---|---|---|---|
+| 1 | Alta | Cadastro por e-mail/senha aberto: com a anon key criei `intruso@qualquer.com`, que saiu logada e, com o modo revisão, passava pela checagem do assistente. | `[auth.email] enabled = false`. Cadastro e login por e-mail agora voltam `email_provider_disabled`; o Google segue funcionando. |
+| 2 | Média | Nenhum cabeçalho de segurança e `X-Powered-By: Next.js`. | CSP (`connect-src` só app + Supabase, `frame-ancestors 'none'`, `object-src 'none'`…), `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, HSTS e `poweredByHeader: false` (`src/lib/seguranca.ts`). No navegador, um `fetch` para fora com o token foi bloqueado, enquanto o assistente e as fontes continuaram funcionando. |
+| 3 | Média | Gerador de roteiros sem limite (custo). | 10 por dia, contados em `ai_perguntas` com a coluna nova `rota`. O custo dos roteiros também passou a ser registrado. A reserva, a liberação e o custo foram unificados em `api-auth.ts`. |
+| 4 | Média | Código de acesso sem limite: 60 tentativas em 1 s. | `redeem_access_code` grava as tentativas erradas (`access_code_tentativas`, sem acesso direto) e bloqueia depois de 10 por hora. A tela mostra a mensagem. |
+| 5 | Média | `chapterTitle` em texto livre entrava no prompt de sistema (injeção). O modelo ignorou no teste, mas a brecha existia. | O navegador manda só o slug (`capitulo`), e o servidor busca o título com `getChapter`. Teste cobre o texto malicioso. |
+| 6 | Baixa | `midia_url` dos casos de sucesso aceitava qualquer coisa (`javascript:`, `http:` de rastreio) e aparece para todas as alunas. | Constraint `success_cases_midia_https` e aviso na tela. |
+| 7 | Baixa | Nada no prompt proibia copiar o material pago (o modelo recusou por conta própria). | Regra explícita no prompt, com teste. |
+| 8 | Baixa | Token antigo lê o banco até 1 h depois do logout (as rotas de IA já recusam). | Só documentado: é o padrão do Supabase, encurtável no painel. |
+
+**O que estava seguro:**
+- Leitura e escrita cruzadas entre alunas (RLS).
+- Tabelas de admin.
+- Apagar o próprio histórico para burlar o limite.
+- Upload no bucket de vídeos.
+- Acesso sem login.
+- `?de=` (só aceita `/app…`).
+- Fluxo PKCE do Google.
+- Ausência de `dangerouslySetInnerHTML`.
+
+**Efeito colateral para quem desenvolve:** sem o provedor de e-mail, testar telas logadas exige ligá-lo temporariamente (o CLAUDE.md explica e alerta para não commitar). Durante a verificação, um 500 em `/api/roteiro` era só o `next dev` com o módulo antigo em memória; reiniciar resolveu.
+
+**Observação fora do escopo:** as respostas do assistente aparecem com `**markdown**` cru, porque a tela mostra texto puro. É só aparência.
+
+---
+
 ## 2026-11-04: Bug: a conta nova caía na última página da conta anterior
 
 **Sintoma relatado:** ao entrar com uma conta Google nova, o app parava na última página em que a outra conta estava.

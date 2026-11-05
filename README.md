@@ -20,9 +20,10 @@ Histórico de decisões: [`DEVLOG.md`](DEVLOG.md). Instruções para agentes de 
 8. [Banco de dados](#banco-de-dados)
 9. [Login com Google](#login-com-google)
 10. [Acesso e códigos](#acesso-e-códigos)
-11. [Testes](#testes)
-12. [Produção](#produção)
-13. [Problemas comuns](#problemas-comuns)
+11. [Segurança](#segurança)
+12. [Testes](#testes)
+13. [Produção](#produção)
+14. [Problemas comuns](#problemas-comuns)
 
 ---
 
@@ -184,7 +185,7 @@ O Google devolve a pessoa para o **Supabase**, e o Supabase devolve para o app (
 
 No Supabase local, o provedor fica em `[auth.external.google]` no `supabase/config.toml` (com `skip_nonce_check = true`, exigido localmente). O Client ID e o Secret vêm do `.env.local`.
 
-O provedor de e-mail continua ativo no Supabase, embora a tela não ofereça mais e-mail e senha. Isso permite criar usuários de teste pela API.
+O provedor de **e-mail está desligado** (`[auth.email] enabled = false`). Ligado, qualquer pessoa criava conta com a chave pública e passava por fora do Google. Veja [Segurança](#segurança).
 
 ## Acesso e códigos
 
@@ -194,6 +195,30 @@ O provedor de e-mail continua ativo no Supabase, embora a tela não ofereça mai
 ```sql
 insert into public.access_codes (code, limite_usos) values ('SHOPSTUDIO-XXXXXXXX', 1);
 ```
+
+## Segurança
+
+Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`DEVLOG.md`](DEVLOG.md)). Proteções em vigor:
+
+| Risco | Proteção |
+|---|---|
+| Criar conta sem o Google | Provedor de e-mail desligado no Supabase; só o Google cria conta. |
+| Uma aluna ler ou alterar dados de outra | RLS em todas as tabelas; testado com duas contas. |
+| Aluna liberar o próprio acesso, criar código ou mexer na IA | Essas tabelas não têm política de escrita: só a service role escreve. |
+| Chutar códigos de acesso | `redeem_access_code` bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
+| Gastar IA sem limite | 15 perguntas e 10 roteiros por dia por aluna, contados no servidor (`ai_perguntas.rota`). |
+| Injetar instruções na IA | O navegador só manda o slug do capítulo; o título vem do conteúdo. O prompt proíbe copiar o material pago. |
+| Roubo do token (a sessão fica no `localStorage`) | CSP com `connect-src` limitado ao app e ao Supabase: um script injetado não consegue mandar o token para fora. Sem `dangerouslySetInnerHTML`; respostas da IA são texto puro. |
+| Embutir o app em outro site (clickjacking) | `frame-ancestors 'none'` e `X-Frame-Options: DENY`. |
+| Link malicioso nos casos de sucesso | O banco só aceita `https://` em `midia_url`. |
+| Redirecionar para site falso após o login | `?de=` só aceita caminhos que começam com `/app`. |
+
+Os cabeçalhos ficam em `src/lib/seguranca.ts`. **Ao embutir um player ou chamar um serviço externo novo, libere o domínio ali** (`frame-src` ou `connect-src`), senão o navegador bloqueia.
+
+Pendências conhecidas (risco baixo):
+- Depois do logout, o token antigo ainda lê o banco até expirar (`jwt_expiry` = 1 h, padrão do Supabase). As rotas de IA já recusam. Dá para encurtar em **Auth → Sessions**.
+- `script-src` usa `'unsafe-inline'`, porque o Next injeta scripts inline. Trocar por nonce exige proxy e renderização dinâmica.
+- A contagem do limite diário não é atômica: duas abas ao mesmo tempo podem passar 1 do limite.
 
 ## Testes
 
@@ -211,6 +236,7 @@ pnpm test
 4. Na hospedagem (pensado para a Vercel), cadastre as 5 variáveis de ambiente.
 5. Faça um teste rápido: entrar com Google, marcar um capítulo, gerar um roteiro e perguntar ao assistente.
 6. **Antes de abrir ao público:** mude o modo revisão para `false` e coloque um **limite de crédito** na chave da OpenRouter.
+7. **Segurança no painel do Supabase:** desligue **Auth → Providers → Email** (o `config.toml` só vale no local) e deixe o Google **sem** "Skip nonce check" (só o local precisa).
 
 ## Problemas comuns
 

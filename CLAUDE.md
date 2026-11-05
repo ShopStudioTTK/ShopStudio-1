@@ -46,11 +46,21 @@ Antes de dar uma tarefa por concluída: `pnpm test && pnpm lint && pnpm build` (
 - **Migrations:** um arquivo novo por mudança (`AAAAMMDDHHMMSS_nome.sql`), com RLS ligado e políticas explícitas. Depois rode `pnpm supabase migration up` e `pnpm db:types`. Nunca edite migrations já aplicadas.
 - **Commits** pequenos, em português, terminando com a linha `Co-Authored-By` do agente.
 
+## Segurança (não desfazer)
+
+Auditoria de 2026-11-04: ver a seção Segurança do README e o DEVLOG.
+- **Só Google cria conta:** `[auth.email] enabled = false`.
+- **Escrita no banco:** tabelas de admin e `ai_perguntas`/`access_code_tentativas` não têm política de escrita para `authenticated`. Nova tabela = RLS ligado + políticas explícitas, testadas com duas contas.
+- **Limites diários** contados no servidor por `reservarChamada` (`src/lib/api-auth.ts`), com `rota` separada. Nova rota de IA = nova `rota` + limite.
+- **Nada de texto livre do navegador no prompt de sistema** (vide `capitulo` → `getChapter`).
+- **CSP** em `src/lib/seguranca.ts`. Domínio externo novo precisa entrar ali (`frame-src`/`connect-src`), e o `connect-src` nunca leva `*`.
+- **URLs vindas de alunas** (ex.: `success_cases.midia_url`) são validadas no banco (`https://`).
+
 ## Armadilhas conhecidas
 
 - **`127.0.0.1` trava o app em dev:** o Next 16 bloqueia recursos de dev de outra origem e a página fica no loader. Use `localhost:3000`. O Supabase local também usa `localhost` como `site_url`. A exceção é o callback do Google, que é `http://127.0.0.1:54321/auth/v1/callback`, a URL do próprio Supabase local, cadastrada assim no Google Cloud.
 - **Chaves do Google no Supabase local:** o `config.toml` lê `env(SUPABASE_AUTH_EXTERNAL_GOOGLE_*)`. O script `pnpm db:start` carrega o `.env.local` antes de subir. Rodar `supabase start` direto deixa o Google sem chaves.
-- **Testar o Google ponta a ponta exige um humano:** um agente não entra em contas Google. Para testar telas logadas, crie um usuário de teste por e-mail/senha pela API do Supabase local (o provedor de e-mail continua ativo no servidor) e injete a sessão no `localStorage` (`sb-127-auth-token`).
+- **Testar o Google ponta a ponta exige um humano:** um agente não entra em contas Google. Para testar telas logadas, o provedor de e-mail precisa estar ligado só durante o teste: mude `[auth.email] enabled` para `true` no `config.toml`, rode `pnpm supabase stop && pnpm db:start`, crie o usuário pela API admin, faça o login por senha e injete a sessão no `localStorage` (`sb-127-auth-token`). **Depois volte para `false`, reinicie e apague os usuários de teste. Nunca commite o e-mail ligado:** isso reabre a criação de contas por fora do Google.
 - **`overflow-x: clip`, não `hidden`, em `html`/`body`:** com `hidden`, o body vira contêiner de rolagem e o menu lateral `sticky` para de grudar. A altura cheia das telas usa `min-h-dvh`, porque não existe `#root` como no Vite.
 - **Modelo com raciocínio:** o DeepSeek v4.1 Flash gasta tokens de saída "pensando". Por isso `max_tokens: 4000`, e não os 1400/700 do original, e a resposta com `finish_reason: "length"` vira erro claro.
 - **Provedores:** `PROVEDORES` (`morph/fp8`, `deepinfra/fp8`, só fp8) vale **só para o modelo atual**. Trocar `OPENROUTER_MODEL` exige revisar essa lista; senão vem 404 "No endpoints found". O provedor oficial `deepseek` é bloqueado pela configuração de privacidade da conta (provedores que treinam com os dados). Não mude isso sem a dona do produto pedir.
