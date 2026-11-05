@@ -2,7 +2,7 @@
 
 Guia de TikTok Shop em formato de app para criadoras afiliadas no Brasil. São 12 capítulos interativos, um assistente de IA que responde com base nas aulas e no dossiê da especialista, um gerador de roteiros (método 5×5), checklist da primeira semana, desafio, mural de resultados e vídeos de campeões.
 
-Stack: **Next.js 16** (App Router) · **React 19** · **Tailwind 3** + shadcn/Radix · **Supabase** (login, banco, storage) · **OpenRouter** (IA) · **Vitest** · **pnpm**.
+Stack: **Next.js 16** (App Router) · **React 19** · **Tailwind 3** + shadcn/Radix · **Supabase** (login por e-mail + senha, banco, storage) · **OpenRouter** (IA) · **Vitest** · **pnpm**.
 
 Histórico de decisões: [`DEVLOG.md`](DEVLOG.md). Instruções para agentes de IA que mexem no código: [`CLAUDE.md`](CLAUDE.md).
 
@@ -18,7 +18,7 @@ Histórico de decisões: [`DEVLOG.md`](DEVLOG.md). Instruções para agentes de 
 6. [Como o app funciona](#como-o-app-funciona)
 7. [IA: assistente, roteiros e custos](#ia-assistente-roteiros-e-custos)
 8. [Banco de dados](#banco-de-dados)
-9. [Login com Google](#login-com-google)
+9. [Login e criação de contas](#login-e-criação-de-contas)
 10. [Acesso e códigos](#acesso-e-códigos)
 11. [Segurança](#segurança)
 12. [Testes](#testes)
@@ -47,9 +47,7 @@ pnpm dev               # http://localhost:3000
 
 Preencha também no `.env.local`:
 - `OPENROUTER_API_KEY` e `OPENROUTER_MODEL`, sem as quais o assistente e o gerador de roteiros não funcionam;
-- `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` e `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`, para o login (ver [Login com Google](#login-com-google)).
-
-O `pnpm db:start` carrega o `.env.local` antes de subir o Supabase. Se você mudar as chaves do Google, rode `pnpm supabase stop` e depois `pnpm db:start`.
+- `WEBHOOK_CONTA_SEGREDO` (e, se a plataforma chamar pelo navegador, `WEBHOOK_CONTA_ORIGENS`), para criar contas (ver [Login e criação de contas](#login-e-criação-de-contas)).
 
 > Use **http://localhost:3000**. Pelo `127.0.0.1` o Next 16 em modo dev bloqueia scripts de outra origem e a página fica presa no carregamento. O `next.config.ts` libera `127.0.0.1`, mas `localhost` é o endereço configurado no Supabase.
 
@@ -64,8 +62,8 @@ O `pnpm db:start` carrega o `.env.local` antes de subir o Supabase. Se você mud
 | `VIDEO_URL_VALIDADE_SEGUNDOS` | só servidor. Validade do link assinado dos vídeos do bucket (padrão 3600 = 1 h) | não |
 | `OPENROUTER_API_KEY` | só servidor (rotas `/api/*`) | **sim** |
 | `OPENROUTER_MODEL` | só servidor. Hoje: `deepseek/deepseek-v4.1-flash-1017` | não |
-| `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | Supabase local (`supabase/config.toml`) | não |
-| `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` | Supabase local (`supabase/config.toml`) | **sim** |
+| `WEBHOOK_CONTA_SEGREDO` | só servidor (`/api/webhook/conta`). A plataforma de venda manda no `Authorization: Bearer`. Sem ele, o webhook responde 500 | **sim** |
+| `WEBHOOK_CONTA_ORIGENS` | só servidor. Origens liberadas no CORS do webhook, separadas por vírgula. Vazio = nenhuma | não |
 
 Só as variáveis `NEXT_PUBLIC_*` chegam ao navegador. O `.env.local` está no `.gitignore` e nunca deve ser commitado.
 
@@ -88,7 +86,7 @@ Só as variáveis `NEXT_PUBLIC_*` chegam ao navegador. O `.env.local` está no `
 src/
   app/                        rotas (App Router)
     page.tsx                  / → redireciona para /app ou /entrar
-    entrar/                   login com Google
+    entrar/                   login por e-mail + senha
     app/                      área logada; layout.tsx = guarda de login + acesso + menu
       page.tsx                painel
       capitulos/[slug]/       leitor do capítulo ("Perguntar à assistente" ao selecionar texto)
@@ -98,6 +96,8 @@ src/
     api/
       assistente/route.ts     chat com streaming, limite diário, registro de custo
       roteiro/route.ts        gerador de roteiros (JSON)
+      senha/route.ts          troca da senha temporária (primeiro acesso)
+      webhook/conta/route.ts  cria a conta da aluna (chamado pela plataforma de venda)
     icon.tsx  apple-icon.tsx  manifest.ts    identidade "ss" gerada no build
   components/                 telas e peças (ui/ = shadcn)
   content/                    texto dos capítulos, ganchos, checklist, desafio
@@ -106,6 +106,7 @@ src/
     access.ts                 modo revisão + regra de acesso (cliente e servidor)
     api-auth.ts               checagens das rotas de IA + chamada à OpenRouter (provedores fixos)
     assistente.ts             prompt do assistente
+    contas.ts                 criarConta: usuário + senha temporária + acesso (só servidor)
     roteiro.ts                prompt do gerador de roteiros
     limite.ts                 limite diário (15) e aviso (a partir de 12)
     uso.ts  sse.ts            leitura do stream e do custo da OpenRouter
@@ -119,8 +120,8 @@ docs/superpowers/             design e plano da migração do Enter
 
 ## Como o app funciona
 
-- **Login:** só com **Google**, pelo Supabase Auth com fluxo PKCE. Na primeira vez, o perfil é criado com o nome que vem do Google; quem já tem conta segue direto para o app. A sessão fica no navegador (`localStorage`), e as rotas de API recebem o token no header `Authorization: Bearer`.
-- **Guarda da área logada** (`src/app/app/layout.tsx`): sem sessão, manda para `/entrar?de=<caminho>`. Com sessão e sem acesso, mostra a tela de desbloqueio por código.
+- **Login:** **e-mail + senha** pelo Supabase Auth. Ninguém se cadastra sozinha: a conta nasce pelo webhook da compra, com uma senha temporária. A sessão (um JWT do Supabase) fica no navegador (`localStorage`), e as rotas de API recebem o token no header `Authorization: Bearer`.
+- **Guarda da área logada** (`src/app/app/layout.tsx`): sem sessão, manda para `/entrar?de=<caminho>`. Com a senha temporária ainda pendente, mostra "Defina a sua senha". Com sessão e sem acesso, mostra a tela de desbloqueio por código.
 - **Dados da aluna:** progresso, checklist, roteiros salvos e resultados passam pelas rotas do servidor (`src/app/api`), que conferem o token e filtram tudo pelo `user_id` dele. O navegador não fala com o banco: a Data API do Supabase fica desligada.
 - **Seleção de texto no capítulo:** ao selecionar um trecho, aparece "Perguntar à assistente". O clique leva para `/app/assistente?capitulo=<slug>&trecho=<texto>`, e o trecho vira a primeira pergunta.
 
@@ -161,10 +162,11 @@ Migrations em `supabase/migrations/`:
 | Tabela | Para quê | Quem escreve |
 |---|---|---|
 | `profiles` | nome e e-mail da aluna | a própria aluna |
+| `senhas_temporarias` | contas que ainda não trocaram a senha temporária | servidor (webhook e `/api/senha`) |
 | `chapter_progress`, `checklist_progress` | progresso | a própria aluna |
 | `saved_scripts` | roteiros salvos | a própria aluna |
 | `success_cases` | mural de resultados | a própria aluna (todas leem) |
-| `entitlements` | quem tem acesso liberado | função `resgatar_codigo` (via `POST /api/acesso`) |
+| `entitlements` | quem tem acesso liberado | webhook da compra (`origem = 'compra'`) ou função `resgatar_codigo` (via `POST /api/acesso`) |
 | `access_codes` | códigos de compra | só service role (painel do Supabase) |
 | `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
 | `chapter_videos` + bucket `studio-videos` | vídeos dos capítulos | só service role |
@@ -174,20 +176,27 @@ Ainda não existe página de administração. Códigos, vídeos, persona e base 
 
 Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql`, rode `pnpm supabase migration up` e depois `pnpm db:types`.
 
-## Login com Google
+## Login e criação de contas
 
-**Cliente OAuth no Google Cloud** (APIs e serviços → Credenciais → ID do cliente OAuth, tipo **Aplicativo da Web**):
+**Fluxo:**
+1. A plataforma de venda chama `POST /api/webhook/conta` com `{ "email": "…" }` e o cabeçalho `Authorization: Bearer <WEBHOOK_CONTA_SEGREDO>`.
+2. O servidor (`criarConta`, em `src/lib/contas.ts`) cria o usuário já confirmado, com uma **senha temporária** aleatória (16 caracteres), marca a conta em `senhas_temporarias` e libera o acesso (`entitlements`).
+3. A resposta é `201 { email, senhaTemporaria }`. **O envio da senha à aluna ainda não existe:** quando houver um serviço de e-mail, ele entra nessa rota.
+4. A aluna entra em `/entrar` com o e-mail e a senha temporária, e o app pede a senha nova (mínimo de 6 caracteres). Até ela trocar, toda rota de conteúdo responde 403.
+5. **A senha temporária vale 30 minutos** (`VALIDADE_SENHA_TEMPORARIA_MIN`, contados pelo relógio do banco). Depois disso, o app mostra "Sua senha temporária expirou" e não deixa trocar. Para gerar outra, chame o webhook de novo com o mesmo e-mail: ele cria uma senha nova, com mais 30 minutos, e a antiga para de valer.
+6. A troca (`POST /api/senha`) apaga a linha da aluna em `senhas_temporarias` e derruba as sessões abertas. A tela entra de novo sozinha com a senha nova. Daí em diante, `GET /api/acesso` responde só `{ "acesso": true }`, sem campo de senha, e o JWT nunca carrega nada sobre isso.
 
-| Campo | Local | Produção |
-|---|---|---|
-| Origens JavaScript autorizadas | `http://localhost:3000` | `https://<domínio>` |
-| URIs de redirecionamento autorizados | `http://127.0.0.1:54321/auth/v1/callback` | `https://<ref>.supabase.co/auth/v1/callback` |
+Respostas do webhook: `201` conta criada (ou senha temporária renovada) · `400` e-mail inválido · `401` segredo ausente ou errado · `403` `Origin` fora da lista · `409` a aluna já definiu a própria senha · `500` segredo não configurado ou falha.
 
-O Google devolve a pessoa para o **Supabase**, e o Supabase devolve para o app (`/entrar`, que segue para `/app` ou para o `?de=`). Na tela de consentimento, use tipo **Externo**, escopos `openid`, `email` e `profile`, e, enquanto estiver em teste, cadastre os Gmails em **Usuários de teste**.
+```bash
+curl -X POST http://localhost:3000/api/webhook/conta \
+  -H "Authorization: Bearer $WEBHOOK_CONTA_SEGREDO" -H "Content-Type: application/json" \
+  -d '{"email":"aluna@exemplo.com"}'
+```
 
-No Supabase local, o provedor fica em `[auth.external.google]` no `supabase/config.toml` (com `skip_nonce_check = true`, exigido localmente). O Client ID e o Secret vêm do `.env.local`.
+**Segredo e CORS:** o segredo é o que impede outra pessoa de criar contas. A lista `WEBHOOK_CONTA_ORIGENS` só controla o CORS: um pedido com `Origin` fora dela leva 403, e só as origens da lista recebem `Access-Control-Allow-Origin`. Chamadas de servidor costumam não mandar `Origin`, e fora do navegador esse cabeçalho pode ser forjado, então ele não substitui o segredo.
 
-O provedor de **e-mail está desligado** (`[auth.email] enabled = false`). Ligado, qualquer pessoa criava conta com a chave pública e passava por fora do Google. Veja [Segurança](#segurança).
+**Supabase:** provedor de e-mail ligado e **cadastro público desligado** (`enable_signup = false`). Com o cadastro ligado, qualquer pessoa criava conta com a chave pública. A marca de senha temporária fica numa tabela que só o servidor lê, e não nos metadados do usuário, que viajam dentro do JWT e aparecem no navegador.
 
 ## Acesso e códigos
 
@@ -204,13 +213,17 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 
 | Risco | Proteção |
 |---|---|
-| Criar conta sem o Google | Provedor de e-mail desligado no Supabase; só o Google cria conta. |
+| Criar conta sem ter comprado | Cadastro público desligado (`enable_signup = false`). Só o webhook, com o segredo, cria conta. |
+| Marca de senha temporária visível ou alterável pela aluna | Fica em `senhas_temporarias`, sem privilégio para `anon`/`authenticated`; nunca nos metadados do JWT. |
+| Token roubado trocando a senha de outra pessoa | `POST /api/senha` só funciona com a senha temporária pendente. |
 | Conta logada ver o banco (tabelas, estrutura, dados de outras) | Data API desligada; o navegador só fala com as rotas do app. `anon` e `authenticated` sem privilégio nenhum no banco. Toda consulta filtra pelo `user_id` do token; testado com duas contas e em `tests/app/api/{protecao,isolamento}.test.ts`. |
 | Aluna liberar o próprio acesso, criar código ou mexer na IA | Essas tabelas não têm política de escrita: só a service role escreve. |
 | Chutar códigos de acesso | `resgatar_codigo` (só o servidor executa) bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
 | Gastar IA sem limite | 15 perguntas e 10 roteiros por dia por aluna, contados no servidor (`ai_perguntas.rota`). |
 | Injetar instruções na IA | O navegador só manda o slug do capítulo; o título vem do conteúdo. O prompt proíbe copiar o material pago. |
-| Roubo do token (a sessão fica no `localStorage`) | CSP com `connect-src` limitado ao app e ao Supabase: um script injetado não consegue mandar o token para fora. Sem `dangerouslySetInnerHTML`; respostas da IA são texto puro. |
+| Roubo do token (a sessão fica no `localStorage`) | CSP com `connect-src` limitado ao app e ao Supabase: um script injetado não consegue mandar o token para fora. Sem `dangerouslySetInnerHTML`; respostas da IA são texto puro. O token vale 15 min. |
+| E-mails de recuperação/link mágico disparados por qualquer um | Os modelos não têm link nem código (`supabase/templates/sem-link.html`). |
+| Usar o Supabase direto com a chave pública | Data API e realtime desligados; storage sem política (listar volta vazio, enviar dá 403); admin dá 403; 10 logins a cada 5 min por IP. |
 | Embutir o app em outro site (clickjacking) | `frame-ancestors 'none'` e `X-Frame-Options: DENY`. |
 | Link malicioso nos casos de sucesso | O banco só aceita `https://` em `midia_url`. |
 | Redirecionar para site falso após o login | `?de=` só aceita caminhos que começam com `/app`. |
@@ -233,11 +246,45 @@ pnpm test
 
 1. Crie o projeto no Supabase e rode `pnpm supabase link --project-ref <ref>` e `pnpm supabase db push`.
 2. Em **Auth → URL Configuration**, defina a **Site URL** (o domínio de produção) e as **Redirect URLs** (`https://<domínio>/**`, que cobre `/entrar`).
-3. Em **Auth → Providers → Google**, ative e cole o Client ID e o Secret. No Google Cloud, acrescente ao cliente OAuth a origem `https://<domínio>` e a URI `https://<ref>.supabase.co/auth/v1/callback`, e publique a tela de consentimento (em modo de teste, só os usuários de teste entram).
-4. Na hospedagem (pensado para a Vercel), cadastre as 5 variáveis de ambiente.
-5. Faça um teste rápido: entrar com Google, marcar um capítulo, gerar um roteiro e perguntar ao assistente.
+3. Em **Auth → Sign In / Providers**, deixe o **Email** ligado e **desligue "Allow new users to sign up"**. Desligue também qualquer provedor social.
+4. Na hospedagem (pensado para a Vercel), cadastre as variáveis de ambiente, inclusive `WEBHOOK_CONTA_SEGREDO` (gere com `openssl rand -base64 32`). Na plataforma de venda, configure o webhook para `https://<domínio>/api/webhook/conta` com esse segredo.
+5. Faça um teste rápido: criar uma conta pelo webhook, entrar com a senha temporária, definir a senha, marcar um capítulo, gerar um roteiro e perguntar ao assistente.
 6. **Antes de abrir ao público:** mude o modo revisão para `false` e coloque um **limite de crédito** na chave da OpenRouter.
-7. **Segurança no painel do Supabase:** desligue **Auth → Providers → Email** (o `config.toml` só vale no local) e deixe o Google **sem** "Skip nonce check" (só o local precisa).
+7. **Segurança no painel do Supabase** (o `config.toml` só vale no local; repita tudo no painel):
+   - **Data API desligada** (Project Settings → Data API) e **"Allow new users to sign up" desligado**.
+   - **Realtime desligado:** o app não usa.
+   - **Auth:** JWT expiry de 900 s; "Secure password change" ligado; Rate Limits com 10 logins a cada 5 min por IP.
+   - **Email Templates:** em Reset Password, Magic Link, Change Email e Reauthentication, cole o conteúdo de `supabase/templates/sem-link.html`, que não tem link nem código. Qualquer pessoa consegue disparar esses e-mails com a chave pública.
+   - **Banco:** em Database → Network Restrictions, libere só os IPs do servidor (ver [Banco: restrição por IP](#banco-restrição-por-ip)); ligue "Enforce SSL"; use uma senha longa e aleatória.
+   - **Conta:** 2FA para todo mundo da organização, só as pessoas necessárias como membros, e rotação da `service_role` se ela vazar.
+   - Rode o **Security Advisor** e resolva os avisos antes de abrir ao público.
+
+### Banco: restrição por IP
+
+O banco do Supabase é um Postgres que, por padrão, **aceita conexão de qualquer IP**. Hoje a única barreira é a `DATABASE_URL` (com a senha) não vazar. Ela não aparece no navegador nem no git, mas, se vazar, nada mais segura. A blindagem completa é o banco só aceitar conexões vindas do nosso servidor.
+
+- **Supabase:** em **Database → Network Restrictions**, cadastre os IPs permitidos. A regra vale para a conexão direta e para o pooler (o caminho que o app usa), e não afeta o login nem o storage, que são HTTPS e continuam abertos ao navegador. Se a conexão direta for por IPv6, cadastre também os IPv6.
+- **Vercel:** por padrão, as funções saem por IPs que mudam, e não há o que cadastrar. O recurso **Static IPs** (planos Pro e Enterprise) fixa a saída. Valores conferidos em 2026-11:
+  - custa **US$ 100/mês por projeto**, mais a transferência de dados;
+  - os IPs são **compartilhados** com outros clientes da Vercel, então a senha forte continua necessária;
+  - não vale para o Middleware, que o app não usa.
+  - Os IPs aparecem em Settings → Networking do projeto.
+
+| Opção | Proteção | Custo |
+|---|---|---|
+| Vercel Pro + Static IPs + Network Restrictions (**recomendado para clientes pagantes**) | IP + senha | ~US$ 100/mês + plano Pro |
+| Servidor próprio com IP fixo exclusivo (VPS) | IP exclusivo + senha | em geral menor, mas exige cuidar do servidor |
+| Sem restrição de IP | só a senha | zero |
+
+Sem restrição de IP, no mínimo:
+- use uma senha longa e aleatória;
+- ligue **Enforce SSL**;
+- guarde a `DATABASE_URL` só nas variáveis da hospedagem (marcada como *sensitive* na Vercel);
+- nunca cole essa URL em chat, print ou issue.
+
+Referências:
+- [Vercel Static IPs](https://vercel.com/docs/connectivity/static-ips)
+- [Supabase: restrições no pooler](https://supabase.com/changelog/20522-supavisor-starts-enforcing-network-restrictions)
 
 ## Problemas comuns
 
@@ -246,9 +293,10 @@ pnpm test
 | Página presa na tela "shop studio." com a barrinha | Foi aberta por `127.0.0.1`. Use `localhost:3000`. |
 | "IA não configurada." | Falta `OPENROUTER_API_KEY` ou `OPENROUTER_MODEL`. Reinicie o `pnpm dev`. |
 | Erro 404 "No endpoints found" da OpenRouter | O modelo mudou e os `PROVEDORES` não existem para ele. Revise `src/lib/api-auth.ts`. |
-| Google mostra "redirect_uri_mismatch" | A URI no Google Cloud precisa ser exatamente `http://127.0.0.1:54321/auth/v1/callback` (local) ou `https://<ref>.supabase.co/auth/v1/callback` (produção). |
-| Google diz "acesso bloqueado" / app não verificado | A tela de consentimento está em teste; adicione a conta em **Usuários de teste** ou publique o app. |
-| Volta do Google e não entra | Confira se a Site URL e as Redirect URLs do Supabase incluem o endereço do app (`http://localhost:3000/**` no local). |
+| Webhook responde 500 "Webhook não configurado." | Falta `WEBHOOK_CONTA_SEGREDO`. Reinicie o servidor depois de configurar. |
+| Webhook responde 403 "Origem não permitida." | O pedido manda um `Origin` que não está em `WEBHOOK_CONTA_ORIGENS`. |
+| "E-mail ou senha incorretos." com a senha temporária | Ela já foi trocada, foi substituída por outra (webhook chamado de novo) ou a conta não existe. |
+| "Sua senha temporária expirou" | Passaram 30 minutos. Chame o webhook de novo com o mesmo e-mail para gerar outra. |
 | `supabaseUrl is required` no build | Faltam as variáveis do Supabase no ambiente de build. |
 | Assistente sem o material em produção | Os `.md` ficaram fora do deploy. Confira o `outputFileTracingIncludes` no `next.config.ts`. |
 | Tipos do banco desatualizados | Rode `pnpm db:types`. |
