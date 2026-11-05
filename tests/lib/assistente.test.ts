@@ -15,6 +15,10 @@ describe("buildAssistantSystemPrompt", () => {
     expect(BASE_PROMPT).not.toMatch(/club/i);
   });
 
+  it("proíbe copiar o material pago palavra por palavra", () => {
+    expect(BASE_PROMPT).toContain("Nunca reproduza trechos longos da transcrição ou do dossiê");
+  });
+
   it("acrescenta persona, base de conhecimento e capítulo depois do prefixo", () => {
     const p = buildAssistantSystemPrompt(
       { nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: "textão", exemplos: [{ pergunta: "P?", resposta: "R." }] },

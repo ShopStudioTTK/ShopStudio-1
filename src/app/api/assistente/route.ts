@@ -1,3 +1,4 @@
+import { getChapter } from "@/content/chapters";
 import { autorizar, chamarOpenRouter, erro } from "@/lib/api-auth";
 import { buildAssistantSystemPrompt, sanitizeMessages } from "@/lib/assistente";
 import { inicioDoDiaSP, LIMITE_DIARIO, mensagemDeLimite } from "@/lib/limite";
@@ -14,7 +15,8 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const turns = sanitizeMessages(body?.messages);
   if (!turns.length) return erro("Escreva sua dúvida.", 400);
-  const chapterTitle = typeof body?.chapterTitle === "string" ? body.chapterTitle.slice(0, 200) : undefined;
+  // Só o slug vem do navegador; o título sai do conteúdo. Texto livre aqui entraria no prompt de sistema.
+  const chapterTitle = typeof body?.capitulo === "string" ? getChapter(body.capitulo)?.title : undefined;
 
   // ponytail: contar e gravar não é atômico; duas abas ao mesmo tempo podem passar 1 pergunta do limite.
   const { count, error: countError } = await supabase
