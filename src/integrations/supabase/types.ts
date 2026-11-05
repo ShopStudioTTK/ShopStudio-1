@@ -197,8 +197,8 @@ export type Database = {
             [_ in never]: never
           }
           Functions: {
-            "redeem_access_code":
-{ Args: { "codigo_input": string }; Returns: boolean
+            "resgatar_codigo":
+{ Args: { "codigo_input": string,"p_user": string }; Returns: boolean
                            }
           }
           Enums: {

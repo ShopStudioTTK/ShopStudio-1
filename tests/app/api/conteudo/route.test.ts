@@ -2,17 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const getUser = vi.fn();
-let entitlement: { data: unknown; error: unknown } = { data: null, error: null };
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => ({
-    auth: { getUser },
-    from: () => {
-      const q = { select: () => q, eq: () => q, maybeSingle: () => Promise.resolve(entitlement) };
-      return q;
-    },
-  }),
-}));
+vi.mock("@/lib/db", async () => {
+  const b = await import("../../../apoio/db-falso");
+  return { db: () => b.sqlFalso };
+});
+vi.mock("@/lib/supabase/admin", async () => (await import("../../../apoio/db-falso")).adminFalso);
+import { getUser, reiniciarDb } from "../../../apoio/db-falso";
 
 const temAcesso = vi.fn();
 vi.mock("@/lib/access", () => ({ temAcesso: (v: boolean) => temAcesso(v) }));
@@ -29,7 +24,7 @@ describe("GET /api/conteudo/[...nome]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
-    entitlement = { data: null, error: null };
+    reiniciarDb();
     temAcesso.mockReturnValue(true);
   });
 

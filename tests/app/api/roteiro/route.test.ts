@@ -2,32 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const getUser = vi.fn();
-const tables: Record<string, { data?: unknown; error?: unknown; count?: number }> = {};
-const insert = vi.fn();
-const update = vi.fn();
-const remove = vi.fn();
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => ({
-    auth: { getUser },
-    from: (t: string) => {
-      const r = () => Promise.resolve(tables[t] ?? { data: null, error: null });
-      const q: Record<string, unknown> = {
-        select: () => q,
-        eq: () => q,
-        gte: () => q,
-        order: r,
-        maybeSingle: r,
-        single: r,
-        insert: (row: unknown) => (insert(t, row), q),
-        update: (row: unknown) => (update(t, row), q),
-        delete: () => (remove(t), q),
-        then: (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) => r().then(ok, ko),
-      };
-      return q;
-    },
-  }),
-}));
+vi.mock("@/lib/db", async () => {
+  const b = await import("../../../apoio/db-falso");
+  return { db: () => b.sqlFalso };
+});
+vi.mock("@/lib/supabase/admin", async () => (await import("../../../apoio/db-falso")).adminFalso);
+import { getUser, naTabela, reiniciarDb, responderCom } from "../../../apoio/db-falso";
+
+const gravou = (inicio: string) => naTabela("ai_perguntas").find((c) => c.sql.startsWith(inicio));
 
 const temAcesso = vi.fn();
 vi.mock("@/lib/access", () => ({ temAcesso: (v: boolean) => temAcesso(v) }));
@@ -50,6 +32,15 @@ const ia = (content: string) =>
   );
 const msg = async (res: Response) => (await res.json()).error.message;
 
+type R = Record<string, unknown>[] | Error;
+const regras = (o: { entitlements?: R; config?: R; usadas?: number } = {}): [string, R][] => [
+  ["from public.entitlements", o.entitlements ?? [{}]],
+  ["from public.ai_config", o.config ?? [{ tom: "alegre", persona: null, evitar: null }]],
+  ["from public.ai_knowledge", [{ titulo: "t", conteudo: "c" }]],
+  ["as usadas", [{ usadas: o.usadas ?? 0 }]],
+  ["insert into public.ai_perguntas", [{ id: "r1" }]],
+];
+
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
@@ -57,14 +48,8 @@ beforeEach(() => {
   vi.stubEnv("OPENROUTER_MODEL", "modelo/teste");
   getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
   temAcesso.mockReset().mockReturnValue(true);
-  for (const k of Object.keys(tables)) delete tables[k];
-  tables.entitlements = { data: { user_id: "u1" } };
-  tables.ai_config = { data: { tom: "alegre", persona: null, evitar: null } };
-  tables.ai_knowledge = { data: [{ titulo: "t", conteudo: "c" }] };
-  tables.ai_perguntas = { data: { id: "r1" }, count: 0, error: null };
-  insert.mockReset();
-  update.mockReset();
-  remove.mockReset();
+  reiniciarDb();
+  responderCom(regras());
   vi.spyOn(console, "error").mockImplementation(() => {});
   global.fetch = vi.fn().mockResolvedValue(ia('{"ganchos":["a"]}')) as typeof fetch;
 });
@@ -107,13 +92,13 @@ describe("POST /api/roteiro", () => {
   it("temAcesso recebe true com entitlement e false sem", async () => {
     await POST(req());
     expect(temAcesso).toHaveBeenLastCalledWith(true);
-    tables.entitlements = { data: null };
+    responderCom(regras({ entitlements: [] }));
     await POST(req());
     expect(temAcesso).toHaveBeenLastCalledWith(false);
   });
 
   it("500 quando a leitura do entitlement falha", async () => {
-    tables.entitlements = { data: null, error: { message: "db" } };
+    responderCom(regras({ entitlements: new Error("db") }));
     const res = await POST(req());
     expect(res.status).toBe(500);
     expect(await msg(res)).toBe("Não consegui verificar seu acesso agora.");
@@ -196,40 +181,29 @@ describe("POST /api/roteiro", () => {
   });
 
   it("segue sem treino se as leituras opcionais falham", async () => {
-    tables.ai_config = { data: null, error: { message: "x" } };
-    tables.ai_knowledge = { data: null, error: { message: "x" } };
+    responderCom(regras({ config: new Error("x") }));
     expect((await POST(req())).status).toBe(200);
   });
 
   it("429 ao atingir 10 roteiros no dia, sem gravar nem chamar a IA", async () => {
-    tables.ai_perguntas.count = 10;
+    responderCom(regras({ usadas: 10 }));
     const res = await POST(req());
     expect(res.status).toBe(429);
     expect(await msg(res)).toBe("Você gerou os 10 roteiros de hoje. Amanhã tem mais.");
-    expect(insert).not.toHaveBeenCalled();
+    expect(gravou("insert")).toBeUndefined();
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it("grava a geração como rota roteiro e registra tokens e custo", async () => {
     const res = await POST(req({ produto: "Sérum" }));
     expect(res.status).toBe(200);
-    expect(insert).toHaveBeenCalledWith("ai_perguntas", {
-      user_id: "u1",
-      rota: "roteiro",
-      pergunta: "Sérum",
-      capitulo: null,
-    });
-    expect(update).toHaveBeenCalledWith("ai_perguntas", {
-      tokens_entrada: 12000,
-      tokens_saida: 900,
-      tokens_cache: 11000,
-      custo_usd: 0.0007,
-    });
+    expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null]);
+    expect(gravou("update")?.valores).toEqual([12000, 900, 11000, 0.0007, "r1"]);
   });
 
   it("geração que falhou não conta no limite", async () => {
     vi.mocked(fetch).mockRejectedValue(new Error("net"));
     await POST(req());
-    expect(remove).toHaveBeenCalledWith("ai_perguntas");
+    expect(gravou("delete")?.valores).toEqual(["r1"]);
   });
 });

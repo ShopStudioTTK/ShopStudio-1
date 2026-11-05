@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
+import { api } from "@/lib/api-cliente";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
 type Case = {
   id: string;
-  user_id: string;
+  /** true se o caso é da própria aluna (o servidor não manda quem publicou). */
+  minha: boolean;
   aluna: string;
   resultado: string | null;
   texto: string | null;
@@ -45,34 +46,17 @@ const Results = () => {
 
   const casesQuery = useQuery({
     queryKey,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("success_cases")
-        .select("*")
-        .order("destaque", { ascending: false })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as Case[];
-    },
+    queryFn: async () => (await api<{ casos: Case[] }>("/api/resultados")).casos,
   });
 
   const create = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error("Sessão expirada.");
       if (!form.aluna.trim()) throw new Error("Coloque o nome da aluna.");
-      // O banco também recusa (constraint success_cases_midia_https); aqui só antecipa o aviso.
+      // O servidor e o banco também recusam; aqui só antecipa o aviso.
       if (form.midiaUrl.trim() && !/^https:\/\/\S+$/i.test(form.midiaUrl.trim()))
         throw new Error("O link da mídia precisa começar com https://");
-      const { error } = await supabase.from("success_cases").insert({
-        user_id: user.id,
-        aluna: form.aluna.trim(),
-        resultado: form.resultado.trim() || null,
-        texto: form.texto.trim() || null,
-        midia_url: form.midiaUrl.trim() || null,
-        midia_tipo: form.midiaTipo,
-        destaque: form.destaque,
-      });
-      if (error) throw error;
+      await api("/api/resultados", { method: "POST", body: form });
     },
     onSuccess: () => {
       toast.success("Resultado publicado.");
@@ -84,10 +68,7 @@ const Results = () => {
   });
 
   const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("success_cases").delete().eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: (id: string) => api(`/api/resultados?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey });
     },
@@ -286,7 +267,7 @@ const Results = () => {
                       </p>
                     ) : null}
                   </div>
-                  {user?.id === item.user_id ? (
+                  {item.minha ? (
                     <button
                       type="button"
                       onClick={() => remove.mutate(item.id)}

@@ -1,4 +1,4 @@
-import { autorizar, chamarOpenRouter, erro, liberarChamada, registrarCusto, reservarChamada } from "@/lib/api-auth";
+import { autorizar, chamarOpenRouter, configDaIA, erro, liberarChamada, registrarCusto, reservarChamada } from "@/lib/api-auth";
 import { LIMITE_ROTEIROS, MSG_LIMITE_ROTEIROS } from "@/lib/limite";
 import { buildSystemPrompt, buildUserPrompt, extractScriptJson } from "@/lib/roteiro";
 
@@ -8,7 +8,7 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const auth = await autorizar(req, "roteiro", "Faça login para gerar roteiros.");
   if (auth instanceof Response) return auth;
-  const { apiKey, model, supabase, userId } = auth;
+  const { apiKey, model, userId } = auth;
 
   const body = await req.json().catch(() => null);
   const field = (k: string) => String(body?.[k] ?? "").trim().slice(0, 500);
@@ -21,28 +21,20 @@ export async function POST(req: Request) {
   if (!input.produto) return erro("Diga qual é o produto.", 400);
 
   const reserva = await reservarChamada(
-    supabase, userId, "roteiro", LIMITE_ROTEIROS, () => MSG_LIMITE_ROTEIROS, input.produto,
+    userId, "roteiro", LIMITE_ROTEIROS, () => MSG_LIMITE_ROTEIROS, input.produto,
   );
   if (reserva instanceof Response) return reserva;
-  const descontar = () => liberarChamada(supabase, reserva.id);
+  const descontar = () => liberarChamada(reserva.id);
 
   // treino e base de conhecimento são opcionais
-  const { data: config } = await supabase
-    .from("ai_config")
-    .select("tom, persona, evitar")
-    .eq("id", "default")
-    .maybeSingle();
-  const { data: knowledge } = await supabase
-    .from("ai_knowledge")
-    .select("titulo, conteudo")
-    .order("ordem", { ascending: true });
+  const { config, knowledge } = await configDaIA();
 
   let response: Response;
   try {
     response = await chamarOpenRouter(apiKey, {
       model,
       messages: [
-        { role: "system", content: buildSystemPrompt(config ?? null, knowledge ?? []) },
+        { role: "system", content: buildSystemPrompt(config, knowledge) },
         { role: "user", content: buildUserPrompt(input) },
       ],
       stream: false,
@@ -64,7 +56,7 @@ export async function POST(req: Request) {
 
   const payload = await response.json().catch(() => null);
   // A IA respondeu (mesmo que fora do formato): conta no limite e registra o custo.
-  await registrarCusto(supabase, reserva.id, payload?.usage);
+  await registrarCusto(reserva.id, payload?.usage);
   if (payload?.choices?.[0]?.finish_reason === "length")
     return erro("A resposta da IA veio cortada. Tente de novo.", 502);
   try {

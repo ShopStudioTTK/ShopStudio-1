@@ -5,7 +5,10 @@
 project_id = "ShopStudioTTK"
 
 [api]
-enabled = true
+# Desligada: o navegador não fala com o banco (nem vê a estrutura). Os dados passam pelas rotas
+# do servidor (src/app/api), que se conectam direto ao Postgres. Em produção, desligue também em
+# Project Settings → Data API.
+enabled = false
 # Port to use for the API URL.
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API

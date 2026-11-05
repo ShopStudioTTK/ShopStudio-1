@@ -58,9 +58,10 @@ O `pnpm db:start` carrega o `.env.local` antes de subir o Supabase. Se você mud
 | Variável | Onde é usada | Secreta? |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | navegador e servidor | não |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | navegador e servidor | não (as regras RLS protegem os dados) |
-| `NEXT_PUBLIC_VIDEO_URL_VALIDADE_SEGUNDOS` | navegador. Validade do link assinado dos vídeos do bucket (padrão 3600). Entra no build: trocar exige novo deploy | não |
-| `SUPABASE_SERVICE_ROLE_KEY` | só servidor (`src/lib/supabase/admin.ts`) | **sim** |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | navegador e servidor. Só serve para o login: com a Data API desligada, ela não abre o banco | não |
+| `SUPABASE_SERVICE_ROLE_KEY` | só servidor (`src/lib/supabase/admin.ts`): login e storage | **sim** |
+| `DATABASE_URL` | só servidor (`src/lib/db.ts`). Local: o `DB_URL` do `pnpm supabase status`. Produção: a connection string do **pooler em modo Transaction** (porta 6543), em Project Settings → Database | **sim** |
+| `VIDEO_URL_VALIDADE_SEGUNDOS` | só servidor. Validade do link assinado dos vídeos do bucket (padrão 3600 = 1 h) | não |
 | `OPENROUTER_API_KEY` | só servidor (rotas `/api/*`) | **sim** |
 | `OPENROUTER_MODEL` | só servidor. Hoje: `deepseek/deepseek-v4.1-flash-1017` | não |
 | `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | Supabase local (`supabase/config.toml`) | não |
@@ -120,7 +121,7 @@ docs/superpowers/             design e plano da migração do Enter
 
 - **Login:** só com **Google**, pelo Supabase Auth com fluxo PKCE. Na primeira vez, o perfil é criado com o nome que vem do Google; quem já tem conta segue direto para o app. A sessão fica no navegador (`localStorage`), e as rotas de API recebem o token no header `Authorization: Bearer`.
 - **Guarda da área logada** (`src/app/app/layout.tsx`): sem sessão, manda para `/entrar?de=<caminho>`. Com sessão e sem acesso, mostra a tela de desbloqueio por código.
-- **Dados da aluna:** progresso, checklist, roteiros salvos e resultados são gravados direto do navegador no Supabase. As regras RLS garantem que cada aluna só lê e escreve o que é dela.
+- **Dados da aluna:** progresso, checklist, roteiros salvos e resultados passam pelas rotas do servidor (`src/app/api`), que conferem o token e filtram tudo pelo `user_id` dele. O navegador não fala com o banco: a Data API do Supabase fica desligada.
 - **Seleção de texto no capítulo:** ao selecionar um trecho, aparece "Perguntar à assistente". O clique leva para `/app/assistente?capitulo=<slug>&trecho=<texto>`, e o trecho vira a primeira pergunta.
 
 ## IA: assistente, roteiros e custos
@@ -163,7 +164,7 @@ Migrations em `supabase/migrations/`:
 | `chapter_progress`, `checklist_progress` | progresso | a própria aluna |
 | `saved_scripts` | roteiros salvos | a própria aluna |
 | `success_cases` | mural de resultados | a própria aluna (todas leem) |
-| `entitlements` | quem tem acesso liberado | função `redeem_access_code` |
+| `entitlements` | quem tem acesso liberado | função `resgatar_codigo` (via `POST /api/acesso`) |
 | `access_codes` | códigos de compra | só service role (painel do Supabase) |
 | `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
 | `chapter_videos` + bucket `studio-videos` | vídeos dos capítulos | só service role |
@@ -191,7 +192,7 @@ O provedor de **e-mail está desligado** (`[auth.email] enabled = false`). Ligad
 ## Acesso e códigos
 
 - **Modo revisão:** `ACESSO_ABERTO_PARA_REVISAO` em `src/lib/access.ts`. Com `true`, que é o valor atual, qualquer conta entra sem código. Essa regra vale na tela e nas rotas de IA.
-- **Código de acesso:** a aluna digita o código na tela de desbloqueio, e a função `redeem_access_code` cria o `entitlement`. Para criar códigos, no SQL editor:
+- **Código de acesso:** a aluna digita o código na tela de desbloqueio, e o servidor (`POST /api/acesso`) chama a função `resgatar_codigo`, que cria o `entitlement`. Para criar códigos, no SQL editor:
 
 ```sql
 insert into public.access_codes (code, limite_usos) values ('SHOPSTUDIO-XXXXXXXX', 1);
@@ -204,9 +205,9 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 | Risco | Proteção |
 |---|---|
 | Criar conta sem o Google | Provedor de e-mail desligado no Supabase; só o Google cria conta. |
-| Uma aluna ler ou alterar dados de outra | RLS em todas as tabelas; testado com duas contas. |
+| Conta logada ver o banco (tabelas, estrutura, dados de outras) | Data API desligada; o navegador só fala com as rotas do app. `anon` e `authenticated` sem privilégio nenhum no banco. Toda consulta filtra pelo `user_id` do token; testado com duas contas e em `tests/app/api/{protecao,isolamento}.test.ts`. |
 | Aluna liberar o próprio acesso, criar código ou mexer na IA | Essas tabelas não têm política de escrita: só a service role escreve. |
-| Chutar códigos de acesso | `redeem_access_code` bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
+| Chutar códigos de acesso | `resgatar_codigo` (só o servidor executa) bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
 | Gastar IA sem limite | 15 perguntas e 10 roteiros por dia por aluna, contados no servidor (`ai_perguntas.rota`). |
 | Injetar instruções na IA | O navegador só manda o slug do capítulo; o título vem do conteúdo. O prompt proíbe copiar o material pago. |
 | Roubo do token (a sessão fica no `localStorage`) | CSP com `connect-src` limitado ao app e ao Supabase: um script injetado não consegue mandar o token para fora. Sem `dangerouslySetInnerHTML`; respostas da IA são texto puro. |
@@ -217,7 +218,6 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 Os cabeçalhos ficam em `src/lib/seguranca.ts`. **Ao embutir um player ou chamar um serviço externo novo, libere o domínio ali** (`frame-src` ou `connect-src`), senão o navegador bloqueia.
 
 Pendências conhecidas (risco baixo):
-- Depois do logout, o token antigo ainda lê o banco até expirar (`jwt_expiry` = 1 h, padrão do Supabase). As rotas de IA já recusam. Dá para encurtar em **Auth → Sessions**.
 - `script-src` usa `'unsafe-inline'`, porque o Next injeta scripts inline. Trocar por nonce exige proxy e renderização dinâmica.
 - A contagem do limite diário não é atômica: duas abas ao mesmo tempo podem passar 1 do limite.
 

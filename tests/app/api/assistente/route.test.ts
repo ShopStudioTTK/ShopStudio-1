@@ -3,37 +3,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/conhecimento/material", () => ({ DOSSIE: "D", TRANSCRICAO: "T" }));
 
-const getUser = vi.fn();
-const tables: Record<string, { data?: unknown; error?: unknown; count?: number }> = {};
-const insert = vi.fn();
-const update = vi.fn();
-const remove = vi.fn();
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: () => ({
-    auth: { getUser },
-    from: (t: string) => {
-      const r = () => Promise.resolve(tables[t] ?? { data: null, error: null });
-      const q: Record<string, unknown> = {
-        select: () => q,
-        eq: () => q,
-        gte: () => q,
-        order: r,
-        maybeSingle: r,
-        single: r,
-        insert: (row: unknown) => (insert(t, row), q),
-        update: (row: unknown) => (update(t, row), q),
-        delete: () => (remove(t), q),
-        then: (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) => r().then(ok, ko),
-      };
-      return q;
-    },
-  }),
-}));
+vi.mock("@/lib/db", async () => {
+  const b = await import("../../../apoio/db-falso");
+  return { db: () => b.sqlFalso };
+});
+vi.mock("@/lib/supabase/admin", async () => (await import("../../../apoio/db-falso")).adminFalso);
+import { getUser, naTabela, reiniciarDb, responderCom } from "../../../apoio/db-falso";
+
+const gravou = (inicio: string) => naTabela("ai_perguntas").find((c) => c.sql.startsWith(inicio));
 
 const temAcesso = vi.fn();
 vi.mock("@/lib/access", () => ({ temAcesso: (v: boolean) => temAcesso(v) }));
 
-import { POST } from "@/app/api/assistente/route";
+import { GET, POST } from "@/app/api/assistente/route";
 
 const conversa = [{ role: "user", content: "Como pedir amostra?" }];
 const req = (body: unknown = { messages: conversa }, auth: string | null = "Bearer tok") =>
@@ -54,12 +36,12 @@ beforeEach(() => {
   vi.stubEnv("OPENROUTER_MODEL", "modelo/teste");
   getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
   temAcesso.mockReset().mockReturnValue(true);
-  insert.mockReset();
-  update.mockReset();
-  remove.mockReset();
-  for (const k of Object.keys(tables)) delete tables[k];
-  tables.entitlements = { data: { user_id: "u1" } };
-  tables.ai_perguntas = { data: { id: "p1" }, count: 4, error: null };
+  reiniciarDb();
+  responderCom([
+    ["from public.entitlements", [{}]],
+    ["as usadas", [{ usadas: 4 }]],
+    ["insert into public.ai_perguntas", [{ id: "p1" }]],
+  ]);
   vi.spyOn(console, "error").mockImplementation(() => {});
   global.fetch = vi.fn().mockResolvedValue(new Response(sse, { headers: { "Content-Type": "text/event-stream" } })) as typeof fetch;
 });
@@ -84,11 +66,11 @@ describe("POST /api/assistente", () => {
   });
 
   it("429 ao atingir 15 perguntas no dia, sem gravar nem chamar a IA", async () => {
-    tables.ai_perguntas.count = 15;
+    responderCom([["from public.entitlements", [{}]], ["as usadas", [{ usadas: 15 }]]]);
     const res = await POST(req());
     expect(res.status).toBe(429);
     expect(await msg(res)).toBe("Você usou as 15 perguntas de hoje. Amanhã tem mais.");
-    expect(insert).not.toHaveBeenCalled();
+    expect(gravou("insert")).toBeUndefined();
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -96,23 +78,13 @@ describe("POST /api/assistente", () => {
     const res = await POST(req({ messages: conversa, capitulo: "mentalidade-de-shop-girl" }));
     expect(res.status).toBe(200);
     expect(res.headers.get("X-Perguntas-Restantes")).toBe("10");
-    expect(insert).toHaveBeenCalledWith("ai_perguntas", {
-      user_id: "u1",
-      rota: "assistente",
-      pergunta: "Como pedir amostra?",
-      capitulo: "Mentalidade de Shop Girl",
-    });
+    expect(gravou("insert")?.valores).toEqual(["u1", "assistente", "Como pedir amostra?", "Mentalidade de Shop Girl"]);
     expect(await res.text()).toBe(sse);
-    expect(update).toHaveBeenCalledWith("ai_perguntas", {
-      tokens_entrada: 90000,
-      tokens_saida: 800,
-      tokens_cache: 89000,
-      custo_usd: 0.0081,
-    });
+    expect(gravou("update")?.valores).toEqual([90000, 800, 89000, 0.0081, "p1"]);
   });
 
   it("500 se não conseguir gravar a pergunta", async () => {
-    tables.ai_perguntas = { data: null, count: 0, error: { message: "x" } };
+    responderCom([["from public.entitlements", [{}]], ["insert into public.ai_perguntas", new Error("x")]]);
     const res = await POST(req());
     expect(res.status).toBe(500);
     expect(fetch).not.toHaveBeenCalled();
@@ -143,7 +115,7 @@ describe("POST /api/assistente", () => {
     const res = await POST(req());
     expect(res.status).toBe(502);
     expect(await msg(res)).toBe("sem créditos");
-    expect(remove).toHaveBeenCalledWith("ai_perguntas");
+    expect(gravou("delete")?.valores).toEqual(["p1"]);
   });
 
   it("502 quando a chamada falha na rede e a pergunta não conta", async () => {
@@ -151,6 +123,14 @@ describe("POST /api/assistente", () => {
     const res = await POST(req());
     expect(res.status).toBe(502);
     expect(await msg(res)).toBe("Não consegui responder agora. Tente de novo.");
-    expect(remove).toHaveBeenCalledWith("ai_perguntas");
+    expect(gravou("delete")?.valores).toEqual(["p1"]);
+  });
+});
+
+describe("GET /api/assistente", () => {
+  it("conta só as perguntas da própria aluna, hoje", async () => {
+    const res = await GET(new Request("http://x/api/assistente", { headers: { Authorization: "Bearer tok" } }));
+    expect(await res.json()).toEqual({ usadas: 4 });
+    expect(naTabela("ai_perguntas")[0].valores.slice(0, 2)).toEqual(["u1", "assistente"]);
   });
 });

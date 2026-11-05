@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { nomeDoPerfil } from "@/lib/nome";
+import { api } from "@/lib/api-cliente";
 
 type AuthContextValue = {
   user: User | null;
@@ -22,17 +22,8 @@ const AuthContext = createContext<AuthContextValue>({
   signOut: async () => {},
 });
 
-// Só grava na primeira vez (ignoreDuplicates): é aqui que o primeiro login com Google vira perfil.
-const ensureProfile = async (user: User) => {
-  await supabase.from("profiles").upsert(
-    {
-      id: user.id,
-      email: user.email ?? null,
-      nome: nomeDoPerfil(user.user_metadata),
-    },
-    { onConflict: "id", ignoreDuplicates: true },
-  );
-};
+// O primeiro login com Google vira perfil (o servidor só grava se ainda não existir).
+const ensureProfile = () => api("/api/perfil", { method: "POST" }).catch(() => {});
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -51,9 +42,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (event === "SIGNED_IN") setSaiu(false);
 
       if (nextSession?.user && event === "SIGNED_IN") {
-        const currentUser = nextSession.user;
         setTimeout(() => {
-          void ensureProfile(currentUser);
+          void ensureProfile();
         }, 0);
       }
     });
