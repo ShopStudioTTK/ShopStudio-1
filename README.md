@@ -59,6 +59,7 @@ O `pnpm db:start` carrega o `.env.local` antes de subir o Supabase. Se você mud
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | navegador e servidor | não |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | navegador e servidor | não (as regras RLS protegem os dados) |
+| `NEXT_PUBLIC_VIDEO_URL_VALIDADE_SEGUNDOS` | navegador. Validade do link assinado dos vídeos do bucket (padrão 3600). Entra no build: trocar exige novo deploy | não |
 | `SUPABASE_SERVICE_ROLE_KEY` | só servidor (`src/lib/supabase/admin.ts`) | **sim** |
 | `OPENROUTER_API_KEY` | só servidor (rotas `/api/*`) | **sim** |
 | `OPENROUTER_MODEL` | só servidor. Hoje: `deepseek/deepseek-v4.1-flash-1017` | não |
