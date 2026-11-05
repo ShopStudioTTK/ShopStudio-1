@@ -1,14 +1,10 @@
-import type { Chapter } from "./types";
+import "server-only";
+import type { CorpoCapitulo } from "./types";
 
-export const chaptersPartOne: Chapter[] = [
+// Corpo dos capítulos: só no servidor, entregue por /api/conteudo (ver protegido.ts). O índice fica em chapters.ts.
+export const chaptersPartOne: CorpoCapitulo[] = [
   {
     slug: "mentalidade-de-shop-girl",
-    number: 1,
-    title: "Mentalidade de Shop Girl",
-    subtitle: "As verdades que ninguém gosta de escutar",
-    summary:
-      "Antes de qualquer estratégia, o que separa quem vende de quem desiste é a forma de encarar o processo.",
-    readingMinutes: 4,
     blocks: [
       {
         type: "p",
@@ -55,11 +51,6 @@ export const chaptersPartOne: Chapter[] = [
   },
   {
     slug: "entendendo-o-tiktok-shop",
-    number: 2,
-    title: "Entendendo o TikTok Shop",
-    subtitle: "Um shopping dentro de uma rede social",
-    summary: "Como funciona, quem faz o quê e como você ganha dinheiro na plataforma.",
-    readingMinutes: 5,
     blocks: [
       {
         type: "p",
@@ -112,11 +103,6 @@ export const chaptersPartOne: Chapter[] = [
   },
   {
     slug: "ativando-sua-conta-de-afiliada",
-    number: 3,
-    title: "Ativando sua conta de afiliada",
-    subtitle: "Requisitos e passo a passo",
-    summary: "É mais rápido do que parece. Comece com uma conta só e coloque toda a sua energia nela.",
-    readingMinutes: 5,
     blocks: [
       { type: "h3", text: "O que você precisa ter" },
       {
@@ -175,11 +161,6 @@ export const chaptersPartOne: Chapter[] = [
   },
   {
     slug: "seus-primeiros-2-mil-seguidores",
-    number: 4,
-    title: "Seus primeiros 2 mil seguidores",
-    subtitle: "Caminhos orgânicos e acelerados",
-    summary: "Isso é só a ponta do iceberg. Com constância, vira o menor dos seus problemas.",
-    readingMinutes: 5,
     blocks: [
       {
         type: "callout",
@@ -272,11 +253,6 @@ export const chaptersPartOne: Chapter[] = [
   },
   {
     slug: "a-central-do-criador-por-dentro",
-    number: 5,
-    title: "A Central do Criador por dentro",
-    subtitle: "Sua área de trabalho, botão por botão",
-    summary: "Pense nela como o escritório e a carteira da sua empresa.",
-    readingMinutes: 6,
     blocks: [
       {
         type: "p",
@@ -336,11 +312,6 @@ export const chaptersPartOne: Chapter[] = [
   },
   {
     slug: "seu-link-de-afiliada-no-video",
-    number: 6,
-    title: "Seu link de afiliada no vídeo",
-    subtitle: "Da vitrine à publicação",
-    summary: "É a sacolinha que transforma visualização em comissão.",
-    readingMinutes: 5,
     blocks: [
       { type: "h3", text: "1. Tornar-se parceira do produto" },
       {

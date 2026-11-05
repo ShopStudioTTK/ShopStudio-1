@@ -27,6 +27,19 @@ export async function autorizar(
   const model = process.env.OPENROUTER_MODEL;
   if (!apiKey || !model) return erro("IA não configurada.", 500);
 
+  const auth = await autenticar(req, rotulo, msgLogin);
+  return auth instanceof Response ? auth : { apiKey, model, ...auth };
+}
+
+/**
+ * Token válido (conferido no Supabase, não só decodificado) → acesso liberado (`temAcesso`).
+ * Vale para toda rota que entrega conteúdo pago.
+ */
+export async function autenticar(
+  req: Request,
+  rotulo: string,
+  msgLogin: string,
+): Promise<Omit<Autorizado, "apiKey" | "model"> | Response> {
   const token = req.headers.get("Authorization")?.match(/^Bearer (.+)$/)?.[1];
   if (!token) return erro(msgLogin, 401);
 
@@ -53,7 +66,7 @@ export async function autorizar(
   }
   if (!temAcesso(Boolean(entitlement))) return erro("Seu acesso ainda não foi liberado.", 403);
 
-  return { apiKey, model, supabase, userId };
+  return { supabase, userId };
 }
 
 /**

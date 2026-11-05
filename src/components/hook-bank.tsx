@@ -2,11 +2,9 @@ import { useMemo, useState } from "react";
 import { Copy, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
-import {
-  ganchos,
-  hookCategorias,
-  type HookCategoria,
-} from "@/content/hooks";
+import { ConteudoCarregando } from "@/components/conteudo-carregando";
+import { hookCategorias, type HookCategoria } from "@/content/hooks";
+import { useConteudo } from "@/hooks/use-conteudo";
 import { cn } from "@/lib/utils";
 
 const Highlighted = ({ text }: { text: string }) => (
@@ -26,15 +24,16 @@ const Highlighted = ({ text }: { text: string }) => (
 export const HookBank = () => {
   const [categoria, setCategoria] = useState<HookCategoria | "todos">("todos");
   const [busca, setBusca] = useState("");
+  const { data: ganchos, error, refetch } = useConteudo("ganchos");
 
   const lista = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return ganchos.filter(
+    return (ganchos ?? []).filter(
       (gancho) =>
         (categoria === "todos" || gancho.categoria === categoria) &&
         (!termo || gancho.texto.toLowerCase().includes(termo)),
     );
-  }, [busca, categoria]);
+  }, [busca, categoria, ganchos]);
 
   const copy = async (texto: string) => {
     try {
@@ -44,6 +43,8 @@ export const HookBank = () => {
       toast.error("Não consegui copiar.");
     }
   };
+
+  if (!ganchos) return <ConteudoCarregando erro={error} tentar={() => void refetch()} />;
 
   return (
     <section className="space-y-5">

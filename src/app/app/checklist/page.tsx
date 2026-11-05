@@ -7,7 +7,8 @@ import { ArrowRight, ListChecks, Flame, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Challenge } from "@/components/challenge";
 import { useChecklistProgress } from "@/hooks/use-progress";
-import { weekOneChecklist } from "@/content/week-one-checklist";
+import { ConteudoCarregando } from "@/components/conteudo-carregando";
+import { useConteudo } from "@/hooks/use-conteudo";
 import { chapterPath } from "@/content/chapters";
 import { cn } from "@/lib/utils";
 
@@ -17,9 +18,11 @@ const Checklist = () => {
   const searchParams = useSearchParams();
   const [aba, setAba] = useState<Aba>(searchParams.get("aba") === "desafio" ? "desafio" : "semana");
   const { isDone, toggle } = useChecklistProgress();
+  const checklist = useConteudo("checklist");
+  const weekOneChecklist = checklist.data ?? [];
   const total = weekOneChecklist.length;
   const completed = weekOneChecklist.filter((item) => isDone(item.key)).length;
-  const percent = Math.round((completed / total) * 100);
+  const percent = total ? Math.round((completed / total) * 100) : 0;
 
   return (
     <div className="space-y-8">
@@ -37,7 +40,7 @@ const Checklist = () => {
       <div className="grid gap-2 rounded-2xl border border-border bg-secondary/40 p-1.5 sm:grid-cols-2">
         {(
           [
-            { id: "semana" as Aba, label: "Semana 1", hint: `${total} itens`, icon: ListChecks },
+            { id: "semana" as Aba, label: "Semana 1", hint: checklist.data ? `${total} itens` : "Carregando", icon: ListChecks },
             { id: "desafio" as Aba, label: "Desafio 7 dias", hint: "1 vídeo por dia", icon: Flame },
           ] as const
         ).map((item) => {
@@ -90,6 +93,9 @@ const Checklist = () => {
             ) : null}
           </div>
 
+          {!checklist.data ? (
+            <ConteudoCarregando erro={checklist.error} tentar={() => void checklist.refetch()} />
+          ) : null}
           <ul className="divide-y divide-border border-y border-border">
             {weekOneChecklist.map((item) => {
               const checked = isDone(item.key);

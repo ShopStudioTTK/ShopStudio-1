@@ -4,18 +4,19 @@ import { useState } from "react";
 import { Sparkles, Wand2 } from "lucide-react";
 import { ScriptGenerator } from "@/components/script-generator";
 import { HookBank } from "@/components/hook-bank";
-import { ganchos } from "@/content/hooks";
+import { useConteudo } from "@/hooks/use-conteudo";
 import { cn } from "@/lib/utils";
 
 type View = "gerador" | "ganchos";
 
 const views = [
   { id: "gerador" as View, label: "Gerador 5×5", icon: Wand2, hint: "Cinco de cada" },
-  { id: "ganchos" as View, label: "Banco de ganchos", icon: Sparkles, hint: `${ganchos.length} prontos` },
+  { id: "ganchos" as View, label: "Banco de ganchos", icon: Sparkles, hint: "Frases prontas" },
 ];
 
 const Scripts = () => {
   const [view, setView] = useState<View>("gerador");
+  const { data: ganchos } = useConteudo("ganchos");
 
   return (
     <div className="space-y-8">
@@ -49,7 +50,7 @@ const Scripts = () => {
                 <Icon className="h-4 w-4" />
                 <span className="text-[14px] font-medium">{item.label}</span>
               </span>
-              <span className="text-[11px] text-muted-foreground">{item.hint}</span>
+              <span className="text-[11px] text-muted-foreground">{item.id === "ganchos" && ganchos ? `${ganchos.length} prontos` : item.hint}</span>
             </button>
           );
         })}
