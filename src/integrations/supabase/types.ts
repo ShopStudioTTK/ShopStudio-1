@@ -67,14 +67,14 @@ export type Database = {
                   ]
                 },"ai_perguntas": {
                   Row: {
-                    "capitulo": string | null,"created_at": string,"custo_usd": number | null,"id": string,"pergunta": string,"tokens_cache": number | null,"tokens_entrada": number | null,"tokens_saida": number | null,"user_id": string
+                    "capitulo": string | null,"created_at": string,"custo_usd": number | null,"id": string,"pergunta": string,"rota": string,"tokens_cache": number | null,"tokens_entrada": number | null,"tokens_saida": number | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "capitulo"?: string | null,"created_at"?: string,"custo_usd"?: number | null,"id"?: string,"pergunta": string,"tokens_cache"?: number | null,"tokens_entrada"?: number | null,"tokens_saida"?: number | null,"user_id": string
+                    "capitulo"?: string | null,"created_at"?: string,"custo_usd"?: number | null,"id"?: string,"pergunta": string,"rota"?: string,"tokens_cache"?: number | null,"tokens_entrada"?: number | null,"tokens_saida"?: number | null,"user_id": string
                   }
                   Update: {
-                    "capitulo"?: string | null,"created_at"?: string,"custo_usd"?: number | null,"id"?: string,"pergunta"?: string,"tokens_cache"?: number | null,"tokens_entrada"?: number | null,"tokens_saida"?: number | null,"user_id"?: string
+                    "capitulo"?: string | null,"created_at"?: string,"custo_usd"?: number | null,"id"?: string,"pergunta"?: string,"rota"?: string,"tokens_cache"?: number | null,"tokens_entrada"?: number | null,"tokens_saida"?: number | null,"user_id"?: string
                   }
                   Relationships: [
                     

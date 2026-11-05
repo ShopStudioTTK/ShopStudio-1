@@ -1,4 +1,5 @@
-import { autorizar, chamarOpenRouter, erro } from "@/lib/api-auth";
+import { autorizar, chamarOpenRouter, erro, liberarChamada, registrarCusto, reservarChamada } from "@/lib/api-auth";
+import { LIMITE_ROTEIROS, MSG_LIMITE_ROTEIROS } from "@/lib/limite";
 import { buildSystemPrompt, buildUserPrompt, extractScriptJson } from "@/lib/roteiro";
 
 export const runtime = "nodejs";
@@ -7,7 +8,7 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const auth = await autorizar(req, "roteiro", "Faça login para gerar roteiros.");
   if (auth instanceof Response) return auth;
-  const { apiKey, model, supabase } = auth;
+  const { apiKey, model, supabase, userId } = auth;
 
   const body = await req.json().catch(() => null);
   const field = (k: string) => String(body?.[k] ?? "").trim().slice(0, 500);
@@ -18,6 +19,12 @@ export async function POST(req: Request) {
     formato: field("formato"),
   };
   if (!input.produto) return erro("Diga qual é o produto.", 400);
+
+  const reserva = await reservarChamada(
+    supabase, userId, "roteiro", LIMITE_ROTEIROS, () => MSG_LIMITE_ROTEIROS, input.produto,
+  );
+  if (reserva instanceof Response) return reserva;
+  const descontar = () => liberarChamada(supabase, reserva.id);
 
   // treino e base de conhecimento são opcionais
   const { data: config } = await supabase
@@ -44,16 +51,20 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     console.error("roteiro: falha na chamada à OpenRouter", e);
+    await descontar();
     return erro("Não consegui gerar o roteiro agora.", 502);
   }
 
   if (!response.ok) {
     const parsed = await response.json().catch(() => null);
     console.error("roteiro: OpenRouter respondeu", response.status, parsed?.error?.message);
+    await descontar();
     return erro(parsed?.error?.message || "Não consegui gerar o roteiro agora.", 502);
   }
 
   const payload = await response.json().catch(() => null);
+  // A IA respondeu (mesmo que fora do formato): conta no limite e registra o custo.
+  await registrarCusto(supabase, reserva.id, payload?.usage);
   if (payload?.choices?.[0]?.finish_reason === "length")
     return erro("A resposta da IA veio cortada. Tente de novo.", 502);
   try {

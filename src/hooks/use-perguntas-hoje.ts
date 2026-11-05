@@ -17,6 +17,7 @@ export const usePerguntasHoje = () => {
       const { count, error } = await supabase
         .from("ai_perguntas")
         .select("id", { count: "exact", head: true })
+        .eq("rota", "assistente")
         .gte("created_at", inicioDoDiaSP().toISOString());
       if (error) throw error;
       return count ?? 0;

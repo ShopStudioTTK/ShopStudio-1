@@ -3,13 +3,27 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const getUser = vi.fn();
-const tables: Record<string, { data: unknown; error?: unknown }> = {};
+const tables: Record<string, { data?: unknown; error?: unknown; count?: number }> = {};
+const insert = vi.fn();
+const update = vi.fn();
+const remove = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     auth: { getUser },
     from: (t: string) => {
       const r = () => Promise.resolve(tables[t] ?? { data: null, error: null });
-      const q = { select: () => q, eq: () => q, maybeSingle: r, order: r };
+      const q: Record<string, unknown> = {
+        select: () => q,
+        eq: () => q,
+        gte: () => q,
+        order: r,
+        maybeSingle: r,
+        single: r,
+        insert: (row: unknown) => (insert(t, row), q),
+        update: (row: unknown) => (update(t, row), q),
+        delete: () => (remove(t), q),
+        then: (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) => r().then(ok, ko),
+      };
       return q;
     },
   }),
@@ -27,7 +41,13 @@ const req = (body: unknown = { produto: "Sérum" }, auth: string | null = "Beare
     body: JSON.stringify(body),
   });
 
-const ia = (content: string) => new Response(JSON.stringify({ choices: [{ message: { content } }] }));
+const ia = (content: string) =>
+  new Response(
+    JSON.stringify({
+      choices: [{ message: { content } }],
+      usage: { prompt_tokens: 12000, completion_tokens: 900, cost: 0.0007, prompt_tokens_details: { cached_tokens: 11000 } },
+    }),
+  );
 const msg = async (res: Response) => (await res.json()).error.message;
 
 beforeEach(() => {
@@ -41,6 +61,10 @@ beforeEach(() => {
   tables.entitlements = { data: { user_id: "u1" } };
   tables.ai_config = { data: { tom: "alegre", persona: null, evitar: null } };
   tables.ai_knowledge = { data: [{ titulo: "t", conteudo: "c" }] };
+  tables.ai_perguntas = { data: { id: "r1" }, count: 0, error: null };
+  insert.mockReset();
+  update.mockReset();
+  remove.mockReset();
   vi.spyOn(console, "error").mockImplementation(() => {});
   global.fetch = vi.fn().mockResolvedValue(ia('{"ganchos":["a"]}')) as typeof fetch;
 });
@@ -175,5 +199,37 @@ describe("POST /api/roteiro", () => {
     tables.ai_config = { data: null, error: { message: "x" } };
     tables.ai_knowledge = { data: null, error: { message: "x" } };
     expect((await POST(req())).status).toBe(200);
+  });
+
+  it("429 ao atingir 10 roteiros no dia, sem gravar nem chamar a IA", async () => {
+    tables.ai_perguntas.count = 10;
+    const res = await POST(req());
+    expect(res.status).toBe(429);
+    expect(await msg(res)).toBe("Você gerou os 10 roteiros de hoje. Amanhã tem mais.");
+    expect(insert).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("grava a geração como rota roteiro e registra tokens e custo", async () => {
+    const res = await POST(req({ produto: "Sérum" }));
+    expect(res.status).toBe(200);
+    expect(insert).toHaveBeenCalledWith("ai_perguntas", {
+      user_id: "u1",
+      rota: "roteiro",
+      pergunta: "Sérum",
+      capitulo: null,
+    });
+    expect(update).toHaveBeenCalledWith("ai_perguntas", {
+      tokens_entrada: 12000,
+      tokens_saida: 900,
+      tokens_cache: 11000,
+      custo_usd: 0.0007,
+    });
+  });
+
+  it("geração que falhou não conta no limite", async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error("net"));
+    await POST(req());
+    expect(remove).toHaveBeenCalledWith("ai_perguntas");
   });
 });

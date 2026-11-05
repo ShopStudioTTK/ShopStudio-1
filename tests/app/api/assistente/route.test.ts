@@ -98,6 +98,7 @@ describe("POST /api/assistente", () => {
     expect(res.headers.get("X-Perguntas-Restantes")).toBe("10");
     expect(insert).toHaveBeenCalledWith("ai_perguntas", {
       user_id: "u1",
+      rota: "assistente",
       pergunta: "Como pedir amostra?",
       capitulo: "Mentalidade de Shop Girl",
     });
