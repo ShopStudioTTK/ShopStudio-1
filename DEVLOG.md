@@ -4,6 +4,54 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-05: Login por e-mail + senha, conta criada por webhook
+
+**Pedido:** tirar o login social e usar e-mail + senha (JWT). A conta da cliente é criada por um webhook da plataforma de venda, com uma senha temporária; no primeiro acesso ela define a sua. A marca de "senha temporária" não pode ser pública nem visível pelo console. A compra já libera o acesso. Como a senha temporária chega à cliente fica para depois (serviço de e-mail), então por enquanto o webhook só a devolve.
+
+**Decisões:**
+- **Supabase Auth, não JWT próprio.** O token do Supabase já é um JWT, e a senha é guardada com hash bcrypt pelo próprio Supabase. Montar um login próprio só duplicaria isso.
+- **Cadastro público desligado** (`enable_signup = false`), com o provedor de e-mail ligado só para o login. Isso mantém fechado o achado 1 da auditoria (conta criada com a anon key). O teste de configuração passou a exigir isso.
+- **Marca numa tabela, não no `app_metadata`:** os metadados do usuário vão dentro do JWT, que fica no `localStorage`. A tabela `senhas_temporarias` não tem privilégio para `anon`/`authenticated`, e a tela só recebe `trocarSenha: true/false`.
+- **Criação atômica:** a marca e o `entitlement` vão numa consulta só (CTE). Se ela falhar, o usuário criado é apagado, para não sobrar uma conta com a senha temporária valendo como definitiva.
+- **Segredo + CORS:** a pessoa pediu que só a origem da plataforma tenha acesso, configurável (`WEBHOOK_CONTA_ORIGENS`). O `Origin` sozinho não protege, porque um servidor não manda e um `curl` forja. Por isso o segredo `WEBHOOK_CONTA_SEGREDO` é obrigatório, comparado em tempo constante.
+- **`POST /api/senha` só com a senha temporária pendente:** sem pedir a senha atual, um token roubado não serve para trocar a senha de quem já definiu a sua.
+- Senha nova com no mínimo 6 caracteres, igual ao `minimum_password_length` do Supabase. E-mail já cadastrado responde 409.
+
+**Achado no teste ponta a ponta:** trocar a senha pela API admin **derruba as sessões abertas**, e o token antigo passa a receber 401. A tela de definir senha agora entra de novo com a senha nova logo depois da troca.
+
+**Saiu:** o botão e o fluxo do Google, o `[auth.external.google]` do `config.toml`, as variáveis `SUPABASE_AUTH_EXTERNAL_GOOGLE_*` e o `flowType: "pkce"`.
+
+**Verificado:**
+- Testes, lint e build sem avisos.
+- Ponta a ponta no Supabase local:
+  - cadastro pela anon key → `signup_disabled`;
+  - webhook sem segredo → 401, com origem estranha → 403, repetido → 409;
+  - login com a temporária, com a marca fora do JWT;
+  - rotas bloqueadas até a troca;
+  - depois da troca, a temporária não entra mais e a senha nova entra.
+- No navegador: senha errada, senha temporária, "Defina a sua senha" e o painel, sem erros no console. Os usuários de teste foram apagados.
+
+**Ajustes pedidos em seguida:**
+- `trocarSenha` só aparece em `GET /api/acesso` enquanto existe a linha da aluna em `senhas_temporarias`. Depois da troca, a resposta é só `{ acesso }`, para que nada mostre que a conta já teve senha temporária. Conferido de novo que o JWT não leva nada disso: o `app_metadata` tem só o provedor.
+- **Validade de 30 minutos**, calculada pelo `now()` do banco. Expirada, todas as rotas e a troca respondem 403 e a tela mostra "expirou". Chamar o webhook de novo para o mesmo e-mail gera outra senha e renova o prazo, e a antiga deixa de entrar. O 409 ficou só para quem já definiu a própria senha. Isso foi decisão minha, porque sem ela uma conta expirada ficaria sem saída.
+- Verificado no banco real, simulando 31 minutos com um `update` em `criada_em`.
+
+**Blindagem do Supabase** (testado com a chave pública no local):
+- **Já estavam fechados:** tabelas e GraphQL (503), storage (listar volta `[]`, enviar e criar bucket dão 403 pelo RLS), admin (403), cadastro e otp (`signup_disabled`).
+- **Estavam abertos:** o websocket do realtime e o `/recover`, que manda e-mail de recuperação para qualquer conta existente.
+- **Mudanças:**
+  - realtime desligado;
+  - token de 15 minutos;
+  - reautenticação para trocar a senha direto no Supabase;
+  - 10 logins a cada 5 minutos por IP;
+  - modelos de e-mail de recovery, magic link, troca de e-mail e reautenticação sem link nem código (`supabase/templates/sem-link.html`).
+- **Conferido depois de reiniciar:** o websocket não conecta mais, e o e-mail de recuperação chega no Mailpit sem link.
+- O checklist do painel de produção foi para o README.
+
+**Fica para depois:** serviço de e-mail (enviar a senha temporária e "esqueci minha senha") e o formato de assinatura da plataforma de venda que for escolhida (hoje é `Authorization: Bearer`).
+
+---
+
 ## 2026-11-04: Auditoria de segurança
 
 **Pedido:** testar a segurança antes de ir para produção, com atenção ao login social, aos cookies e à sessão, e corrigir o que aparecesse.

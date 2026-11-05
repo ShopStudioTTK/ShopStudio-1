@@ -22,7 +22,7 @@ const AuthContext = createContext<AuthContextValue>({
   signOut: async () => {},
 });
 
-// O primeiro login com Google vira perfil (o servidor só grava se ainda não existir).
+// O primeiro login vira perfil (o servidor só grava se ainda não existir).
 const ensureProfile = () => api("/api/perfil", { method: "POST" }).catch(() => {});
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {

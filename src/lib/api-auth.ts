@@ -1,6 +1,7 @@
 import "server-only";
 import type { User } from "@supabase/supabase-js";
 import { temAcesso } from "@/lib/access";
+import { estadoDaSenhaTemporaria } from "@/lib/contas";
 import { db } from "@/lib/db";
 import { inicioDoDiaSP } from "@/lib/limite";
 import type { Uso } from "@/lib/uso";
@@ -49,20 +50,31 @@ export async function logada(req: Request, rotulo: string, msgLogin: string): Pr
   return { user, userId: user.id };
 }
 
+export const MSG_SENHA = {
+  pendente: "Defina sua senha nova antes de continuar.",
+  expirada: "Sua senha temporária expirou. Peça uma nova ao suporte do Shop Studio.",
+} as const;
+
 export const possuiEntitlement = async (userId: string) =>
   (await db()`select 1 from public.entitlements where user_id = ${userId}`).length > 0;
 
-/** Token válido (logada) e acesso liberado (`temAcesso`). Vale para todo conteúdo e dado da plataforma. */
+/**
+ * Token válido (logada), senha temporária já trocada e acesso liberado (`temAcesso`).
+ * Vale para todo conteúdo e dado da plataforma.
+ */
 export async function autenticar(req: Request, rotulo: string, msgLogin: string): Promise<Logada | Response> {
   const auth = await logada(req, rotulo, msgLogin);
   if (auth instanceof Response) return auth;
+  let senha: Awaited<ReturnType<typeof estadoDaSenhaTemporaria>>;
   let possui: boolean;
   try {
-    possui = await possuiEntitlement(auth.userId);
+    senha = await estadoDaSenhaTemporaria(auth.userId);
+    possui = !senha && (await possuiEntitlement(auth.userId));
   } catch (e) {
     console.error(`${rotulo}: falha ao ler entitlement`, e);
     return erro("Não consegui verificar seu acesso agora.", 500);
   }
+  if (senha) return erro(MSG_SENHA[senha], 403);
   if (!temAcesso(possui)) return erro("Seu acesso ainda não foi liberado.", 403);
   return auth;
 }

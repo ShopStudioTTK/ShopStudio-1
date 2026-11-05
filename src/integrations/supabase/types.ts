@@ -177,6 +177,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"senhas_temporarias": {
+                  Row: {
+                    "criada_em": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criada_em"?: string,"user_id": string
+                  }
+                  Update: {
+                    "criada_em"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"success_cases": {
                   Row: {
                     "aluna": string,"created_at": string,"destaque": boolean,"id": string,"midia_tipo": string,"midia_url": string | null,"resultado": string | null,"texto": string | null,"user_id": string

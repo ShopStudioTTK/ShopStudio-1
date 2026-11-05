@@ -1,15 +1,18 @@
 import { temAcesso } from "@/lib/access";
 import { erro, logada, possuiEntitlement } from "@/lib/api-auth";
+import { estadoDaSenhaTemporaria } from "@/lib/contas";
 import { db } from "@/lib/db";
 import { texto } from "@/lib/entrada";
 
 export const runtime = "nodejs";
 
-// Só login (sem checar acesso): é o que a tela de código usa para saber se libera o app.
+// Só login (sem checar acesso): é o que a guarda da área logada usa para saber o que mostrar.
 export async function GET(req: Request) {
   const auth = await logada(req, "acesso", "Faça login.");
   if (auth instanceof Response) return auth;
-  return Response.json({ acesso: temAcesso(await possuiEntitlement(auth.userId)) });
+  const [possui, senha] = await Promise.all([possuiEntitlement(auth.userId), estadoDaSenhaTemporaria(auth.userId)]);
+  // Depois da troca, a resposta nem menciona senha.
+  return Response.json({ acesso: temAcesso(possui), ...(senha ? { trocarSenha: senha } : {}) });
 }
 
 export async function POST(req: Request) {
