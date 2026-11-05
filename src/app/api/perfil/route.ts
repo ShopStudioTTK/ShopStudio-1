@@ -4,7 +4,7 @@ import { nomeDoPerfil } from "@/lib/nome";
 
 export const runtime = "nodejs";
 
-// O primeiro login com Google vira perfil. Nome e e-mail vêm do token conferido, não do navegador.
+// O primeiro login vira perfil. Nome e e-mail vêm do token conferido, não do navegador.
 export async function POST(req: Request) {
   const auth = await logada(req, "perfil", "Faça login.");
   if (auth instanceof Response) return auth;

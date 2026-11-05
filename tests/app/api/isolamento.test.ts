@@ -8,12 +8,13 @@ vi.mock("@/lib/db", async () => {
 vi.mock("@/lib/supabase/admin", async () => (await import("../../apoio/db-falso")).adminFalso);
 vi.mock("@/lib/access", () => ({ temAcesso: () => true }));
 
-import { createSignedUrls, getUser, naTabela, reiniciarDb, responderCom } from "../../apoio/db-falso";
+import { createSignedUrls, getUser, naTabela, reiniciarDb, responderCom, updateUserById } from "../../apoio/db-falso";
 import * as acesso from "@/app/api/acesso/route";
 import * as perfil from "@/app/api/perfil/route";
 import * as progresso from "@/app/api/progresso/route";
 import * as resultados from "@/app/api/resultados/route";
 import * as roteiros from "@/app/api/roteiros-salvos/route";
+import * as senha from "@/app/api/senha/route";
 import * as videos from "@/app/api/videos/route";
 
 /** A conta logada é sempre "u1". O navegador tenta se passar por "u2" mandando o id no corpo. */
@@ -105,6 +106,28 @@ describe("cada conta só vê e mexe no que é dela", () => {
   it("perfil: nome e e-mail vêm do token, não do corpo", async () => {
     await perfil.POST(req("/api/perfil", "POST", { id: OUTRA, nome: "Hack" }));
     expect(naTabela("profiles")[0].valores).toEqual(["u1", "u1@x.com", "Ana Souza"]);
+  });
+
+  it("acesso: diz se liberou e se falta trocar a senha, olhando só a conta logada", async () => {
+    responderCom([["from public.senhas_temporarias", [{ valida: true }]]]);
+    expect(await (await acesso.GET(req("/api/acesso?user_id=u2"))).json()).toEqual({ acesso: true, trocarSenha: "pendente" });
+    expect(naTabela("entitlements")[0].valores).toEqual(["u1"]);
+    expect(naTabela("senhas_temporarias")[0].valores.at(-1)).toBe("u1");
+
+    responderCom([["from public.senhas_temporarias", [{ valida: false }]]]);
+    expect(await (await acesso.GET(req("/api/acesso"))).json()).toEqual({ acesso: true, trocarSenha: "expirada" });
+  });
+
+  it("acesso: depois da troca, a resposta nem menciona senha", async () => {
+    expect(await (await acesso.GET(req("/api/acesso"))).json()).toEqual({ acesso: true });
+  });
+
+  it("senha: troca a da conta logada, nunca a do id mandado no corpo", async () => {
+    responderCom([["from public.senhas_temporarias", [{ valida: true }]]]);
+    updateUserById.mockResolvedValue({ data: {}, error: null });
+    await senha.POST(req("/api/senha", "POST", { senha: "nova123", user_id: OUTRA }));
+    expect(updateUserById).toHaveBeenCalledWith("u1", { password: "nova123" });
+    expect(naTabela("senhas_temporarias").every((c) => c.valores.at(-1) === "u1")).toBe(true);
   });
 
   it("acesso: o código é resgatado para quem está logada; muitas tentativas → 429", async () => {
