@@ -55,6 +55,9 @@ Auditoria de 2026-11-04: ver a seção Segurança do README e o DEVLOG.
 - **Nada de texto livre do navegador no prompt de sistema** (vide `capitulo` → `getChapter`).
 - **CSP** em `src/lib/seguranca.ts`. Domínio externo novo precisa entrar ali (`frame-src`/`connect-src`), e o `connect-src` nunca leva `*`.
 - **URLs vindas de alunas** (ex.: `success_cases.midia_url`) são validadas no banco (`https://`).
+- **Conteúdo pago nunca vai no JavaScript público.** Capítulos (corpo), ganchos, desafio e checklist ficam em arquivos `server-only` de `src/content`, registrados em `src/content/protegido.ts`, e saem só por `/api/conteudo/<nome>`, que passa por `autenticar()` (token conferido no Supabase + `temAcesso`). No navegador: `useConteudo(nome)` + `<ConteudoCarregando>`. Em `chapters.ts`, `hooks.ts` e `challenge.ts` ficam só índice, rótulos e tipos. **Conteúdo novo:** arquivo com `import "server-only"`, entrada no registro e tipo em `ConteudoProtegido` (`types.ts`). Nunca importe esses arquivos numa tela; o build falha se isso acontecer.
+- **Bucket `studio-videos` é privado:** arquivo só abre por URL assinada (`createSignedUrls` em `use-videos.ts`, validade em `NEXT_PUBLIC_VIDEO_URL_VALIDADE_SEGUNDOS`), e só `authenticated` consegue assinar.
+- **Logada usa a plataforma, não o banco:** cada conta só lê/escreve as próprias linhas (`auth.uid() = user_id`); compartilhado só o que as telas mostram (`success_cases`, `chapter_videos`). `ai_config`/`ai_knowledge` não têm política de leitura: só a service role lê. O `anon` não tem privilégio nenhum em `public` (nem por padrão para objetos novos), e função nova não é executável por padrão: dê `grant execute ... to authenticated` quando uma tela ou política precisar. Mudou política? Repita o teste das duas contas (conta A tentando ler/alterar/criar dados da conta B).
 
 ## Armadilhas conhecidas
 
