@@ -23,7 +23,21 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "access_codes": {
+            "access_code_tentativas": {
+                  Row: {
+                    "created_at": string,"id": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: never,"user_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: never,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"access_codes": {
                   Row: {
                     "ativo": boolean,"code": string,"criado_em": string,"limite_usos": number | null,"usos": number
                   }
@@ -67,14 +81,14 @@ export type Database = {
                   ]
                 },"ai_perguntas": {
                   Row: {
-                    "capitulo": string | null,"created_at": string,"custo_usd": number | null,"id": string,"pergunta": string,"tokens_cache": number | null,"tokens_entrada": number | null,"tokens_saida": number | null,"user_id": string
+                    "capitulo": string | null,"created_at": string,"custo_usd": number | null,"id": string,"pergunta": string,"rota": string,"tokens_cache": number | null,"tokens_entrada": number | null,"tokens_saida": number | null,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "capitulo"?: string | null,"created_at"?: string,"custo_usd"?: number | null,"id"?: string,"pergunta": string,"tokens_cache"?: number | null,"tokens_entrada"?: number | null,"tokens_saida"?: number | null,"user_id": string
+                    "capitulo"?: string | null,"created_at"?: string,"custo_usd"?: number | null,"id"?: string,"pergunta": string,"rota"?: string,"tokens_cache"?: number | null,"tokens_entrada"?: number | null,"tokens_saida"?: number | null,"user_id": string
                   }
                   Update: {
-                    "capitulo"?: string | null,"created_at"?: string,"custo_usd"?: number | null,"id"?: string,"pergunta"?: string,"tokens_cache"?: number | null,"tokens_entrada"?: number | null,"tokens_saida"?: number | null,"user_id"?: string
+                    "capitulo"?: string | null,"created_at"?: string,"custo_usd"?: number | null,"id"?: string,"pergunta"?: string,"rota"?: string,"tokens_cache"?: number | null,"tokens_entrada"?: number | null,"tokens_saida"?: number | null,"user_id"?: string
                   }
                   Relationships: [
                     
@@ -183,8 +197,8 @@ export type Database = {
             [_ in never]: never
           }
           Functions: {
-            "redeem_access_code":
-{ Args: { "codigo_input": string }; Returns: boolean
+            "resgatar_codigo":
+{ Args: { "codigo_input": string,"p_user": string }; Returns: boolean
                            }
           }
           Enums: {

@@ -17,3 +17,7 @@ export const mensagemDeLimite = (usadas: number): string | null => {
   if (restantes <= 0) return `Você usou as ${LIMITE_DIARIO} perguntas de hoje. Amanhã tem mais.`;
   return `Você ainda pode fazer ${restantes} ${restantes === 1 ? "pergunta" : "perguntas"} hoje.`;
 };
+
+// Gerador de roteiros: só bloqueio no servidor, sem aviso na tela.
+export const LIMITE_ROTEIROS = 10;
+export const MSG_LIMITE_ROTEIROS = `Você gerou os ${LIMITE_ROTEIROS} roteiros de hoje. Amanhã tem mais.`;

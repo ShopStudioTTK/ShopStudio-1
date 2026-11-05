@@ -20,9 +20,10 @@ Histórico de decisões: [`DEVLOG.md`](DEVLOG.md). Instruções para agentes de 
 8. [Banco de dados](#banco-de-dados)
 9. [Login com Google](#login-com-google)
 10. [Acesso e códigos](#acesso-e-códigos)
-11. [Testes](#testes)
-12. [Produção](#produção)
-13. [Problemas comuns](#problemas-comuns)
+11. [Segurança](#segurança)
+12. [Testes](#testes)
+13. [Produção](#produção)
+14. [Problemas comuns](#problemas-comuns)
 
 ---
 
@@ -57,8 +58,10 @@ O `pnpm db:start` carrega o `.env.local` antes de subir o Supabase. Se você mud
 | Variável | Onde é usada | Secreta? |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | navegador e servidor | não |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | navegador e servidor | não (as regras RLS protegem os dados) |
-| `SUPABASE_SERVICE_ROLE_KEY` | só servidor (`src/lib/supabase/admin.ts`) | **sim** |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | navegador e servidor. Só serve para o login: com a Data API desligada, ela não abre o banco | não |
+| `SUPABASE_SERVICE_ROLE_KEY` | só servidor (`src/lib/supabase/admin.ts`): login e storage | **sim** |
+| `DATABASE_URL` | só servidor (`src/lib/db.ts`). Local: o `DB_URL` do `pnpm supabase status`. Produção: a connection string do **pooler em modo Transaction** (porta 6543), em Project Settings → Database | **sim** |
+| `VIDEO_URL_VALIDADE_SEGUNDOS` | só servidor. Validade do link assinado dos vídeos do bucket (padrão 3600 = 1 h) | não |
 | `OPENROUTER_API_KEY` | só servidor (rotas `/api/*`) | **sim** |
 | `OPENROUTER_MODEL` | só servidor. Hoje: `deepseek/deepseek-v4.1-flash-1017` | não |
 | `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` | Supabase local (`supabase/config.toml`) | não |
@@ -118,7 +121,7 @@ docs/superpowers/             design e plano da migração do Enter
 
 - **Login:** só com **Google**, pelo Supabase Auth com fluxo PKCE. Na primeira vez, o perfil é criado com o nome que vem do Google; quem já tem conta segue direto para o app. A sessão fica no navegador (`localStorage`), e as rotas de API recebem o token no header `Authorization: Bearer`.
 - **Guarda da área logada** (`src/app/app/layout.tsx`): sem sessão, manda para `/entrar?de=<caminho>`. Com sessão e sem acesso, mostra a tela de desbloqueio por código.
-- **Dados da aluna:** progresso, checklist, roteiros salvos e resultados são gravados direto do navegador no Supabase. As regras RLS garantem que cada aluna só lê e escreve o que é dela.
+- **Dados da aluna:** progresso, checklist, roteiros salvos e resultados passam pelas rotas do servidor (`src/app/api`), que conferem o token e filtram tudo pelo `user_id` dele. O navegador não fala com o banco: a Data API do Supabase fica desligada.
 - **Seleção de texto no capítulo:** ao selecionar um trecho, aparece "Perguntar à assistente". O clique leva para `/app/assistente?capitulo=<slug>&trecho=<texto>`, e o trecho vira a primeira pergunta.
 
 ## IA: assistente, roteiros e custos
@@ -161,7 +164,7 @@ Migrations em `supabase/migrations/`:
 | `chapter_progress`, `checklist_progress` | progresso | a própria aluna |
 | `saved_scripts` | roteiros salvos | a própria aluna |
 | `success_cases` | mural de resultados | a própria aluna (todas leem) |
-| `entitlements` | quem tem acesso liberado | função `redeem_access_code` |
+| `entitlements` | quem tem acesso liberado | função `resgatar_codigo` (via `POST /api/acesso`) |
 | `access_codes` | códigos de compra | só service role (painel do Supabase) |
 | `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
 | `chapter_videos` + bucket `studio-videos` | vídeos dos capítulos | só service role |
@@ -184,16 +187,39 @@ O Google devolve a pessoa para o **Supabase**, e o Supabase devolve para o app (
 
 No Supabase local, o provedor fica em `[auth.external.google]` no `supabase/config.toml` (com `skip_nonce_check = true`, exigido localmente). O Client ID e o Secret vêm do `.env.local`.
 
-O provedor de e-mail continua ativo no Supabase, embora a tela não ofereça mais e-mail e senha. Isso permite criar usuários de teste pela API.
+O provedor de **e-mail está desligado** (`[auth.email] enabled = false`). Ligado, qualquer pessoa criava conta com a chave pública e passava por fora do Google. Veja [Segurança](#segurança).
 
 ## Acesso e códigos
 
 - **Modo revisão:** `ACESSO_ABERTO_PARA_REVISAO` em `src/lib/access.ts`. Com `true`, que é o valor atual, qualquer conta entra sem código. Essa regra vale na tela e nas rotas de IA.
-- **Código de acesso:** a aluna digita o código na tela de desbloqueio, e a função `redeem_access_code` cria o `entitlement`. Para criar códigos, no SQL editor:
+- **Código de acesso:** a aluna digita o código na tela de desbloqueio, e o servidor (`POST /api/acesso`) chama a função `resgatar_codigo`, que cria o `entitlement`. Para criar códigos, no SQL editor:
 
 ```sql
 insert into public.access_codes (code, limite_usos) values ('SHOPSTUDIO-XXXXXXXX', 1);
 ```
+
+## Segurança
+
+Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`DEVLOG.md`](DEVLOG.md)). Proteções em vigor:
+
+| Risco | Proteção |
+|---|---|
+| Criar conta sem o Google | Provedor de e-mail desligado no Supabase; só o Google cria conta. |
+| Conta logada ver o banco (tabelas, estrutura, dados de outras) | Data API desligada; o navegador só fala com as rotas do app. `anon` e `authenticated` sem privilégio nenhum no banco. Toda consulta filtra pelo `user_id` do token; testado com duas contas e em `tests/app/api/{protecao,isolamento}.test.ts`. |
+| Aluna liberar o próprio acesso, criar código ou mexer na IA | Essas tabelas não têm política de escrita: só a service role escreve. |
+| Chutar códigos de acesso | `resgatar_codigo` (só o servidor executa) bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
+| Gastar IA sem limite | 15 perguntas e 10 roteiros por dia por aluna, contados no servidor (`ai_perguntas.rota`). |
+| Injetar instruções na IA | O navegador só manda o slug do capítulo; o título vem do conteúdo. O prompt proíbe copiar o material pago. |
+| Roubo do token (a sessão fica no `localStorage`) | CSP com `connect-src` limitado ao app e ao Supabase: um script injetado não consegue mandar o token para fora. Sem `dangerouslySetInnerHTML`; respostas da IA são texto puro. |
+| Embutir o app em outro site (clickjacking) | `frame-ancestors 'none'` e `X-Frame-Options: DENY`. |
+| Link malicioso nos casos de sucesso | O banco só aceita `https://` em `midia_url`. |
+| Redirecionar para site falso após o login | `?de=` só aceita caminhos que começam com `/app`. |
+
+Os cabeçalhos ficam em `src/lib/seguranca.ts`. **Ao embutir um player ou chamar um serviço externo novo, libere o domínio ali** (`frame-src` ou `connect-src`), senão o navegador bloqueia.
+
+Pendências conhecidas (risco baixo):
+- `script-src` usa `'unsafe-inline'`, porque o Next injeta scripts inline. Trocar por nonce exige proxy e renderização dinâmica.
+- A contagem do limite diário não é atômica: duas abas ao mesmo tempo podem passar 1 do limite.
 
 ## Testes
 
@@ -211,6 +237,7 @@ pnpm test
 4. Na hospedagem (pensado para a Vercel), cadastre as 5 variáveis de ambiente.
 5. Faça um teste rápido: entrar com Google, marcar um capítulo, gerar um roteiro e perguntar ao assistente.
 6. **Antes de abrir ao público:** mude o modo revisão para `false` e coloque um **limite de crédito** na chave da OpenRouter.
+7. **Segurança no painel do Supabase:** desligue **Auth → Providers → Email** (o `config.toml` só vale no local) e deixe o Google **sem** "Skip nonce check" (só o local precisa).
 
 ## Problemas comuns
 

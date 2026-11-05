@@ -11,6 +11,8 @@ import { PerguntarSelecao } from "@/components/perguntar-selecao";
 import { StarBurst } from "@/components/doodles";
 import { VideoEmbed } from "@/components/video-embed";
 import { useChapterVideos } from "@/hooks/use-videos";
+import { useConteudo } from "@/hooks/use-conteudo";
+import { ConteudoCarregando } from "@/components/conteudo-carregando";
 import { useChapterProgress, useChecklistProgress } from "@/hooks/use-progress";
 import { getAdjacentChapters, getChapter } from "@/content/chapters";
 import { cn } from "@/lib/utils";
@@ -22,6 +24,7 @@ const ChapterReader = () => {
   const { isCompleted, setChapterCompleted } = useChapterProgress();
   const { done: checkedKeys, toggle } = useChecklistProgress();
   const { data: videos = [] } = useChapterVideos(chapter?.slug);
+  const corpo = useConteudo(chapter ? `capitulos/${chapter.slug}` : undefined);
   const [scrollProgress, setScrollProgress] = useState(0);
 
   useEffect(() => {
@@ -117,13 +120,17 @@ const ChapterReader = () => {
 
         <PerguntarSelecao slug={chapter.slug}>
           <div className="mt-9">
-            <ChapterBlocks
-              blocks={chapter.blocks}
-              scope={chapter.slug}
-              interactive
-              done={checkedKeys}
-              onToggle={toggle}
-            />
+            {corpo.data ? (
+              <ChapterBlocks
+                blocks={corpo.data}
+                scope={chapter.slug}
+                interactive
+                done={checkedKeys}
+                onToggle={toggle}
+              />
+            ) : (
+              <ConteudoCarregando erro={corpo.error} tentar={() => void corpo.refetch()} />
+            )}
           </div>
         </PerguntarSelecao>
 

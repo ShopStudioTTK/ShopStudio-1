@@ -1,47 +1,39 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { temAcesso } from "@/lib/access";
+import { api } from "@/lib/api-cliente";
 
 export const useAccess = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const entitlementKey = ["entitlement", user?.id];
+  const acessoKey = ["acesso", user?.id];
 
-  const entitlementQuery = useQuery({
-    queryKey: entitlementKey,
+  // A regra (temAcesso) roda no servidor: a tela só recebe o sim ou não.
+  const acessoQuery = useQuery({
+    queryKey: acessoKey,
     enabled: Boolean(user?.id),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("entitlements")
-        .select("user_id, origem, criado_em")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => api<{ acesso: boolean }>("/api/acesso"),
   });
 
   const redeem = useMutation({
     mutationFn: async (code: string) => {
-      const { data, error } = await supabase.rpc("redeem_access_code", {
-        codigo_input: code.trim(),
+      const { liberado } = await api<{ liberado: boolean }>("/api/acesso", {
+        method: "POST",
+        body: { codigo: code.trim() },
       });
-      if (error) throw new Error("Não consegui validar o código agora. Tente de novo.");
-      return Boolean(data);
+      return liberado;
     },
     onSuccess: (liberado) => {
       if (liberado) {
-        void queryClient.invalidateQueries({ queryKey: entitlementKey });
+        void queryClient.invalidateQueries({ queryKey: acessoKey });
       }
     },
   });
 
   return {
-    hasAccess: temAcesso(Boolean(entitlementQuery.data)),
-    isLoading: entitlementQuery.isLoading,
+    hasAccess: acessoQuery.data?.acesso ?? false,
+    isLoading: acessoQuery.isLoading,
     redeem,
   };
 };

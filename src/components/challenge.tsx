@@ -3,7 +3,9 @@ import { Check, ChevronDown, ClipboardCopy, Flame, Instagram, Sparkles } from "l
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useChecklistProgress } from "@/hooks/use-progress";
-import { DESAFIO_MARCA, desafioDias, desafioLegenda } from "@/content/challenge";
+import { ConteudoCarregando } from "@/components/conteudo-carregando";
+import { DESAFIO_MARCA, desafioLegenda } from "@/content/challenge";
+import { useConteudo } from "@/hooks/use-conteudo";
 import { cn } from "@/lib/utils";
 
 const key = (dia: number) => `desafio-${dia}`;
@@ -11,6 +13,9 @@ const key = (dia: number) => `desafio-${dia}`;
 export const Challenge = () => {
   const { isDone, toggle } = useChecklistProgress();
   const [aberto, setAberto] = useState<number | null>(1);
+  const { data: desafioDias, error, refetch } = useConteudo("desafio");
+  if (!desafioDias) return <ConteudoCarregando erro={error} tentar={() => void refetch()} />;
+
   const feitos = desafioDias.filter((dia) => isDone(key(dia.dia))).length;
   const percent = Math.round((feitos / desafioDias.length) * 100);
 

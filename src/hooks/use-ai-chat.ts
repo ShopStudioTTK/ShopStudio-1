@@ -15,7 +15,7 @@ export type ChatMessage = {
 
 const FALHA = "Não consegui responder agora. Tente de novo.";
 
-export const useAiChat = (chapterTitle?: string) => {
+export const useAiChat = (capitulo?: string) => {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -58,7 +58,7 @@ export const useAiChat = (chapterTitle?: string) => {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
           body: JSON.stringify({
             messages: history.map(({ role, content: text }) => ({ role, content: text })),
-            chapterTitle,
+            capitulo,
           }),
           signal: abortRef.current.signal,
         });
@@ -98,7 +98,7 @@ export const useAiChat = (chapterTitle?: string) => {
         void queryClient.invalidateQueries({ queryKey: [PERGUNTAS_HOJE_KEY] });
       }
     },
-    [chapterTitle, isLoading, messages, session?.access_token, queryClient],
+    [capitulo, isLoading, messages, session?.access_token, queryClient],
   );
 
   const reset = useCallback(() => {

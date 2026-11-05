@@ -23,8 +23,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useChapterProgress, useChecklistProgress } from "@/hooks/use-progress";
 import { useChampionVideos } from "@/hooks/use-videos";
 import { chapters, chapterPath } from "@/content/chapters";
-import { weekOneChecklist } from "@/content/week-one-checklist";
-import { desafioDias } from "@/content/challenge";
+import { useConteudo } from "@/hooks/use-conteudo";
 
 const shortcuts = [
   { to: "/app/assistente", icon: Sparkles, title: "Assistente", text: "Tire uma dúvida agora" },
@@ -61,6 +60,8 @@ const Dashboard = () => {
   const { completed } = useChapterProgress();
   const { isDone, toggle } = useChecklistProgress();
   const { data: campeoes = [] } = useChampionVideos();
+  const { data: desafioDias = [] } = useConteudo("desafio");
+  const { data: weekOneChecklist = [] } = useConteudo("checklist");
 
   const firstName = primeiroNome(user?.user_metadata, user?.email) || "Shop Girl";
 

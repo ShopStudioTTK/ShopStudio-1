@@ -1,110 +1,46 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { api } from "@/lib/api-cliente";
 
-export const useChapterProgress = () => {
+type Progresso = { capitulos: string[]; checklist: string[] };
+type Marcacao = { tipo: "capitulo" | "checklist"; chave: string; feito: boolean };
+
+/** Capítulos e itens marcados, numa consulta só (GET /api/progresso), compartilhada pelos dois hooks. */
+const useProgresso = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const queryKey = ["chapter-progress", user?.id];
-
-  const { data = [] } = useQuery({
+  const queryKey = ["progresso", user?.id];
+  const query = useQuery({
     queryKey,
     enabled: Boolean(user?.id),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("chapter_progress")
-        .select("chapter_slug")
-        .eq("user_id", user!.id);
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: () => api<Progresso>("/api/progresso"),
   });
-
-  const completed = useMemo(
-    () => new Set(data.map((row) => row.chapter_slug)),
-    [data],
-  );
-
-  const mutation = useMutation({
-    mutationFn: async ({ slug, done }: { slug: string; done: boolean }) => {
-      if (!user?.id) throw new Error("Sessão expirada.");
-      if (done) {
-        const { error } = await supabase
-          .from("chapter_progress")
-          .upsert(
-            { user_id: user.id, chapter_slug: slug },
-            { onConflict: "user_id,chapter_slug" },
-          );
-        if (error) throw error;
-        return;
-      }
-      const { error } = await supabase
-        .from("chapter_progress")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("chapter_slug", slug);
-      if (error) throw error;
-    },
+  const marcar = useMutation({
+    mutationFn: (m: Marcacao) => api("/api/progresso", { method: "POST", body: m }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
+  return { data: query.data, marcar };
+};
 
+export const useChapterProgress = () => {
+  const { data, marcar } = useProgresso();
+  const completed = useMemo(() => new Set(data?.capitulos ?? []), [data]);
   return {
     completed,
     isCompleted: (slug: string) => completed.has(slug),
     setChapterCompleted: (slug: string, done: boolean) =>
-      mutation.mutate({ slug, done }),
-    pending: mutation.isPending,
+      marcar.mutate({ tipo: "capitulo", chave: slug, feito: done }),
+    pending: marcar.isPending,
   };
 };
 
 export const useChecklistProgress = () => {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const queryKey = ["checklist-progress", user?.id];
-
-  const { data = [] } = useQuery({
-    queryKey,
-    enabled: Boolean(user?.id),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("checklist_progress")
-        .select("item_key")
-        .eq("user_id", user!.id);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const done = useMemo(() => new Set(data.map((row) => row.item_key)), [data]);
-
-  const mutation = useMutation({
-    mutationFn: async ({ key, checked }: { key: string; checked: boolean }) => {
-      if (!user?.id) throw new Error("Sessão expirada.");
-      if (checked) {
-        const { error } = await supabase
-          .from("checklist_progress")
-          .upsert(
-            { user_id: user.id, item_key: key, done: true },
-            { onConflict: "user_id,item_key" },
-          );
-        if (error) throw error;
-        return;
-      }
-      const { error } = await supabase
-        .from("checklist_progress")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("item_key", key);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
-  });
-
+  const { data, marcar } = useProgresso();
+  const done = useMemo(() => new Set(data?.checklist ?? []), [data]);
   return {
     done,
     isDone: (key: string) => done.has(key),
-    toggle: (key: string, checked: boolean) =>
-      mutation.mutate({ key, checked }),
+    toggle: (key: string, checked: boolean) => marcar.mutate({ tipo: "checklist", chave: key, feito: checked }),
   };
 };

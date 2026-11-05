@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { api } from "@/lib/api-cliente";
 
 type ScriptResult = {
   ganchos?: string[];
@@ -17,6 +18,14 @@ type ScriptResult = {
   roteiro?: { gancho?: string; problema?: string; solucao?: string; cta?: string };
   hashtags?: string[];
   formatoSugerido?: string;
+};
+
+type RoteiroSalvo = {
+  id: string;
+  produto: string;
+  formato: string | null;
+  conteudo: ScriptResult;
+  created_at: string;
 };
 
 const formatos = ["Conselho de amiga", "Unboxing", "Tela verde", "Storytelling", "Música viral"];
@@ -41,14 +50,7 @@ export const ScriptGenerator = () => {
   const savedQuery = useQuery({
     queryKey: ["saved-scripts", user?.id],
     enabled: Boolean(user?.id),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("saved_scripts")
-        .select("id, produto, formato, conteudo, created_at")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
+    queryFn: async () => (await api<{ roteiros: RoteiroSalvo[] }>("/api/roteiros-salvos")).roteiros,
   });
 
   const generate = useMutation({
@@ -75,13 +77,10 @@ export const ScriptGenerator = () => {
   const save = useMutation({
     mutationFn: async () => {
       if (!user?.id || !result) throw new Error("Gere um roteiro antes de salvar.");
-      const { error } = await supabase.from("saved_scripts").insert({
-        user_id: user.id,
-        produto: savedProduto || produto,
-        formato,
-        conteudo: result,
+      await api("/api/roteiros-salvos", {
+        method: "POST",
+        body: { produto: savedProduto || produto, formato, conteudo: result },
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Roteiro salvo na sua biblioteca.");
@@ -91,10 +90,7 @@ export const ScriptGenerator = () => {
   });
 
   const remove = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("saved_scripts").delete().eq("id", id);
-      if (error) throw error;
-    },
+    mutationFn: (id: string) => api(`/api/roteiros-salvos?id=${encodeURIComponent(id)}`, { method: "DELETE" }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["saved-scripts", user?.id] });
     },
@@ -297,7 +293,7 @@ export const ScriptGenerator = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    setResult(script.conteudo as ScriptResult);
+                    setResult(script.conteudo);
                     setSavedProduto(script.produto);
                   }}
                   className="min-w-0 flex-1 text-left"

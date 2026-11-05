@@ -1,6 +1,17 @@
-import { autorizar, chamarOpenRouter, erro } from "@/lib/api-auth";
+import { getChapter } from "@/content/chapters";
+import {
+  autenticar,
+  autorizar,
+  chamadasDeHoje,
+  chamarOpenRouter,
+  configDaIA,
+  erro,
+  liberarChamada,
+  registrarCusto,
+  reservarChamada,
+} from "@/lib/api-auth";
 import { buildAssistantSystemPrompt, sanitizeMessages } from "@/lib/assistente";
-import { inicioDoDiaSP, LIMITE_DIARIO, mensagemDeLimite } from "@/lib/limite";
+import { LIMITE_DIARIO, mensagemDeLimite } from "@/lib/limite";
 import { comRegistroDeUso } from "@/lib/uso";
 
 export const runtime = "nodejs";
@@ -9,55 +20,30 @@ export const maxDuration = 60;
 export async function POST(req: Request) {
   const auth = await autorizar(req, "assistente", "Faça login para usar o assistente.");
   if (auth instanceof Response) return auth;
-  const { apiKey, model, supabase, userId } = auth;
+  const { apiKey, model, userId } = auth;
 
   const body = await req.json().catch(() => null);
   const turns = sanitizeMessages(body?.messages);
   if (!turns.length) return erro("Escreva sua dúvida.", 400);
-  const chapterTitle = typeof body?.chapterTitle === "string" ? body.chapterTitle.slice(0, 200) : undefined;
+  // Só o slug vem do navegador; o título sai do conteúdo. Texto livre aqui entraria no prompt de sistema.
+  const chapterTitle = typeof body?.capitulo === "string" ? getChapter(body.capitulo)?.title : undefined;
 
-  // ponytail: contar e gravar não é atômico; duas abas ao mesmo tempo podem passar 1 pergunta do limite.
-  const { count, error: countError } = await supabase
-    .from("ai_perguntas")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .gte("created_at", inicioDoDiaSP().toISOString());
-  if (countError) {
-    console.error("assistente: falha ao contar perguntas", countError);
-    return erro("Não consegui verificar seu limite agora.", 500);
-  }
-  const usadas = count ?? 0;
-  if (usadas >= LIMITE_DIARIO) return erro(mensagemDeLimite(usadas)!, 429);
-
-  const { data: registro, error: insertError } = await supabase
-    .from("ai_perguntas")
-    .insert({ user_id: userId, pergunta: turns.at(-1)!.content, capitulo: chapterTitle ?? null })
-    .select("id")
-    .single();
-  if (insertError || !registro) {
-    console.error("assistente: falha ao gravar pergunta", insertError);
-    return erro("Não consegui registrar sua pergunta agora.", 500);
-  }
-  // Pergunta que a IA não respondeu não conta no limite.
-  const descontar = () => supabase.from("ai_perguntas").delete().eq("id", registro.id);
+  const reserva = await reservarChamada(
+    userId, "assistente", LIMITE_DIARIO, (usadas) => mensagemDeLimite(usadas)!,
+    turns.at(-1)!.content, chapterTitle ?? null,
+  );
+  if (reserva instanceof Response) return reserva;
+  const descontar = () => liberarChamada(reserva.id);
 
   // persona e base de conhecimento são opcionais
-  const { data: config } = await supabase
-    .from("ai_config")
-    .select("nome, tom, persona, evitar, exemplos")
-    .eq("id", "default")
-    .maybeSingle();
-  const { data: knowledge } = await supabase
-    .from("ai_knowledge")
-    .select("titulo, conteudo")
-    .order("ordem", { ascending: true });
+  const { config, knowledge } = await configDaIA();
 
   let response: Response;
   try {
     response = await chamarOpenRouter(apiKey, {
       model,
       messages: [
-        { role: "system", content: buildAssistantSystemPrompt(config ?? null, knowledge ?? [], chapterTitle) },
+        { role: "system", content: buildAssistantSystemPrompt(config, knowledge, chapterTitle) },
         ...turns,
       ],
       stream: true,
@@ -79,25 +65,20 @@ export async function POST(req: Request) {
     return erro(parsed?.error?.message || "Não consegui responder agora. Tente de novo.", 502);
   }
 
-  const corpo = comRegistroDeUso(response.body, async (uso) => {
-    if (!uso) return;
-    const { error } = await supabase
-      .from("ai_perguntas")
-      .update({
-        tokens_entrada: uso.prompt_tokens,
-        tokens_saida: uso.completion_tokens,
-        tokens_cache: uso.prompt_tokens_details?.cached_tokens,
-        custo_usd: uso.cost,
-      })
-      .eq("id", registro.id);
-    if (error) console.error("assistente: falha ao gravar custo", error);
-  });
+  const corpo = comRegistroDeUso(response.body, (uso) => registrarCusto(reserva.id, uso));
 
   return new Response(corpo, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      "X-Perguntas-Restantes": String(LIMITE_DIARIO - usadas - 1),
+      "X-Perguntas-Restantes": String(LIMITE_DIARIO - reserva.usadas - 1),
     },
   });
+}
+
+/** Quantas perguntas a aluna já fez hoje (para o aviso de limite na tela). */
+export async function GET(req: Request) {
+  const auth = await autenticar(req, "assistente", "Faça login para usar o assistente.");
+  if (auth instanceof Response) return auth;
+  return Response.json({ usadas: await chamadasDeHoje(auth.userId, "assistente") });
 }

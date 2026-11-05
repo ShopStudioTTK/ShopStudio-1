@@ -1,5 +1,7 @@
-export type ChecklistItem = { key: string; label: string };
+import "server-only";
+import type { ChecklistItem } from "./types";
 
+// Checklist da semana 1: conteúdo pago, só no servidor (ver protegido.ts).
 export const weekOneChecklist: ChecklistItem[] = [
   { key: "week-one-1", label: "Li as diretrizes da comunidade e a política de conteúdo do TikTok Shop." },
   { key: "week-one-2", label: "Arrumei foto de perfil e bio." },

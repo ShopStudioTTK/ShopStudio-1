@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { api } from "@/lib/api-cliente";
 
 export type ChapterVideo = {
   id: string;
@@ -13,42 +13,22 @@ export type ChapterVideo = {
   updated_at: string;
 };
 
-const select = "id, chapter_slug, colecao, titulo, descricao, url, ordem, updated_at";
+const buscar = async (consulta: string) => (await api<{ videos: ChapterVideo[] }>(`/api/videos?${consulta}`)).videos;
 
 export const useChapterVideos = (chapterSlug?: string) => {
   const { user } = useAuth();
-
   return useQuery({
     queryKey: ["chapter-videos", chapterSlug],
     enabled: Boolean(user?.id && chapterSlug),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("chapter_videos")
-        .select(select)
-        .eq("chapter_slug", chapterSlug!)
-        .order("ordem", { ascending: true })
-        .order("updated_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as ChapterVideo[];
-    },
+    queryFn: () => buscar(`capitulo=${encodeURIComponent(chapterSlug!)}`),
   });
 };
 
 export const useChampionVideos = () => {
   const { user } = useAuth();
-
   return useQuery({
     queryKey: ["chapter-videos", "campeoes"],
     enabled: Boolean(user?.id),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("chapter_videos")
-        .select(select)
-        .eq("colecao", "campeao")
-        .order("ordem", { ascending: true })
-        .order("updated_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as ChapterVideo[];
-    },
+    queryFn: () => buscar("colecao=campeao"),
   });
 };

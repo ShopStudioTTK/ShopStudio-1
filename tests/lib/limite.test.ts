@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AVISO_A_PARTIR_DE, inicioDoDiaSP, LIMITE_DIARIO, mensagemDeLimite } from "@/lib/limite";
+import { AVISO_A_PARTIR_DE, inicioDoDiaSP, LIMITE_DIARIO, LIMITE_ROTEIROS, MSG_LIMITE_ROTEIROS, mensagemDeLimite } from "@/lib/limite";
 
 describe("inicioDoDiaSP", () => {
   it("meia-noite de Brasília é 03:00 UTC", () => {
@@ -23,5 +23,12 @@ describe("mensagemDeLimite", () => {
   it("avisa quando acabou", () => {
     expect(mensagemDeLimite(15)).toBe("Você usou as 15 perguntas de hoje. Amanhã tem mais.");
     expect(mensagemDeLimite(20)).toBe("Você usou as 15 perguntas de hoje. Amanhã tem mais.");
+  });
+});
+
+describe("limite de roteiros", () => {
+  it("10 por dia, com mensagem própria", () => {
+    expect(LIMITE_ROTEIROS).toBe(10);
+    expect(MSG_LIMITE_ROTEIROS).toBe("Você gerou os 10 roteiros de hoje. Amanhã tem mais.");
   });
 });

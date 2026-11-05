@@ -59,3 +59,23 @@ export const providerLabel = (provider: VideoProvider) =>
         : provider === "arquivo"
           ? "Arquivo de vídeo"
           : "Link externo";
+
+export const BUCKET_VIDEOS = "studio-videos";
+const PREFIXO_BUCKET = `/storage/v1/object/public/${BUCKET_VIDEOS}/`;
+
+/** Caminho do arquivo dentro do bucket de vídeos, se o link for dele (o bucket é privado: precisa assinar). */
+export const caminhoNoBucket = (url: string): string | null => {
+  const i = url.indexOf(PREFIXO_BUCKET);
+  if (i < 0) return null;
+  try {
+    return decodeURIComponent(url.slice(i + PREFIXO_BUCKET.length).split(/[?#]/)[0]) || null;
+  } catch {
+    return null;
+  }
+};
+
+/** Validade (segundos) da URL assinada dos vídeos do bucket. Valor inválido ou ausente: 1 h. */
+export const validadeDaUrlAssinada = (valor: string | undefined): number => {
+  const n = Number(valor);
+  return Number.isInteger(n) && n > 0 ? n : 3600;
+};

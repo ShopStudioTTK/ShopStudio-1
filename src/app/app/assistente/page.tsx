@@ -27,7 +27,7 @@ const Assistant = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { session } = useAuth();
-  const { messages, isLoading, error, sendMessage, reset } = useAiChat(chapter?.title);
+  const { messages, isLoading, error, sendMessage, reset } = useAiChat(chapter?.slug);
   const { data: usadas = 0, isSuccess: contagemPronta } = usePerguntasHoje();
   const esgotado = usadas >= LIMITE_DIARIO;
   const aviso = mensagemDeLimite(usadas);

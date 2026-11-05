@@ -1,13 +1,10 @@
-import type { Chapter } from "./types";
+import "server-only";
+import type { CorpoCapitulo } from "./types";
 
-export const chaptersPartTwo: Chapter[] = [
+// Corpo dos capítulos: só no servidor, entregue por /api/conteudo (ver protegido.ts). O índice fica em chapters.ts.
+export const chaptersPartTwo: CorpoCapitulo[] = [
   {
     slug: "nichar-ou-nao-nichar",
-    number: 7,
-    title: "Nichar ou não nichar?",
-    subtitle: "Venda o que você acredita",
-    summary: "Não é regra. É decisão estratégica. O que importa mesmo é acreditar no que você vende.",
-    readingMinutes: 4,
     blocks: [
       {
         type: "p",
@@ -45,11 +42,6 @@ export const chaptersPartTwo: Chapter[] = [
   },
   {
     slug: "como-encontrar-produtos-campeoes",
-    number: 8,
-    title: "Como encontrar produtos campeões",
-    subtitle: "Critérios, ticket e sazonalidade",
-    summary: "Não existe produto mágico. Existe um processo de curadoria que você repete sempre.",
-    readingMinutes: 7,
     blocks: [
       { type: "h3", text: "O checklist da curadoria" },
       { type: "p", text: "Antes de trabalhar com qualquer produto, passe por estes critérios:" },
@@ -113,11 +105,6 @@ export const chaptersPartTwo: Chapter[] = [
   },
   {
     slug: "amostras-sem-depender-delas",
-    number: 9,
-    title: "Amostras sem depender delas",
-    subtitle: "Comece com o que você já tem",
-    summary: "Você tem muito mais produto em casa do que imagina.",
-    readingMinutes: 6,
     blocks: [
       {
         type: "p",
@@ -197,11 +184,6 @@ export const chaptersPartTwo: Chapter[] = [
   },
   {
     slug: "a-estrutura-dos-videos-que-vendem",
-    number: 10,
-    title: "A estrutura dos vídeos que vendem",
-    subtitle: "Gancho, problema, solução e CTA",
-    summary: "Se fosse para ler um único capítulo, seria este. É o coração de qualquer conteúdo.",
-    readingMinutes: 8,
     blocks: [
       {
         type: "p",
@@ -271,11 +253,6 @@ export const chaptersPartTwo: Chapter[] = [
   },
   {
     slug: "formatos-gravacao-e-edicao",
-    number: 11,
-    title: "Formatos, gravação e edição",
-    subtitle: "Arroz com feijão bem feito",
-    summary: "TikTok Shop é arroz com feijão bem feito. Nada de efeitos especiais.",
-    readingMinutes: 7,
     blocks: [
       { type: "h3", text: "Os formatos que mais vendem" },
       { type: "p", text: "Todos seguem a mesma base: gancho, problema, solução e CTA." },
@@ -367,11 +344,6 @@ export const chaptersPartTwo: Chapter[] = [
   },
   {
     slug: "seu-plano-para-comecar",
-    number: 12,
-    title: "Seu plano para começar",
-    subtitle: "Rotina, metas e checklist da semana 1",
-    summary: "Constância e consistência. Sem isso, nenhuma estratégia funciona.",
-    readingMinutes: 5,
     blocks: [
       { type: "h3", text: "Rotina de um dia de gravação" },
       {
