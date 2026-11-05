@@ -60,6 +60,9 @@ const Results = () => {
     mutationFn: async () => {
       if (!user?.id) throw new Error("Sessão expirada.");
       if (!form.aluna.trim()) throw new Error("Coloque o nome da aluna.");
+      // O banco também recusa (constraint success_cases_midia_https); aqui só antecipa o aviso.
+      if (form.midiaUrl.trim() && !/^https:\/\/\S+$/i.test(form.midiaUrl.trim()))
+        throw new Error("O link da mídia precisa começar com https://");
       const { error } = await supabase.from("success_cases").insert({
         user_id: user.id,
         aluna: form.aluna.trim(),
