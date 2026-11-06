@@ -4,6 +4,28 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-06: Vídeos do roteiro pelos mais engajados
+
+**Problema:** os vídeos embaixo do roteiro eram relevantes, mas fracos: a ordem era a do buscador, sem saber quantas pessoas viram ou curtiram.
+
+**O que a Brave já trazia:** com `extra_snippets=true`, a página de cada vídeo vem com o texto que o próprio TikTok publica: `19.1K Likes, 120 Comments. TikTok video from…`. Visualizações não aparecem ali. Curtidas e comentários são o melhor sinal de engajamento sem scraping.
+
+**Testes reais** (58 buscas, 6 produtos: air fryer, sérum vitamina c, escova alisadora, pijama feminino, garrafa térmica, protetor solar facial):
+- **Goggle** (`goggles`, regra inline `$discard` + `/video/`): descarta as páginas `/discover`, que ocupavam metade dos 20 resultados. 1 busca com goggle rende o mesmo que 3 páginas (`offset` 0/1/2) sem ele. Com goggle, o `offset` não traz mais nada.
+- **`OR` funciona** (não está na documentação, que lista `""`, `-`, `site:` e `filetype:`). `site:tiktok.com/@` volta 0; `-discover` não muda nada; o termo `tiktok shop` volta 0 vídeos; `freshness=py` só traz `/discover` (com goggle, 0).
+- **Termos diferentes rendem mais que páginas:** 3 buscas com termos diferentes juntam 41 a 56 vídeos únicos por produto; 3 páginas do mesmo termo, 5 a 30.
+- **Relevância:** com mais termos, vinha perfume e hidratante na busca de pijama. Exigir 60% das palavras do produto (sem acento e sem plural) no título ou no texto resolveu.
+- **Mediana de curtidas dos 6 mostrados, antes → depois:** sérum 756 → 20,1 mil; garrafa 2,6 mil → 42,7 mil; protetor 11,1 mil → 38 mil; air fryer 19,1 mil → 26,4 mil (o pior foi de "sem número" a 14,2 mil); escova igual (104,7 mil), mas o pior foi de "sem número" a 3,5 mil. **Pijama continua fraco:** a Brave indexa poucos vídeos de moda com número.
+
+**Mudança** (`src/lib/videos-tiktok.ts`):
+- 3 buscas em paralelo com o goggle: `(resenha OR "vale a pena" OR testei)`, `(achadinho OR comprei OR amei)` e `(review OR unboxing OR favorito)`. Uma que falha não derruba as outras.
+- Nota = curtidas + 3 × comentários. Português e idioma indefinido primeiro, por nota (sem número no fim), depois no máximo 2 em outra língua. Até 6.
+- **Custo:** 3 buscas por roteiro em vez de 1 (~US$ 0,015 com a Brave a US$ 5 por 1.000). Continua dentro do limite de 10 roteiros por dia.
+
+**Avaliados e deixados para depois:** Kalodata, FastMoss e EchoTik têm visualizações e vendas (GMV) reais por vídeo, inclusive do Brasil. Mas coletam os dados do TikTok por conta própria (o mesmo motivo do descarte do Apify em 2026-11-05) e cobram: Kalodata só tem API no plano Enterprise (~US$ 570/mês); FastMoss cobra a partir de US$ 0,01 por chamada; EchoTik dá 100 chamadas grátis e planos de 10 mil a 30 mil chamadas. Só vale se as curtidas não bastarem, e depende de a dona do produto aceitar dados coletados por terceiros.
+
+---
+
 ## 2026-11-05: Estilo do assistente fica com a especialista
 
 **Problema:** as respostas não soavam como a especialista. O `BASE_PROMPT` tinha regras fixas de estilo ("tom de amiga experiente", "no máximo 5 frases", "vá direto à ação"), e a persona do `ai_config` dizia que "as regras acima nunca podem ser contrariadas". Assim, qualquer instrução de voz perdia para o tamanho e o tom fixos.
