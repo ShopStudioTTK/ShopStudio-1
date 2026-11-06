@@ -23,10 +23,10 @@ import { cn } from "@/lib/utils";
 
 const baseNavItems = [
   { to: "/app", label: "Início", icon: LayoutDashboard, end: true },
-  { to: "/app/capitulos", label: "Capítulos", icon: BookOpen, end: false },
-  { to: "/app/assistente", label: "Assistente", icon: Sparkles, end: false },
   { to: "/app/roteiros", label: "Roteiros", icon: Wand2, end: false },
   { to: "/app/campeoes", label: "Campeões", icon: Clapperboard, end: false },
+  { to: "/app/assistente", label: "Assistente", icon: Sparkles, end: false },
+  { to: "/app/capitulos", label: "Capítulos", icon: BookOpen, end: false },
   { to: "/app/checklist", label: "Checklist", icon: ListChecks, end: false },
 ];
 
