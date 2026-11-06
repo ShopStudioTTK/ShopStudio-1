@@ -7,6 +7,8 @@ type VideoEmbedProps = {
   url: string;
   titulo?: string;
   className?: string;
+  /** Carrega o player já (sem autoplay), que mostra a capa do vídeo. O iframe é lazy: só carrega perto da tela. */
+  previa?: boolean;
 };
 
 const comAutoplay = (provider: string, embedUrl: string) =>
@@ -16,7 +18,7 @@ const comAutoplay = (provider: string, embedUrl: string) =>
       ? `${embedUrl}?autoplay=1`
       : `${embedUrl}&autoplay=1`;
 
-export const VideoEmbed = ({ url, titulo, className }: VideoEmbedProps) => {
+export const VideoEmbed = ({ url, titulo, className, previa = false }: VideoEmbedProps) => {
   const video = parseVideoUrl(url);
   const [ativo, setAtivo] = useState(false);
 
@@ -59,7 +61,7 @@ export const VideoEmbed = ({ url, titulo, className }: VideoEmbedProps) => {
   }
 
   // O player só é carregado quando a aluna toca em assistir — deixa a abertura do app leve.
-  if (!ativo) {
+  if (!ativo && !previa) {
     return (
       <button
         type="button"
@@ -99,7 +101,7 @@ export const VideoEmbed = ({ url, titulo, className }: VideoEmbedProps) => {
       )}
     >
       <iframe
-        src={comAutoplay(video.provider, video.embedUrl)}
+        src={previa ? video.embedUrl : comAutoplay(video.provider, video.embedUrl)}
         title={titulo ?? "Vídeo"}
         loading="lazy"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

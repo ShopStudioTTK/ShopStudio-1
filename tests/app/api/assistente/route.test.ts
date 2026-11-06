@@ -110,6 +110,36 @@ describe("POST /api/assistente", () => {
     expect(body.messages.slice(1)).toEqual(conversa);
   });
 
+  it("com OPENROUTER_PRESET, chama modelo@preset e deixa a voz com o preset (sem a persona do ai_config)", async () => {
+    vi.stubEnv("OPENROUTER_PRESET", "voz-teste");
+    responderCom([
+      ["from public.entitlements", [{}]],
+      ["as usadas", [{ usadas: 4 }]],
+      ["insert into public.ai_perguntas", [{ id: "p1" }]],
+      ["from public.ai_config", [{ nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: null, exemplos: [] }]],
+      ["from public.ai_knowledge", [{ titulo: "Frete", conteudo: "grátis" }]],
+    ]);
+    await POST(req());
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
+    expect(body.model).toBe("modelo/teste@preset/voz-teste");
+    expect(body.provider).toEqual({ order: ["morph/fp8", "deepinfra/fp8"], quantizations: ["fp8"] });
+    expect(body.messages[0].content).not.toContain("fala gnt");
+    expect(body.messages[0].content).toContain("### Frete");
+  });
+
+  it("sem OPENROUTER_PRESET, segue com a persona do ai_config", async () => {
+    responderCom([
+      ["from public.entitlements", [{}]],
+      ["as usadas", [{ usadas: 4 }]],
+      ["insert into public.ai_perguntas", [{ id: "p1" }]],
+      ["from public.ai_config", [{ nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: null, exemplos: [] }]],
+    ]);
+    await POST(req());
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
+    expect(body.model).toBe("modelo/teste");
+    expect(body.messages[0].content).toContain("fala gnt");
+  });
+
   it("502 com a mensagem da OpenRouter e a pergunta não conta", async () => {
     vi.mocked(fetch).mockResolvedValue(Response.json({ error: { message: "sem créditos" } }, { status: 402 }));
     const res = await POST(req());
