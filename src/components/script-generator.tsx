@@ -25,7 +25,7 @@ const VideosRelacionados = ({ produto, videos }: { produto: string; videos?: Scr
             Uma amostra de vídeos do TikTok sobre “{produto}”, achados por um buscador. Não são necessariamente
             os mais recentes, e alguns podem estar em outro idioma.
           </p>
-          <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
             {lista.map((v) => (
               <CartaoTiktok key={v.url} {...v} />
             ))}
