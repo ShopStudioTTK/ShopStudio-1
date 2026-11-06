@@ -23,6 +23,8 @@ const config = () => {
 const escapar = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
+const AVISO = "Atenção: ";
+
 const prazo = (min: number) =>
   min % 60 === 0 ? `${min / 60} ${min === 60 ? "hora" : "horas"}` : `${min} minutos`;
 
@@ -35,7 +37,7 @@ export function montarEmailDeAcesso({ email, nome, senhaTemporaria }: Acesso, li
         `Link: ${link}`,
         `E-mail: ${email}`,
         `Senha temporária: ${senhaTemporaria}`,
-        `No primeiro acesso você vai criar a sua senha. A senha temporária vale ${prazo(VALIDADE_SENHA_TEMPORARIA_MIN)}; se ela expirar, fale com o suporte do Shop Studio.`,
+        `${AVISO}Esta senha temporária vale por ${prazo(VALIDADE_SENHA_TEMPORARIA_MIN)}. Entre e crie a sua senha antes desse prazo: no primeiro acesso o app pede a senha nova. Depois disso ela expira e você vai precisar falar com o suporte do Shop Studio.`,
       ]
     : [
         ola,
@@ -52,6 +54,8 @@ export function montarEmailDeAcesso({ email, nome, senhaTemporaria }: Acesso, li
         const conteudo = rotulo === "Link" ? `<a href="${valor}">${valor}</a>` : `<code style="font-size:16px">${valor}</code>`;
         return `<p style="margin:4px 0"><strong>${rotulo}:</strong> ${conteudo}</p>`;
       }
+      if (l.startsWith(AVISO))
+        return `<p style="margin:16px 0;padding:12px 14px;border-left:4px solid #d97706;background:#fef3c7;color:#78350f"><strong>Atenção:</strong> ${escapar(l.slice(AVISO.length))}</p>`;
       return `<p>${escapar(l)}</p>`;
     })
     .join("")}</div>`;

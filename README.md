@@ -200,7 +200,7 @@ Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql
 2. O servidor (`criarConta`, em `src/lib/contas.ts`) cria o usuário já confirmado, com uma **senha temporária** aleatória (16 caracteres), marca a conta em `senhas_temporarias` e libera o acesso (`entitlements`).
 3. A resposta é `201 { email, senhaTemporaria }`. **O envio da senha à aluna ainda não existe:** quando houver um serviço de e-mail, ele entra nessa rota.
 4. A aluna entra em `/entrar` com o e-mail e a senha temporária, e o app pede a senha nova (mínimo de 6 caracteres). Até ela trocar, toda rota de conteúdo responde 403.
-5. **A senha temporária vale 30 minutos** (`VALIDADE_SENHA_TEMPORARIA_MIN`, contados pelo relógio do banco). Depois disso, o app mostra "Sua senha temporária expirou" e não deixa trocar. Para gerar outra, chame o webhook de novo com o mesmo e-mail: ele cria uma senha nova, com mais 30 minutos, e a antiga para de valer.
+5. **A senha temporária vale 24 horas** (`VALIDADE_SENHA_TEMPORARIA_MIN`, contados pelo relógio do banco). Depois disso, o app mostra "Sua senha temporária expirou" e não deixa trocar. Para gerar outra, chame o webhook de novo com o mesmo e-mail: ele cria uma senha nova, com mais 24 horas, e a antiga para de valer.
 6. A troca (`POST /api/senha`) apaga a linha da aluna em `senhas_temporarias` e derruba as sessões abertas. A tela entra de novo sozinha com a senha nova. Daí em diante, `GET /api/acesso` responde só `{ "acesso": true }`, sem campo de senha, e o JWT nunca carrega nada sobre isso.
 
 Respostas do webhook: `201` conta criada (ou senha temporária renovada) · `400` e-mail inválido · `401` segredo ausente ou errado · `403` `Origin` fora da lista · `409` a aluna já definiu a própria senha · `500` segredo não configurado ou falha.
@@ -222,7 +222,7 @@ curl -X POST http://localhost:3000/api/webhook/conta \
 1. Confere o campo `token` do corpo com `APPLYFY_WEBHOOK_TOKEN` (tempo constante). Errado ou ausente: 401.
 2. Só age em `TRANSACTION_PAID` de um produto de `APPLYFY_PRODUTO_IDS`. Outros eventos e produtos: 200 sem fazer nada. `TRANSACTION_CANCELED` na Applyfy é cartão recusado, não cancelamento.
 3. Grava o `transaction.id` em `compras_applyfy`. Se já estava lá, é aviso repetido: 200 sem gerar outra senha (ela invalidaria a que a aluna recebeu).
-4. Chama `criarConta` e manda o e-mail (`src/lib/email.ts`, Resend) com o link `SITE_URL/entrar`, o e-mail e a senha temporária. Se a aluna já tinha definido a senha (`existe`), o e-mail só avisa que o acesso está liberado.
+4. Chama `criarConta` e manda o e-mail (`src/lib/email.ts`, Resend) com o link `SITE_URL/entrar`, o e-mail e a senha temporária, com um aviso em destaque de que ela vale 24 horas. Se a aluna já tinha definido a senha (`existe`), o e-mail só avisa que o acesso está liberado.
 5. Se a conta ou o e-mail falharem, apaga a linha de `compras_applyfy` e responde 500, para a Applyfy reenviar (o reenvio gera uma senha nova e outro e-mail).
 
 A senha temporária nunca volta na resposta nem vai para o log. Reembolso e chargeback ainda não tiram o acesso.
@@ -327,7 +327,7 @@ Referências:
 | Webhook responde 500 "Webhook não configurado." | Falta `WEBHOOK_CONTA_SEGREDO`. Reinicie o servidor depois de configurar. |
 | Webhook responde 403 "Origem não permitida." | O pedido manda um `Origin` que não está em `WEBHOOK_CONTA_ORIGENS`. |
 | "E-mail ou senha incorretos." com a senha temporária | Ela já foi trocada, foi substituída por outra (webhook chamado de novo) ou a conta não existe. |
-| "Sua senha temporária expirou" | Passaram 30 minutos. Chame o webhook de novo com o mesmo e-mail para gerar outra. |
+| "Sua senha temporária expirou" | Passaram 24 horas. Chame o webhook de novo com o mesmo e-mail para gerar outra. |
 | `supabaseUrl is required` no build | Faltam as variáveis do Supabase no ambiente de build. |
 | Assistente sem o material em produção | Os `.md` ficaram fora do deploy. Confira o `outputFileTracingIncludes` no `next.config.ts`. |
 | Tipos do banco desatualizados | Rode `pnpm db:types`. |

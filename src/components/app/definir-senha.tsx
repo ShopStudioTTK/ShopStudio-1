@@ -14,7 +14,7 @@ import { api } from "@/lib/api-cliente";
 
 /**
  * Primeiro acesso: a conta veio com senha temporária e o servidor só libera o app depois da troca.
- * Passados 30 minutos, a temporária expira e só o suporte gera outra (chamando o webhook de novo).
+ * Passadas 24 horas, a temporária expira e só o suporte gera outra (chamando o webhook de novo).
  */
 const DefinirSenha = ({ expirada }: { expirada: boolean }) => {
   const router = useRouter();
@@ -68,7 +68,7 @@ const DefinirSenha = ({ expirada }: { expirada: boolean }) => {
         </h1>
         <p className="mt-2 text-[14px] leading-relaxed text-muted-foreground">
           {expirada
-            ? "Por segurança, a senha temporária vale só 30 minutos. Fale com o suporte do Shop Studio para receber uma nova."
+            ? "Por segurança, a senha temporária vale só 24 horas. Fale com o suporte do Shop Studio para receber uma nova."
             : "Você entrou com a senha temporária. Escolha a sua senha para continuar; é com ela que você entra daqui para frente."}
         </p>
 

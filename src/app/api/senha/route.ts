@@ -11,7 +11,7 @@ const SENHA_MAX = 72;
 
 /**
  * Primeiro acesso: troca a senha temporária pela definitiva (o Supabase guarda só o hash bcrypt).
- * Só vale enquanto a senha temporária estiver pendente e no prazo (30 min), para que um token roubado não sirva para
+ * Só vale enquanto a senha temporária estiver pendente e no prazo (24 h), para que um token roubado não sirva para
  * trocar a senha de quem já definiu a sua. A troca derruba as sessões abertas: a tela entra de
  * novo com a senha nova (src/components/app/definir-senha.tsx).
  */

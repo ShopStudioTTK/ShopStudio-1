@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /** Por quanto tempo a senha temporária vale, a partir de quando foi gerada. */
-export const VALIDADE_SENHA_TEMPORARIA_MIN = 30;
+// 24 h: a senha chega por e-mail depois da compra, e a aluna pode demorar para abrir.
+export const VALIDADE_SENHA_TEMPORARIA_MIN = 24 * 60;
 
 // 12 bytes = 16 caracteres base64url, ~96 bits de entropia.
 const novaSenha = () => randomBytes(12).toString("base64url");

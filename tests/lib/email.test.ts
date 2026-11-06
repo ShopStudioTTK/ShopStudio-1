@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/contas", () => ({ VALIDADE_SENHA_TEMPORARIA_MIN: 30 }));
+vi.mock("@/lib/contas", () => ({ VALIDADE_SENHA_TEMPORARIA_MIN: 24 * 60 }));
 
 import { enviarEmailDeAcesso } from "@/lib/email";
 
@@ -32,7 +32,8 @@ describe("enviarEmailDeAcesso", () => {
       expect(campo).toContain("https://app.shopstudio.com/entrar");
       expect(campo).toContain("aluna@x.com");
       expect(campo).toContain("Temp-123_abc");
-      expect(campo).toContain("30 minutos");
+      expect(campo).toContain("24 horas");
+      expect(campo).toMatch(/Atenção/);
     }
   });
 
@@ -41,7 +42,7 @@ describe("enviarEmailDeAcesso", () => {
     const corpo = corpoEnviado();
     expect(corpo.html).toContain("https://app.shopstudio.com/entrar");
     expect(corpo.text).toMatch(/senha que você criou/);
-    expect(corpo.text).not.toMatch(/temporária/);
+    expect(corpo.text).not.toMatch(/temporária|Atenção/);
   });
 
   it("escapa o nome no HTML", async () => {
