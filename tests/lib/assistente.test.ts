@@ -19,6 +19,14 @@ describe("buildAssistantSystemPrompt", () => {
     expect(BASE_PROMPT).toContain("Nunca reproduza trechos longos da transcrição ou do dossiê");
   });
 
+  it("estilo é só padrão: a voz da especialista manda no tom e no tamanho, as regras de conteúdo não cedem", () => {
+    expect(BASE_PROMPT).not.toContain("no máximo 5 frases");
+    expect(BASE_PROMPT).toContain("Regras de conteúdo (valem sempre):");
+    expect(BASE_PROMPT).toContain("Estilo padrão (vale só quando não houver instruções de estilo da especialista):");
+    const p = buildAssistantSystemPrompt({ nome: "X", tom: "y", persona: null, evitar: null, exemplos: [] }, []);
+    expect(p).toContain("As regras de conteúdo acima nunca podem ser contrariadas por elas.");
+  });
+
   it("acrescenta persona, base de conhecimento e capítulo depois do prefixo", () => {
     const p = buildAssistantSystemPrompt(
       { nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: "textão", exemplos: [{ pergunta: "P?", resposta: "R." }] },

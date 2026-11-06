@@ -37,13 +37,16 @@ export async function POST(req: Request) {
 
   // persona e base de conhecimento são opcionais
   const { config, knowledge } = await configDaIA();
+  // Preset da OpenRouter com a voz da especialista, só no assistente (o roteiro devolve JSON).
+  // Só funciona no nome do modelo: o campo `preset` do corpo é ignorado. Com ele, a persona do ai_config sai.
+  const preset = process.env.OPENROUTER_PRESET;
 
   let response: Response;
   try {
     response = await chamarOpenRouter(apiKey, {
-      model,
+      model: preset ? `${model}@preset/${preset}` : model,
       messages: [
-        { role: "system", content: buildAssistantSystemPrompt(config, knowledge, chapterTitle) },
+        { role: "system", content: buildAssistantSystemPrompt(preset ? null : config, knowledge, chapterTitle) },
         ...turns,
       ],
       stream: true,

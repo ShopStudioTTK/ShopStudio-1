@@ -4,6 +4,60 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-05: Estilo do assistente fica com a especialista
+
+**Problema:** as respostas não soavam como a especialista. O `BASE_PROMPT` tinha regras fixas de estilo ("tom de amiga experiente", "no máximo 5 frases", "vá direto à ação"), e a persona do `ai_config` dizia que "as regras acima nunca podem ser contrariadas". Assim, qualquer instrução de voz perdia para o tamanho e o tom fixos.
+
+**Mudança:** o prompt agora separa **regras de conteúdo**, que valem sempre (só o material, citar a aula, não copiar, não prometer ganhos, fora de assunto), de um **estilo padrão**, que vale só sem instruções da especialista. Essas instruções podem vir do `ai_config` ou de outra mensagem de sistema (preset da OpenRouter) e mandam no tom, no vocabulário e no tamanho das respostas. O prefixo continua idêntico para todas as alunas, então o cache segue valendo.
+
+**Preset da OpenRouter** (`OPENROUTER_PRESET`, só no assistente): só o system prompt, com a voz da Ana, tirada das aulas e do dossiê. Roteamento de provedores, `temperature` e `max_tokens` continuam no código. Sem tools e sem busca na web. O cache do DeepSeek é automático. O roteiro (JSON) nunca usa o preset.
+
+**Testado na OpenRouter** (6 perguntas, mesma chamada do app):
+- O campo `preset: "slug"` no corpo é **ignorado sem erro**. Só funciona no nome do modelo: `<modelo>@preset/<slug>`.
+- O prompt do preset entra **antes** do nosso. Prova: o cache zerou na primeira chamada e voltou nas seguintes, com o preset e o material juntos.
+- O provedor (Morph) e o custo (~US$ 0,0004 por pergunta com cache) não mudaram. O preset soma ~2.200 tokens.
+- **Voz:**
+  - antes, as respostas vinham com "gnt", "pq" e 🎀 (da persona do `ai_config`) e sempre terminavam em "Próximo passo:";
+  - com o preset e sem a persona, apareceram "tá?", "minha filha", "pelo amor de Deus", a dúvida antecipada e o acolhimento seguido do puxão de orelha;
+  - com o preset e a persona juntos, as duas brigavam (o "gnt" voltava e as respostas encurtavam).
+- Por isso, com o preset ligado, a persona do `ai_config` não entra no assistente. Ela continua no roteiro.
+- **Segunda versão do preset:** a primeira criou um bordão novo ("Bora…, combinado?" em quase toda resposta) e entregava ganchos reais da Ana prontos. A segunda pede fechamentos variados, citação da aula de onde a informação saiu e ganchos novos (o do dossiê só como mecanismo). O bordão sumiu e o gancho passou a ser novo.
+
+**Resultado medido** (marcas de fala nas 6 respostas, ~700 palavras em cada rodada):
+
+| Marca | Na transcrição | Antes | Com o preset |
+|---|---|---|---|
+| "tá?" | 420× | 0 | 6 |
+| "minha filha" | 32× | 0 | 3 |
+| "ó," | 119× | 0 | 2 |
+| "gnt", "pq" | nunca | 6 | 0 |
+| 🎀 / "Próximo passo:" | nunca | 2 / 4 | 0 / 0 |
+
+Também apareceu a postura das aulas 1 a 3: acolher e dar o puxão de orelha, "para de se comparar", o combinado 50 a 50, antecipar a dúvida da aluna e devolver uma pergunta prática. O conteúdo seguiu igual: sem promessa de prazo e dizendo quando o material não cobre o assunto.
+
+### Próximas melhorias da voz
+
+**1. Citações trocadas.** O modelo acerta a informação, mas às vezes põe a citação da aula errada, e uma citação errada derruba a confiança da aluna na resposta inteira.
+- "Produto diferente do link dá restrição" saiu como Aula 6 em três rodadas seguidas. Isso está só na Aula 10. A regra genérica do preset ("cite a aula de onde a informação saiu") não resolveu.
+- Os vídeos campeões de pijama foram citados como "Aula 15", mas estão no dossiê (a transcrição nem tem a palavra "camisetão").
+- **Causa provável:** o modelo associa o assunto da pergunta (link no vídeo) à aula daquele assunto e cola ali uma informação que veio de outra. Com ~78 mil tokens de material, isso é esperado num modelo rápido.
+- **Caminhos, do mais barato ao mais caro:**
+  1. linhas específicas no preset para os erros que se repetem (ex.: "restrição é da Aula 10"; "vídeos campeões estão no dossiê, cite 'dossiê'");
+  2. marcar no próprio material de onde vem cada parte, para o dossiê nunca parecer aula;
+  3. conferir no servidor se a aula citada contém os termos da frase. Isso exige um índice e só vale se os casos 1 e 2 não bastarem.
+
+**2. Marcas que ainda faltam.** "né?" (213× na transcrição) e "gente" como chamamento (302×) quase não aparecem: o modelo prefere "amiga" e "tá?". O preset lista as duas, mas sem peso. Dá para dizer quais são as mais frequentes e pedir que apareçam. Cuidado com o exagero: as mesmas marcas em toda frase soam como caricatura, e já aconteceu com o "combinado?".
+
+**3. Erros da transcrição automática.** "Shopp girls" (2×) e "shopping girl" (4×) foram repetidos pelo modelo ("Shopp Girls"). Corrigir para "Shop Girl" direto no `transcricao.md`, o que zera o cache uma vez.
+
+**4. Primeira pessoa.** Uma resposta disse "eu gosto de deixar clarinho", uma preferência da Ana dita como se fosse da assistente. O preset proíbe contar as experiências dela como próprias, mas nem sempre o modelo obedece. Vale acompanhar.
+
+**5. Avaliação repetível.** Por enquanto a comparação é feita à mão, com 6 perguntas. As ~20 perguntas de referência (ideia já em aberto) deveriam virar um script no repositório, com a contagem de marcas e a conferência das citações. Assim cada mudança no preset ou no prompt é medida, e não só lida.
+
+**Como testar:** chamar a OpenRouter com o mesmo prompt do app (`buildAssistantSystemPrompt`), os mesmos provedores e os mesmos parâmetros, com `<modelo>@preset/<slug>`. Depois de editar o preset, a primeira chamada tem que vir com o cache zerado. Se não vier, a versão nova não entrou.
+
+---
+
 ## 2026-11-05: Vídeos do TikTok embaixo do roteiro
 
 **Pedido:** depois de gerar o roteiro, mostrar vídeos do TikTok sobre aquele produto. Não precisam ser os mais recentes, mas os mais relevantes, de preferência em português, deixando claro que é uma amostra.
