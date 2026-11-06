@@ -28,15 +28,20 @@ const VideosRelacionados = ({ produto, videos }: { produto: string; videos?: Scr
           <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
             {lista.map((v) => (
               <li key={v.url} className="space-y-2">
-                <VideoEmbed url={v.url} titulo={v.titulo} />
-                <p className="line-clamp-2 text-[12px] leading-snug text-foreground/75">
+                <VideoEmbed url={v.url} titulo={v.titulo} previa />
+                <a
+                  href={v.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="line-clamp-2 text-[12px] leading-snug text-foreground/75 underline-offset-2 hover:text-foreground hover:underline"
+                >
                   {v.outraLingua ? (
                     <span className="mr-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
                       outro idioma
                     </span>
                   ) : null}
-                  {v.titulo}
-                </p>
+                  {v.titulo || "Ver no TikTok"}
+                </a>
               </li>
             ))}
           </ul>

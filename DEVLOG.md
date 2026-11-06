@@ -82,6 +82,8 @@ Também apareceu a postura das aulas 1 a 3: acolher e dar o puxão de orelha, "p
 - Até 6 vídeos, português primeiro, no máximo 2 em outra língua, marcados com "outro idioma".
 - A tela tem também o link "Ver os mais recentes no TikTok" (busca do próprio TikTok), para quem quer o que acabou de sair.
 - Os vídeos vão junto quando o roteiro é salvo; como o salvo volta do navegador, a tela só mostra URLs do TikTok.
+- **Capa dos vídeos:** a miniatura da Brave aponta para a página do vídeo e dá 422, e o oEmbed do TikTok não traz mais `thumbnail_url` (só o HTML do player). Por isso a seção carrega o próprio player já (`previa` no `VideoEmbed`, sem autoplay, iframe lazy), que mostra a capa. Nos capítulos e campeões continua o toque para carregar.
+- O título embaixo de cada vídeo é link para o vídeo no TikTok.
 
 **Verificado:** testes, lint e build. No navegador, com uma conta de teste (apagada no fim): roteiro de "escova alisadora de cabelo" com 6 vídeos em português, o player do TikTok tocando sem erro de CSP, e a tela em 375 px com 2 colunas.
 
