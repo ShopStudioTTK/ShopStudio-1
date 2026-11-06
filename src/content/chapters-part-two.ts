@@ -264,7 +264,7 @@ export const chaptersPartTwo: CorpoCapitulo[] = [
           { title: "Unboxing", text: "Abrir a caixa e mostrar a primeira reação. Satisfatório e nem precisa mostrar o rosto." },
           { title: "Storytelling", text: "Uma história do dia a dia com o produto como solução: “olha o que meu namorado me contou…”." },
           { title: "Respondendo comentários", text: "Responda dúvidas (“é transparente?”) ou críticas com a confiança de quem conhece o produto." },
-          { title: "Música viral", text: "Mostrar o produto no corpo com uma música em alta, sem precisar falar." },
+          { title: "Música viral", text: "Mostrar o produto no corpo com uma música liberada para uso comercial, sem precisar falar." },
         ],
       },
       {
@@ -291,7 +291,7 @@ export const chaptersPartTwo: CorpoCapitulo[] = [
           { title: "Adicione a headline", text: "em texto, em caixa alta, reforçando o gancho." },
           {
             title: "Cuidado com a música",
-            text: "Pode usar áudio em alta, mas muitas músicas virais não são licenciadas para vídeos com produto — e você pode ser silenciada depois.",
+            text: "Muitas músicas virais não são liberadas para uso comercial e não aparecem quando o vídeo tem produto. Escolha uma que esteja disponível.",
           },
           { title: "Adicione o link do produto", text: "com um nome bem escrito." },
           { title: "Escreva a descrição", text: "reforçando o que você falou, com até 5 hashtags relevantes, como #acessoriosfemininos e #semijoias." },
@@ -301,8 +301,8 @@ export const chaptersPartTwo: CorpoCapitulo[] = [
       {
         type: "callout",
         variant: "atencao",
-        title: "Música viral: o risco e o jeito seguro",
-        text: "Dá para colocar áudio em alta, sim — mas você corre o risco de ser silenciada ou de o vídeo ser removido depois. Se quiser evitar: publique o vídeo sem som e, depois, vá na Central do Criador → Vincular links, selecione o vídeo e o produto que você quer.",
+        title: "Música viral: não vale burlar",
+        text: "A maioria das músicas virais, como funk, não é liberada para uso comercial: na hora de adicionar o produto, aparece que o som não está disponível. Existem jeitos de burlar, mas você corre o risco de levar punição. Escolha uma música disponível e deixe a headline fazer o resto.",
       },
       { type: "h3", text: "Exemplos prontos para gravar" },
       {
@@ -330,7 +330,7 @@ export const chaptersPartTwo: CorpoCapitulo[] = [
           },
           {
             title: "Música viral",
-            text: "8 segundos mostrando o produto no corpo com o áudio em alta e uma headline de texto. Publique sem som e vincule o link depois, pelo painel.",
+            text: "8 segundos mostrando o produto no corpo com uma música liberada para uso comercial e uma headline de texto.",
           },
         ],
       },
