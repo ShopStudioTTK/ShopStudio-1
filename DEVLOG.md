@@ -4,6 +4,49 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-06: Preset da voz com as instruções da Ana
+
+**Pedido:** a equipe da Ana mandou um PDF com instruções para a "IA da Ana" (10 páginas). Ver o que melhora no preset da OpenRouter. O PDF e o texto do preset ficam fora do repositório.
+
+**O que entrou no preset** (de ~2.200 para ~5.100 tokens, dentro do cache):
+- roteiro na voz da aluna, não da Ana, com o formato de entrega do PDF (formato, gancho, meio, CTA, descrição, duração), gancho = ângulo + entrega, a "dívida do gancho", os 4 roteiros dos campeões e o que funciona por tipo de produto;
+- avaliação de gancho: diz se funciona, escolhe uma entre duas opções e muda o mecanismo, não só as palavras;
+- regras: verdade antes de criatividade, storytelling só com história verdadeira, escassez só no condicional, marca concorrente nunca aparece, música liberada, provocação só se a aluna pedir, e outro tom quando ela mostra sofrimento de verdade;
+- orientações que não estão nas aulas: no mínimo 7 vídeos por dia; não sugerir compra de seguidores (a Aula 7 fala dela);
+- uma lista contra a "cara de IA": abrir elogiando, fechar com resumo ou promessa, travessão, vocabulário de coach;
+- as próximas melhorias da voz da entrada de 2026-11-05: citações que se repetiam erradas (Aula 10, dossiê), peso das marcas mais frequentes e primeira pessoa.
+
+**Adaptado, não copiado:**
+- "Shop Club" virou Shop Studio.
+- As 3 perguntas antes do primeiro roteiro viraram "pergunte só o essencial": cada mensagem gasta uma das 15 do dia, e a assistente não lembra de conversas anteriores.
+- "uai" ficou raro: aparece 1 vez na transcrição, contra 420 de "tá?".
+- O exemplo de roteiro do PDF inventava um detalhe do produto, contra a própria regra de verdade. Virou indicação de cena.
+- Itálico virou aspas (a tela só mostra negrito).
+- Do FAQ, só entrou o que é novo; o resto já está na transcrição e no guia.
+
+**Conflito achado:** o capítulo 11 e o `GUIA` ensinavam a publicar "sem som" e vincular o produto depois. É o atalho que a Ana chama de burla na Aula 15 ("é perigoso você levar a punição, então melhor você escolher um som disponível"). No teste, a assistente repetia o atalho mesmo com o preset novo. Corrigidos o capítulo, o `GUIA` e o `METHOD` do roteiro (`tests/content/musica.test.ts`).
+
+**Gerador de roteiros:** ele não usa o preset, então o `METHOD` recebeu as regras do PDF: 5 ângulos de gancho, dívida do gancho, escassez só no condicional, 30 a 50 segundos, verdade antes de criatividade, marca concorrente e nada de insulto.
+
+**Testado** com 7 perguntas, o texto do preset como primeira mensagem de sistema antes do prompt do app (`ai_knowledge` vazio), mesmos provedores e parâmetros. Custo total ~US$ 0,02.
+
+| Pergunta | Preset antigo | Preset novo |
+|---|---|---|
+| Quantos vídeos por dia? | "não tem regra" | "no mínimo 7" |
+| Vale comprar seguidores? | "compra um pouquinho a mais dos 2 mil" | "não, vai contra as regras do TikTok" |
+| A música não aparece com o produto | ensinava o atalho | "não vale burlar" (depois da correção do guia) |
+| Roteiro para tímida, sem rosto | lista, gancho no jeito da Ana | formato do PDF, só as mãos e narração, preço "confere no carrinho" |
+| Qual de dois ganchos? | escolhia e reescrevia no jeito da Ana | escolhe e pergunta se a história é verdadeira |
+| Travessões / listas numeradas (7 respostas) | 9 / 15 | 0 / 3 |
+
+O provedor (Morph) e o custo por pergunta com cache (US$ 0,0004 a 0,0008) não mudaram.
+
+**Ainda acontece:** o roteiro às vezes inventa um motivo da aluna ("parei de gastar com café na cantina"), mesmo pedindo os detalhes reais no fim; "jornada" apareceu 1 vez em 14 respostas; "Boa," como abertura.
+
+**Pendente com a Ana:** as expressões e a frequência do "uai"; compra de seguidores; menor de idade (ficou a versão da aula, o PDF tem uma mais cautelosa); as aulas 11, 16, 17 e 18, que também faltam aqui; o guia "100 ganchos para vender", que não está no material; e a persona do `ai_config`, que ainda entra no gerador de roteiros, enquanto o PDF quer o roteiro na voz da aluna.
+
+---
+
 ## 2026-11-06: Campeões por nicho, com os vídeos mais engajados
 
 **Pedido:** a tela de Campeões deixa de depender do cadastro da administração e ganha abas por nicho, com termos femininos e de venda. Cada aba mostra os vídeos de **produto** com mais engajamento (não qualquer vídeo do tema), iguais para todas as alunas, num cache de 1 dia sempre renovado. 5 abas e 10 vídeos por aba para começar.
