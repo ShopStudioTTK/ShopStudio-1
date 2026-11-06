@@ -1,4 +1,5 @@
 import "server-only";
+import { db } from "@/lib/db";
 
 /**
  * Amostra de vídeos do TikTok sobre o produto do roteiro.
@@ -7,6 +8,7 @@ import "server-only";
  * O buscador não acompanha o que acabou de sair: são vídeos relevantes, não necessariamente recentes.
  * Os mais engajados vêm primeiro: a página de cada vídeo traz "19.1K Likes, 120 Comments", que a Brave
  * devolve nos trechos extras (visualizações o TikTok não publica ali). Testes e números: DEVLOG, 2026-11-06.
+ * O resultado fica 3 dias em `videos_cache` e serve para termos parecidos, sem chamar a Brave de novo.
  */
 
 export type VideoRelacionado = { url: string; titulo: string; outraLingua: boolean };
@@ -50,6 +52,16 @@ export const engajamento = (texto: string): number | null => {
 };
 
 const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+const PARADAS = new Set("de da do das dos para com e o a os as em no na kit".split(" "));
+
+/** Chave do cache: sem acento, sem palavras vazias nem plural, palavras em ordem. "Sérum de Vitamina C" → "c serum vitamina". */
+export const normalizarTermo = (termo: string): string =>
+  [...new Set((semAcento(termo).match(/[a-z0-9]+/g) ?? [])
+    .filter((p) => !PARADAS.has(p))
+    .map((p) => (p.length > 3 ? p.replace(/s$/, "") : p)))]
+    .sort()
+    .join(" ");
 
 // ponytail: busca por trecho (sem acento e sem o "s" final), "cor" casa com "corpo"; índice de palavras se isso incomodar.
 /** O vídeo fala do produto: ao menos 60% das palavras de 3+ letras aparecem no texto. Sem isso, vinha perfume na busca de pijama. */
@@ -115,10 +127,47 @@ const buscar = async (q: string, chave: string): Promise<Resultado[]> => {
   }
 };
 
+// Calibrado em 2026-11-06 com pares reais (DEVLOG): 0,7 aceita "sérum vitamina c" × "…30ml" (0,77) e recusa
+// "protetor solar facial" × "corporal" (0,53) e até "garrafa térmica" × "…1 litro" (0,67), de propósito:
+// errar para menos só custa uma busca.
+const SEMELHANCA_MINIMA = 0.7;
+
+// Sem índice: a tabela tem uma linha por termo, e percorrer alguns milhares é rápido.
+const doCache = async (termo: string): Promise<VideoRelacionado[] | null> => {
+  try {
+    const [linha] = await db()`
+      select videos from public.videos_cache
+      where criado_em > now() - interval '3 days'
+        and extensions.similarity(termo, ${termo}) >= ${SEMELHANCA_MINIMA}
+      order by extensions.similarity(termo, ${termo}) desc
+      limit 1`;
+    return (linha?.videos as VideoRelacionado[] | undefined) ?? null;
+  } catch (e) {
+    console.error("videos-tiktok: falha ao ler o cache", e);
+    return null;
+  }
+};
+
+const guardar = async (termo: string, videos: VideoRelacionado[]) => {
+  try {
+    await db()`
+      insert into public.videos_cache (termo, videos) values (${termo}, ${JSON.stringify(videos)}::text::jsonb)
+      on conflict (termo) do update set videos = excluded.videos, criado_em = now()`;
+  } catch (e) {
+    console.error("videos-tiktok: falha ao gravar o cache", e);
+  }
+};
+
 export const buscarVideos = async (produto: string): Promise<VideoRelacionado[]> => {
   const chave = process.env.BRAVE_API_KEY;
   if (!chave) return [];
   const termo = produto.slice(0, 100);
+  const chaveCache = normalizarTermo(termo);
+  const salvos = chaveCache ? await doCache(chaveCache) : null;
+  if (salvos) return salvos;
   const listas = await Promise.all(TERMOS.map((t) => buscar(`site:tiktok.com ${termo} ${t}`, chave)));
-  return ordenarVideos(listas.flat(), termo);
+  const videos = ordenarVideos(listas.flat(), termo);
+  // Lista vazia não vai para o cache: uma falha da Brave não fica presa por 3 dias.
+  if (chaveCache && videos.length) await guardar(chaveCache, videos);
+  return videos;
 };

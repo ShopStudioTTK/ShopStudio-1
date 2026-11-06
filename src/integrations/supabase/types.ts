@@ -205,6 +205,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"videos_cache": {
+                  Row: {
+                    "criado_em": string,"termo": string,"videos": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"termo": string,"videos": NonNullable<Json>
+                  }
+                  Update: {
+                    "criado_em"?: string,"termo"?: string,"videos"?: NonNullable<Json>
+                  }
+                  Relationships: [
+                    
+                  ]
                 }
           }
           Views: {

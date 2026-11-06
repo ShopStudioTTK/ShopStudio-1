@@ -138,7 +138,7 @@ docs/superpowers/             design e plano da migração do Enter
 ### Gerador de roteiros (`/api/roteiro`)
 Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags e formato.
 
-**Vídeos sobre o produto:** em paralelo com a IA, a rota faz 3 buscas na **Brave Search API** (`site:tiktok.com <produto>` com 3 grupos de termos em `OR`, Brasil, português, goggle que deixa só páginas de vídeo) e devolve até 6 vídeos em `videos` (`src/lib/videos-tiktok.ts`). Só entram vídeos que citam o produto, e os mais engajados (curtidas + 3 × comentários, lidos do texto que o TikTok publica na página) vêm primeiro: português primeiro e no máximo 2 em outra língua. A tela mostra com o player oficial do TikTok, avisa que é uma amostra (pode ter vídeo antigo ou em outro idioma) e tem o link "Ver os mais recentes no TikTok". Sem `BRAVE_API_KEY` ou com a Brave fora do ar, o roteiro sai sem vídeos. A busca conta no mesmo limite de 10 roteiros/dia (3 buscas da Brave por roteiro). Por que não scraping nem API do TikTok: ver o DEVLOG.
+**Vídeos sobre o produto:** em paralelo com a IA, a rota faz 3 buscas na **Brave Search API** (`site:tiktok.com <produto>` com 3 grupos de termos em `OR`, Brasil, português, goggle que deixa só páginas de vídeo) e devolve até 6 vídeos em `videos` (`src/lib/videos-tiktok.ts`). Só entram vídeos que citam o produto, e os mais engajados (curtidas + 3 × comentários, lidos do texto que o TikTok publica na página) vêm primeiro: português primeiro e no máximo 2 em outra língua. A tela mostra com o player oficial do TikTok, avisa que é uma amostra (pode ter vídeo antigo ou em outro idioma) e tem o link "Ver os mais recentes no TikTok". Sem `BRAVE_API_KEY` ou com a Brave fora do ar, o roteiro sai sem vídeos. A busca conta no mesmo limite de 10 roteiros/dia (3 buscas da Brave por roteiro). **Cache:** o resultado fica 3 dias em `videos_cache` e serve para qualquer aluna que pedir um termo parecido (similaridade `pg_trgm` ≥ 0,7 sobre o termo sem acento, sem plural e com as palavras em ordem), sem chamar a Brave. Por que não scraping nem API do TikTok: ver o DEVLOG.
 
 ### Custos e provedor
 - O modelo **DeepSeek v4.1 Flash** é oferecido por dezenas de provedores, com preços muito diferentes. As chamadas vão fixas para o **Morph (fp8)**, com a **DeepInfra (fp8)** de reserva (`PROVEDORES` em `src/lib/api-auth.ts`).
@@ -175,6 +175,7 @@ Migrations em `supabase/migrations/`:
 | `access_codes` | códigos de compra | só service role (painel do Supabase) |
 | `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
 | `chapter_videos` + bucket `studio-videos` | vídeos dos capítulos | só service role |
+| `videos_cache` | vídeos do TikTok por termo normalizado, reaproveitados por 3 dias (compartilhado, sem `user_id`) | servidor (`/api/roteiro`) |
 | `ai_perguntas` | perguntas ao assistente, tokens e custo | servidor (`/api/assistente`) |
 
 Ainda não existe página de administração. Códigos, vídeos, persona e base de conhecimento são editados no painel do Supabase.

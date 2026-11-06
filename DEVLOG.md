@@ -4,6 +4,26 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-06: Cache dos vídeos do roteiro por termo parecido
+
+**Pedido:** não gastar 3 buscas da Brave toda vez. Alunas pedem produtos parecidos, então o resultado de uma pode servir para outra, por um tempo limitado (3 dias).
+
+**Como ficou:**
+- **Chave:** `normalizarTermo` tira acento, palavras vazias ("de", "da", "kit"…) e o plural, e ordena as palavras: "Sérum de Vitamina C" e "sérum vitamina c" viram `c serum vitamina`.
+- **Tabela `videos_cache`** (`termo` como chave, `videos` jsonb, `criado_em`), compartilhada e sem `user_id`, porque guarda só URLs públicas do TikTok. O termo nunca volta para a tela.
+- **Busca:** o termo salvo mais parecido, de menos de 3 dias, com `extensions.similarity` (pg_trgm) ≥ **0,7**. Achou: devolve sem chamar a Brave. Não achou: 3 buscas e grava (`on conflict` sobrescreve o vencido).
+- Lista vazia não é gravada, para uma falha da Brave não ficar presa 3 dias. Banco fora do ar = busca na Brave, como antes.
+- Sem índice de trigramas: uma linha por termo, alguns milhares no máximo.
+
+**Calibração do limiar** (16 pares, `similarity` sobre o termo normalizado):
+- Mesmo produto: "…30ml" 0,77; "escova secadora alisadora" 0,77; "garrafa térmica 1 litro" 0,67; "…principia" 0,63; "airfryer" 0,58; "air fryer mondial 4L" 0,48.
+- Produto diferente: protetor solar facial × corporal 0,53; garrafa térmica × de água 0,38; pijama feminino × masculino 0,38; escova alisadora × de dente 0,30.
+- A dona do produto pediu **0,7** para não se distanciar do que foi escrito. Com ele, só reaproveita variações bem próximas (o "…1 litro" e o "…principia" fazem busca nova). Errar para esse lado só custa uma busca. `word_similarity` foi descartada: deixava facial × corporal passar (0,73).
+
+**Verificado:** testes, lint e build. Com o banco local e a Brave de verdade: "garrafa térmica stanley" fez 3 buscas; "Garrafa Térmica da Stanley" e "garrafa termica stanley 1L" vieram do cache (0 buscas); "garrafa de água" fez 3 buscas. No SQL, a linha de 4 dias não volta e a de 2 dias volta. As linhas de teste foram apagadas.
+
+---
+
 ## 2026-11-06: Vídeos do roteiro pelos mais engajados
 
 **Problema:** os vídeos embaixo do roteiro eram relevantes, mas fracos: a ordem era a do buscador, sem saber quantas pessoas viram ou curtiram.

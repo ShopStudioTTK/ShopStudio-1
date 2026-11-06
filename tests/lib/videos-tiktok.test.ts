@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/db", async () => {
+  const b = await import("../apoio/db-falso");
+  return { db: () => b.sqlFalso };
+});
 
-import { buscarVideos, engajamento, lingua, ordenarVideos, relevante } from "@/lib/videos-tiktok";
+import { naTabela, reiniciarDb, responderCom } from "../apoio/db-falso";
+import { buscarVideos, engajamento, lingua, normalizarTermo, ordenarVideos, relevante } from "@/lib/videos-tiktok";
 
 const r = (url: string, title: string, extra?: string) => ({ url, title, extra_snippets: extra ? [extra] : undefined });
 const v = (n: number) => `https://www.tiktok.com/@c${n}/video/7${String(n).padStart(18, "0")}`;
@@ -31,6 +36,19 @@ describe("engajamento (texto que o TikTok publica na página)", () => {
     ["Resenha da minha air fryer", null],
   ])("%s → %s", (texto, esperado) => {
     expect(engajamento(texto)).toBe(esperado);
+  });
+});
+
+describe("normalizarTermo", () => {
+  it.each([
+    ["Sérum de Vitamina C", "c serum vitamina"],
+    ["sérum vitamina c", "c serum vitamina"],
+    ["Pijamas Femininos", "feminino pijama"],
+    ["Kit garrafa térmica da Stanley", "garrafa stanley termica"],
+    ["  air   fryer!! ", "air fryer"],
+    ["gás", "gas"],
+  ])("%s → %s", (termo, esperado) => {
+    expect(normalizarTermo(termo)).toBe(esperado);
   });
 });
 
@@ -108,6 +126,7 @@ describe("buscarVideos", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
+    reiniciarDb();
     vi.spyOn(console, "error").mockImplementation(() => {});
     global.fetch = vi.fn(async () => brave([r(v(1), "Resenha da garrafa térmica")])) as typeof fetch;
   });
@@ -162,5 +181,52 @@ describe("buscarVideos", () => {
     expect(await buscarVideos("garrafa")).toEqual([]);
     vi.mocked(fetch).mockRejectedValue(new Error("net"));
     expect(await buscarVideos("garrafa")).toEqual([]);
+  });
+
+  describe("cache compartilhado (videos_cache)", () => {
+    const salvos = [{ url: v(9), titulo: "Garrafa térmica que eu amo", outraLingua: false }];
+
+    it("termo parecido salvo há menos de 3 dias: devolve do banco, sem chamar a Brave", async () => {
+      vi.stubEnv("BRAVE_API_KEY", "k");
+      responderCom([["from public.videos_cache", [{ videos: salvos }]]]);
+      expect(await buscarVideos("Garrafa Térmica")).toEqual(salvos);
+      expect(fetch).not.toHaveBeenCalled();
+      const [busca] = naTabela("videos_cache");
+      expect(busca.sql).toMatch(/^select videos from/);
+      expect(busca.sql).toContain("interval '3 days'");
+      expect(busca.sql).toContain("extensions.similarity(termo, ?)");
+      expect(busca.valores).toEqual(["garrafa termica", 0.7, "garrafa termica"]);
+    });
+
+    it("sem nada parecido: busca na Brave e grava pelo termo normalizado", async () => {
+      vi.stubEnv("BRAVE_API_KEY", "k");
+      const out = await buscarVideos("Garrafa Térmica");
+      expect(out).toHaveLength(1);
+      expect(fetch).toHaveBeenCalledTimes(3);
+      const grava = naTabela("videos_cache")[1];
+      expect(grava.sql).toContain("insert into public.videos_cache");
+      expect(grava.sql).toContain("on conflict (termo) do update");
+      expect(grava.valores).toEqual(["garrafa termica", JSON.stringify(out)]);
+    });
+
+    it("não grava lista vazia (falha da Brave não fica presa 3 dias)", async () => {
+      vi.stubEnv("BRAVE_API_KEY", "k");
+      vi.mocked(fetch).mockRejectedValue(new Error("net"));
+      expect(await buscarVideos("garrafa")).toEqual([]);
+      expect(naTabela("videos_cache")).toHaveLength(1);
+    });
+
+    it("banco fora do ar: busca na Brave mesmo assim, sem lançar", async () => {
+      vi.stubEnv("BRAVE_API_KEY", "k");
+      responderCom([["videos_cache", new Error("db")]]);
+      expect(await buscarVideos("garrafa térmica")).toHaveLength(1);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("termo sem palavra útil não usa o cache", async () => {
+      vi.stubEnv("BRAVE_API_KEY", "k");
+      await buscarVideos("de");
+      expect(naTabela("videos_cache")).toHaveLength(0);
+    });
   });
 });
