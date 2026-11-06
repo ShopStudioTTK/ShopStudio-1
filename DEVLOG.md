@@ -4,6 +4,114 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-06: Preset da voz com as instruções da Ana
+
+**Pedido:** a equipe da Ana mandou um PDF com instruções para a "IA da Ana" (10 páginas). Ver o que melhora no preset da OpenRouter. O PDF e o texto do preset ficam fora do repositório.
+
+**O que entrou no preset** (de ~2.200 para ~5.100 tokens, dentro do cache):
+- roteiro na voz da aluna, não da Ana, com o formato de entrega do PDF (formato, gancho, meio, CTA, descrição, duração), gancho = ângulo + entrega, a "dívida do gancho", os 4 roteiros dos campeões e o que funciona por tipo de produto;
+- avaliação de gancho: diz se funciona, escolhe uma entre duas opções e muda o mecanismo, não só as palavras;
+- regras: verdade antes de criatividade, storytelling só com história verdadeira, escassez só no condicional, marca concorrente nunca aparece, música liberada, provocação só se a aluna pedir, e outro tom quando ela mostra sofrimento de verdade;
+- orientações que não estão nas aulas: no mínimo 7 vídeos por dia; não sugerir compra de seguidores (a Aula 7 fala dela);
+- uma lista contra a "cara de IA": abrir elogiando, fechar com resumo ou promessa, travessão, vocabulário de coach;
+- as próximas melhorias da voz da entrada de 2026-11-05: citações que se repetiam erradas (Aula 10, dossiê), peso das marcas mais frequentes e primeira pessoa.
+
+**Adaptado, não copiado:**
+- "Shop Club" virou Shop Studio.
+- As 3 perguntas antes do primeiro roteiro viraram "pergunte só o essencial": cada mensagem gasta uma das 15 do dia, e a assistente não lembra de conversas anteriores.
+- "uai" ficou raro: aparece 1 vez na transcrição, contra 420 de "tá?".
+- O exemplo de roteiro do PDF inventava um detalhe do produto, contra a própria regra de verdade. Virou indicação de cena.
+- Itálico virou aspas (a tela só mostra negrito).
+- Do FAQ, só entrou o que é novo; o resto já está na transcrição e no guia.
+
+**Conflito achado:** o capítulo 11 e o `GUIA` ensinavam a publicar "sem som" e vincular o produto depois. É o atalho que a Ana chama de burla na Aula 15 ("é perigoso você levar a punição, então melhor você escolher um som disponível"). No teste, a assistente repetia o atalho mesmo com o preset novo. Corrigidos o capítulo, o `GUIA` e o `METHOD` do roteiro (`tests/content/musica.test.ts`).
+
+**Gerador de roteiros:** ele não usa o preset, então o `METHOD` recebeu as regras do PDF: 5 ângulos de gancho, dívida do gancho, escassez só no condicional, 30 a 50 segundos, verdade antes de criatividade, marca concorrente e nada de insulto.
+
+**Testado** com 7 perguntas, o texto do preset como primeira mensagem de sistema antes do prompt do app (`ai_knowledge` vazio), mesmos provedores e parâmetros. Custo total ~US$ 0,02.
+
+| Pergunta | Preset antigo | Preset novo |
+|---|---|---|
+| Quantos vídeos por dia? | "não tem regra" | "no mínimo 7" |
+| Vale comprar seguidores? | "compra um pouquinho a mais dos 2 mil" | "não, vai contra as regras do TikTok" |
+| A música não aparece com o produto | ensinava o atalho | "não vale burlar" (depois da correção do guia) |
+| Roteiro para tímida, sem rosto | lista, gancho no jeito da Ana | formato do PDF, só as mãos e narração, preço "confere no carrinho" |
+| Qual de dois ganchos? | escolhia e reescrevia no jeito da Ana | escolhe e pergunta se a história é verdadeira |
+| Travessões / listas numeradas (7 respostas) | 9 / 15 | 0 / 3 |
+
+O provedor (Morph) e o custo por pergunta com cache (US$ 0,0004 a 0,0008) não mudaram.
+
+**Ainda acontece:** o roteiro às vezes inventa um motivo da aluna ("parei de gastar com café na cantina"), mesmo pedindo os detalhes reais no fim; "jornada" apareceu 1 vez em 14 respostas; "Boa," como abertura.
+
+**Pendente com a Ana:** as expressões e a frequência do "uai"; compra de seguidores; menor de idade (ficou a versão da aula, o PDF tem uma mais cautelosa); as aulas 11, 16, 17 e 18, que também faltam aqui; o guia "100 ganchos para vender", que não está no material; e a persona do `ai_config`, que ainda entra no gerador de roteiros, enquanto o PDF quer o roteiro na voz da aluna.
+
+---
+
+## 2026-11-06: Campeões por nicho, com os vídeos mais engajados
+
+**Pedido:** a tela de Campeões deixa de depender do cadastro da administração e ganha abas por nicho, com termos femininos e de venda. Cada aba mostra os vídeos de **produto** com mais engajamento (não qualquer vídeo do tema), iguais para todas as alunas, num cache de 1 dia sempre renovado. 5 abas e 10 vídeos por aba para começar.
+
+**Abas:** moda fitness, beleza e maternidade (pedidas) e casa e cozinha e moda feminina (escolha nossa: achadinhos de casa e roupa feminina são dos nichos mais fortes do TikTok Shop no Brasil). Ficam em `src/content/nichos.ts`, com as buscas e as palavras de cada uma.
+
+**Testes reais** (15 buscas, uma rodada por aba): cada aba junta de 40 a 55 vídeos; os 10 primeiros vão de ~5 mil a ~500 mil curtidas, quase todos em português e de compra (Shopee, Shein, provador, achadinhos). Ajustes que o teste mostrou:
+- "#modamasculina" aparecia em moda feminina: tudo que tem "masculin" sai.
+- "mãe" puxava "viagem em família com minha mãe": saiu das palavras de maternidade.
+- O filtro de sinal de venda quase não corta (as buscas já pedem achadinho/comprei), mas fica de proteção: tirou "enxoval: o que é realmente necessário", que é dica, não venda.
+
+**Como ficou:**
+- `buscarCampeoes` reaproveita a busca e a ordem do roteiro (goggle de só vídeos, curtidas + 3 × comentários, português primeiro), com outro filtro (`doNicho`) e até 10.
+- `campeoes_cache`, uma linha por nicho. Mais de 1 dia = quem abrir a aba busca de novo (espera ~0,5 s) e grava. Brave sem resultado = fica o que estava salvo, mesmo vencido. Custo máximo: 5 nichos × 3 buscas = 15 por dia.
+- Sem cron: a renovação acontece quando alguém abre a aba vencida. Se a espera incomodar, um cron resolve.
+- O cartão de vídeo do roteiro virou `CartaoTiktok` (`video-embed.tsx`), usado nas duas telas.
+
+**Avaliado para as abas mudarem sozinhas:** o feed "em alta" do Google para o Brasil (RSS) só traz notícias e famosos e não filtra por categoria; a API oficial do Google Trends está em teste fechado. DataForSEO e SerpApi dão as buscas em alta relacionadas a um termo, inclusive no Google Shopping, por ~US$ 0,002 por consulta ou no plano grátis, mas coletam do Google por conta própria e ainda não foram testadas. Ficou para depois, com as abas fixas.
+
+**Verificado:** testes, lint e build. Com o build em `localhost:3005`, uma conta de teste (apagada no fim) e a Brave de verdade: as 5 abas com 10 vídeos cada; na segunda rodada, todas do cache (~7 ms); nicho inválido = 400. O `next dev` que já estava rodando guardou a versão antiga do módulo e deu 500 (`buscarCampeoes is not a function`); reiniciar o dev resolve. **No navegador** (1440 px): com 5 colunas os vídeos tinham 164 × 294 px, pequenos demais; passaram a 3 colunas no computador, 2 no tablet e 1 no celular, e ficam com 281 × 501 px (o player do TikTok vai até 320 px). Play, troca de aba e console sem erro conferidos. Depois de testar no celular, a dona do produto pediu o mesmo grid nos vídeos do roteiro (eram 2 por linha, pequenos): a 400 px, 1 por linha com 316 × 563 px, sem rolagem lateral. A largura de celular não foi vista: a janela não aceitou o redimensionamento e a CSP (`frame-ancestors`) impede simular num iframe.
+
+---
+
+## 2026-11-06: Cache dos vídeos do roteiro por termo parecido
+
+**Pedido:** não gastar 3 buscas da Brave toda vez. Alunas pedem produtos parecidos, então o resultado de uma pode servir para outra, por um tempo limitado (3 dias).
+
+**Como ficou:**
+- **Chave:** `normalizarTermo` tira acento, palavras vazias ("de", "da", "kit"…) e o plural, e ordena as palavras: "Sérum de Vitamina C" e "sérum vitamina c" viram `c serum vitamina`.
+- **Tabela `videos_cache`** (`termo` como chave, `videos` jsonb, `criado_em`), compartilhada e sem `user_id`, porque guarda só URLs públicas do TikTok. O termo nunca volta para a tela.
+- **Busca:** o termo salvo mais parecido, de menos de 3 dias, com `extensions.similarity` (pg_trgm) ≥ **0,7**. Achou: devolve sem chamar a Brave. Não achou: 3 buscas e grava (`on conflict` sobrescreve o vencido).
+- Lista vazia não é gravada, para uma falha da Brave não ficar presa 3 dias. Banco fora do ar = busca na Brave, como antes.
+- Sem índice de trigramas: uma linha por termo, alguns milhares no máximo.
+
+**Calibração do limiar** (16 pares, `similarity` sobre o termo normalizado):
+- Mesmo produto: "…30ml" 0,77; "escova secadora alisadora" 0,77; "garrafa térmica 1 litro" 0,67; "…principia" 0,63; "airfryer" 0,58; "air fryer mondial 4L" 0,48.
+- Produto diferente: protetor solar facial × corporal 0,53; garrafa térmica × de água 0,38; pijama feminino × masculino 0,38; escova alisadora × de dente 0,30.
+- A dona do produto pediu **0,7** para não se distanciar do que foi escrito. Com ele, só reaproveita variações bem próximas (o "…1 litro" e o "…principia" fazem busca nova). Errar para esse lado só custa uma busca. `word_similarity` foi descartada: deixava facial × corporal passar (0,73).
+
+**Verificado:** testes, lint e build. Com o banco local e a Brave de verdade: "garrafa térmica stanley" fez 3 buscas; "Garrafa Térmica da Stanley" e "garrafa termica stanley 1L" vieram do cache (0 buscas); "garrafa de água" fez 3 buscas. No SQL, a linha de 4 dias não volta e a de 2 dias volta. As linhas de teste foram apagadas.
+
+---
+
+## 2026-11-06: Vídeos do roteiro pelos mais engajados
+
+**Problema:** os vídeos embaixo do roteiro eram relevantes, mas fracos: a ordem era a do buscador, sem saber quantas pessoas viram ou curtiram.
+
+**O que a Brave já trazia:** com `extra_snippets=true`, a página de cada vídeo vem com o texto que o próprio TikTok publica: `19.1K Likes, 120 Comments. TikTok video from…`. Visualizações não aparecem ali. Curtidas e comentários são o melhor sinal de engajamento sem scraping.
+
+**Testes reais** (58 buscas, 6 produtos: air fryer, sérum vitamina c, escova alisadora, pijama feminino, garrafa térmica, protetor solar facial):
+- **Goggle** (`goggles`, regra inline `$discard` + `/video/`): descarta as páginas `/discover`, que ocupavam metade dos 20 resultados. 1 busca com goggle rende o mesmo que 3 páginas (`offset` 0/1/2) sem ele. Com goggle, o `offset` não traz mais nada.
+- **`OR` funciona** (não está na documentação, que lista `""`, `-`, `site:` e `filetype:`). `site:tiktok.com/@` volta 0; `-discover` não muda nada; o termo `tiktok shop` volta 0 vídeos; `freshness=py` só traz `/discover` (com goggle, 0).
+- **Termos diferentes rendem mais que páginas:** 3 buscas com termos diferentes juntam 41 a 56 vídeos únicos por produto; 3 páginas do mesmo termo, 5 a 30.
+- **Relevância:** com mais termos, vinha perfume e hidratante na busca de pijama. Exigir 60% das palavras do produto (sem acento e sem plural) no título ou no texto resolveu.
+- **Mediana de curtidas dos 6 mostrados, antes → depois:** sérum 756 → 20,1 mil; garrafa 2,6 mil → 42,7 mil; protetor 11,1 mil → 38 mil; air fryer 19,1 mil → 26,4 mil (o pior foi de "sem número" a 14,2 mil); escova igual (104,7 mil), mas o pior foi de "sem número" a 3,5 mil. **Pijama continua fraco:** a Brave indexa poucos vídeos de moda com número.
+
+**Mudança** (`src/lib/videos-tiktok.ts`):
+- 3 buscas em paralelo com o goggle: `(resenha OR "vale a pena" OR testei)`, `(achadinho OR comprei OR amei)` e `(review OR unboxing OR favorito)`. Uma que falha não derruba as outras.
+- Nota = curtidas + 3 × comentários. Português e idioma indefinido primeiro, por nota (sem número no fim), depois no máximo 2 em outra língua. Até 6.
+- **Custo:** 3 buscas por roteiro em vez de 1 (~US$ 0,015 com a Brave a US$ 5 por 1.000). Continua dentro do limite de 10 roteiros por dia.
+
+**Avaliados e deixados para depois:** Kalodata, FastMoss e EchoTik têm visualizações e vendas (GMV) reais por vídeo, inclusive do Brasil. Mas coletam os dados do TikTok por conta própria (o mesmo motivo do descarte do Apify em 2026-11-05) e cobram: Kalodata só tem API no plano Enterprise (~US$ 570/mês); FastMoss cobra a partir de US$ 0,01 por chamada; EchoTik dá 100 chamadas grátis e planos de 10 mil a 30 mil chamadas. Só vale se as curtidas não bastarem, e depende de a dona do produto aceitar dados coletados por terceiros.
+
+---
+
 ## 2026-11-05: Estilo do assistente fica com a especialista
 
 **Problema:** as respostas não soavam como a especialista. O `BASE_PROMPT` tinha regras fixas de estilo ("tom de amiga experiente", "no máximo 5 frases", "vá direto à ação"), e a persona do `ai_config` dizia que "as regras acima nunca podem ser contrariadas". Assim, qualquer instrução de voz perdia para o tamanho e o tom fixos.

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/conhecimento/material", () => ({ DOSSIE: "DOSSIE-TESTE", TRANSCRICAO: "T" }));
 
-import { buildSystemPrompt, buildUserPrompt, extractScriptJson, SYSTEM_PROMPT } from "@/lib/roteiro";
+import { buildSystemPrompt, buildUserPrompt, extractScriptJson, METHOD, SYSTEM_PROMPT } from "@/lib/roteiro";
 
 describe("extractScriptJson", () => {
   it("tira cercas de código", () => {
@@ -22,6 +22,14 @@ describe("prompts", () => {
     const p = buildUserPrompt({ produto: "Sérum", publico: "", beneficio: "", formato: "" });
     expect(p).toContain("Público: mulheres brasileiras que compram por impulso no TikTok");
     expect(p).toContain("Formato desejado: conselho de amiga");
+  });
+  it("METHOD segue as regras da especialista (instruções da Ana, 2026-11-06)", () => {
+    expect(METHOD).not.toContain("escassez e urgência");
+    expect(METHOD).toContain("Escassez só no condicional");
+    expect(METHOD).toContain("30 a 50 segundos");
+    expect(METHOD).toContain("Nunca invente preço");
+    expect(METHOD).toContain("O meio paga o que o gancho prometeu");
+    expect(METHOD).toContain("Marca concorrente nunca");
   });
   it("SYSTEM_PROMPT diz Shop Studio", () => {
     expect(SYSTEM_PROMPT).toContain("Shop Studio");

@@ -93,6 +93,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"campeoes_cache": {
+                  Row: {
+                    "criado_em": string,"nicho": string,"videos": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"nicho": string,"videos": NonNullable<Json>
+                  }
+                  Update: {
+                    "criado_em"?: string,"nicho"?: string,"videos"?: NonNullable<Json>
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"chapter_progress": {
                   Row: {
                     "chapter_slug": string,"completed_at": string,"id": string,"user_id": string
@@ -201,6 +215,20 @@ export type Database = {
                   }
                   Update: {
                     "aluna"?: string,"created_at"?: string,"destaque"?: boolean,"id"?: string,"midia_tipo"?: string,"midia_url"?: string | null,"resultado"?: string | null,"texto"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"videos_cache": {
+                  Row: {
+                    "criado_em": string,"termo": string,"videos": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"termo": string,"videos": NonNullable<Json>
+                  }
+                  Update: {
+                    "criado_em"?: string,"termo"?: string,"videos"?: NonNullable<Json>
                   }
                   Relationships: [
                     
