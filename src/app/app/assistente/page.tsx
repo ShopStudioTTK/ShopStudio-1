@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { usePerguntasHoje } from "@/hooks/use-perguntas-hoje";
 import { getChapter } from "@/content/chapters";
 import { LIMITE_DIARIO, mensagemDeLimite } from "@/lib/limite";
-import { cn } from "@/lib/utils";
+import { cn, partesNegrito } from "@/lib/utils";
 
 const suggestions = [
   "Quantos seguidores preciso para ativar a conta?",
@@ -137,7 +137,11 @@ const Assistant = () => {
                 )}
               >
                 {message.content ? (
-                  <div className="whitespace-pre-wrap">{message.content}</div>
+                  <div className="whitespace-pre-wrap">
+                    {partesNegrito(message.content).map((parte, i) =>
+                      i % 2 ? <strong key={i} className="font-semibold text-foreground">{parte}</strong> : parte,
+                    )}
+                  </div>
                 ) : (
                   <span className="inline-flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
