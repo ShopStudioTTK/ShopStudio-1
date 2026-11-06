@@ -66,6 +66,11 @@ Preencha também no `.env.local`:
 | `OPENROUTER_PRESET` | só servidor, só o assistente. Slug do preset da OpenRouter com a voz da especialista (hoje: `ana-shop-studio-leads-behavior`). Com ele, a persona do `ai_config` sai do prompt do assistente. Vazio = sem preset | não |
 | `WEBHOOK_CONTA_SEGREDO` | só servidor (`/api/webhook/conta`). A plataforma de venda manda no `Authorization: Bearer`. Sem ele, o webhook responde 500 | **sim** |
 | `WEBHOOK_CONTA_ORIGENS` | só servidor. Origens liberadas no CORS do webhook, separadas por vírgula. Vazio = nenhuma | não |
+| `APPLYFY_WEBHOOK_TOKEN` | só servidor (`/api/webhook/applyfy`). Token do webhook na Applyfy, que ela manda no campo `token` do corpo. Sem ele, o webhook responde 500 | **sim** |
+| `APPLYFY_PRODUTO_IDS` | só servidor. Ids dos produtos da Applyfy que liberam o app (`product.id` ou `externalId`), separados por vírgula. Vazio = o webhook recusa tudo | não |
+| `RESEND_API_KEY` | só servidor (`src/lib/email.ts`). Envio do e-mail de acesso pela Resend | **sim** |
+| `EMAIL_REMETENTE` | só servidor. Remetente do e-mail de acesso, num domínio verificado na Resend | não |
+| `SITE_URL` | só servidor. Endereço público do app, sem barra no fim; o e-mail leva `SITE_URL/entrar` | não |
 
 Só as variáveis `NEXT_PUBLIC_*` chegam ao navegador. O `.env.local` está no `.gitignore` e nunca deve ser commitado.
 
@@ -100,6 +105,7 @@ src/
       roteiro/route.ts        gerador de roteiros (JSON)
       senha/route.ts          troca da senha temporária (primeiro acesso)
       webhook/conta/route.ts  cria a conta da aluna (chamado pela plataforma de venda)
+      webhook/applyfy/route.ts compra paga na Applyfy → cria a conta e manda o e-mail de acesso
     icon.tsx  apple-icon.tsx  manifest.ts    identidade "ss" gerada no build
   components/                 telas e peças (ui/ = shadcn)
   content/                    texto dos capítulos, ganchos, checklist, desafio
@@ -109,6 +115,7 @@ src/
     api-auth.ts               checagens das rotas de IA + chamada à OpenRouter (provedores fixos)
     assistente.ts             prompt do assistente
     contas.ts                 criarConta: usuário + senha temporária + acesso (só servidor)
+    email.ts                  e-mail de acesso (link, e-mail e senha temporária) pela Resend
     roteiro.ts                prompt do gerador de roteiros
     limite.ts                 limite diário (15) e aviso (a partir de 12)
     uso.ts  sse.ts            leitura do stream e do custo da OpenRouter
@@ -169,6 +176,7 @@ Migrations em `supabase/migrations/`:
 | Tabela | Para quê | Quem escreve |
 |---|---|---|
 | `profiles` | nome e e-mail da aluna | a própria aluna |
+| `compras_applyfy` | transações da Applyfy já processadas (o aviso repetido não gera outra senha) | servidor (`/api/webhook/applyfy`) |
 | `senhas_temporarias` | contas que ainda não trocaram a senha temporária | servidor (webhook e `/api/senha`) |
 | `chapter_progress`, `checklist_progress` | progresso | a própria aluna |
 | `saved_scripts` | roteiros salvos | a própria aluna |
@@ -206,6 +214,20 @@ curl -X POST http://localhost:3000/api/webhook/conta \
 **Segredo e CORS:** o segredo é o que impede outra pessoa de criar contas. A lista `WEBHOOK_CONTA_ORIGENS` só controla o CORS: um pedido com `Origin` fora dela leva 403, e só as origens da lista recebem `Access-Control-Allow-Origin`. Chamadas de servidor costumam não mandar `Origin`, e fora do navegador esse cabeçalho pode ser forjado, então ele não substitui o segredo.
 
 **Supabase:** provedor de e-mail ligado e **cadastro público desligado** (`enable_signup = false`). Com o cadastro ligado, qualquer pessoa criava conta com a chave pública. A marca de senha temporária fica numa tabela que só o servidor lê, e não nos metadados do usuário, que viajam dentro do JWT e aparecem no navegador.
+
+### Compra na Applyfy → e-mail de acesso
+
+`POST /api/webhook/applyfy` é a URL cadastrada no webhook da Applyfy (evento de pagamento aprovado).
+
+1. Confere o campo `token` do corpo com `APPLYFY_WEBHOOK_TOKEN` (tempo constante). Errado ou ausente: 401.
+2. Só age em `TRANSACTION_PAID` de um produto de `APPLYFY_PRODUTO_IDS`. Outros eventos e produtos: 200 sem fazer nada. `TRANSACTION_CANCELED` na Applyfy é cartão recusado, não cancelamento.
+3. Grava o `transaction.id` em `compras_applyfy`. Se já estava lá, é aviso repetido: 200 sem gerar outra senha (ela invalidaria a que a aluna recebeu).
+4. Chama `criarConta` e manda o e-mail (`src/lib/email.ts`, Resend) com o link `SITE_URL/entrar`, o e-mail e a senha temporária. Se a aluna já tinha definido a senha (`existe`), o e-mail só avisa que o acesso está liberado.
+5. Se a conta ou o e-mail falharem, apaga a linha de `compras_applyfy` e responde 500, para a Applyfy reenviar (o reenvio gera uma senha nova e outro e-mail).
+
+A senha temporária nunca volta na resposta nem vai para o log. Reembolso e chargeback ainda não tiram o acesso.
+
+**Configurar:** na Resend, verificar o domínio do remetente e criar a chave. Na Applyfy, cadastrar o webhook com a URL `https://<app>/api/webhook/applyfy` e copiar o token para `APPLYFY_WEBHOOK_TOKEN`. O id do produto vai em `APPLYFY_PRODUTO_IDS`.
 
 ## Acesso e códigos
 

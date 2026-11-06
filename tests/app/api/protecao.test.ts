@@ -15,11 +15,11 @@ import { consultas, getUser, reiniciarDb, responderCom } from "../../apoio/db-fa
 /**
  * Todas as rotas de src/app/api, achadas sozinhas: rota nova entra aqui sem ninguém lembrar.
  * Nenhuma rota pode tocar no banco sem token conferido, e só as de SO_LOGIN dispensam o acesso
- * e a troca da senha temporária. O webhook não é de aluna: em vez do token, exige o segredo.
+ * e a troca da senha temporária. Os webhooks não são de aluna: em vez do token, exigem o segredo.
  */
 const modulos = import.meta.glob<Record<string, unknown>>("../../../src/app/api/**/route.ts", { eager: true });
 const SO_LOGIN = new Set(["perfil POST", "acesso GET", "acesso POST", "senha POST"]);
-const WEBHOOK = new Set(["webhook/conta POST"]);
+const WEBHOOK = new Set(["webhook/conta POST", "webhook/applyfy POST"]);
 const DE_ALUNA_COM_ACESSO = (h: { nome: string }) => !SO_LOGIN.has(h.nome) && !WEBHOOK.has(h.nome);
 const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
@@ -44,6 +44,8 @@ beforeEach(() => {
   vi.stubEnv("OPENROUTER_API_KEY", "chave");
   vi.stubEnv("OPENROUTER_MODEL", "modelo");
   vi.stubEnv("WEBHOOK_CONTA_SEGREDO", "segredo");
+  vi.stubEnv("APPLYFY_WEBHOOK_TOKEN", "token");
+  vi.stubEnv("APPLYFY_PRODUTO_IDS", "p1");
   vi.spyOn(console, "error").mockImplementation(() => {});
   reiniciarDb();
   getUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
