@@ -93,6 +93,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"campeoes_cache": {
+                  Row: {
+                    "criado_em": string,"nicho": string,"videos": NonNullable<Json>
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"nicho": string,"videos": NonNullable<Json>
+                  }
+                  Update: {
+                    "criado_em"?: string,"nicho"?: string,"videos"?: NonNullable<Json>
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"chapter_progress": {
                   Row: {
                     "chapter_slug": string,"completed_at": string,"id": string,"user_id": string

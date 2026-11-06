@@ -111,3 +111,23 @@ export const VideoEmbed = ({ url, titulo, className, previa = false }: VideoEmbe
     </div>
   );
 };
+
+/** Vídeo do TikTok com o título como link e a marca "outro idioma". Usado no roteiro e nos campeões. */
+export const CartaoTiktok = ({ url, titulo, outraLingua }: { url: string; titulo: string; outraLingua: boolean }) => (
+  <li className="space-y-2">
+    <VideoEmbed url={url} titulo={titulo} previa />
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="line-clamp-2 text-[12px] leading-snug text-foreground/75 underline-offset-2 hover:text-foreground hover:underline"
+    >
+      {outraLingua ? (
+        <span className="mr-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+          outro idioma
+        </span>
+      ) : null}
+      {titulo || "Ver no TikTok"}
+    </a>
+  </li>
+);

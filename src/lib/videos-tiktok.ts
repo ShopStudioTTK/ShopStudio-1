@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { NICHOS, type Nicho } from "@/content/nichos";
 
 /**
  * Amostra de vídeos do TikTok sobre o produto do roteiro.
@@ -14,6 +15,7 @@ import { db } from "@/lib/db";
 export type VideoRelacionado = { url: string; titulo: string; outraLingua: boolean };
 
 const MAX_VIDEOS = 6;
+const MAX_CAMPEOES = 10;
 const MAX_OUTRA_LINGUA = 2;
 
 // ponytail: heurística por palavras do título; a `language` da Brave erra (marcou título em português como "en").
@@ -74,10 +76,10 @@ export const relevante = (produto: string, texto: string): boolean => {
 type Resultado = { url?: string; title?: string; description?: string; extra_snippets?: string[] };
 
 /**
- * Só vídeos que falam do produto. Português e idioma indefinido primeiro, do mais engajado ao menos
- * (sem número no fim), depois no máximo 2 em outra língua. Até 6.
+ * Só vídeos que passam no `filtro`. Português e idioma indefinido primeiro, do mais engajado ao menos
+ * (sem número no fim), depois no máximo 2 em outra língua. Até `max`.
  */
-export const ordenarVideos = (resultados: Resultado[] | undefined, produto: string): VideoRelacionado[] => {
+const ordenar = (resultados: Resultado[] | undefined, filtro: (texto: string) => boolean, max: number): VideoRelacionado[] => {
   const vistos = new Set<string>();
   const candidatos: (VideoRelacionado & { nota: number })[] = [];
   for (const r of resultados ?? []) {
@@ -85,7 +87,7 @@ export const ordenarVideos = (resultados: Resultado[] | undefined, produto: stri
     if (!url || vistos.has(url)) continue;
     vistos.add(url);
     const texto = [r.title, r.description, ...(r.extra_snippets ?? [])].join(" ");
-    if (!relevante(produto, texto)) continue;
+    if (!filtro(texto)) continue;
     const titulo = String(r.title ?? "").replace(/\s*\|\s*TikTok\s*$/i, "").trim().slice(0, 120);
     candidatos.push({ url, titulo, outraLingua: lingua(titulo) === "outra", nota: engajamento(texto) ?? -1 });
   }
@@ -94,7 +96,28 @@ export const ordenarVideos = (resultados: Resultado[] | undefined, produto: stri
     ...candidatos.filter((v) => !v.outraLingua),
     ...candidatos.filter((v) => v.outraLingua).slice(0, MAX_OUTRA_LINGUA),
   ];
-  return escolhidos.slice(0, MAX_VIDEOS).map(({ url, titulo, outraLingua }) => ({ url, titulo, outraLingua }));
+  return escolhidos.slice(0, max).map(({ url, titulo, outraLingua }) => ({ url, titulo, outraLingua }));
+};
+
+/** Vídeos do roteiro: só os que falam do produto, até 6. */
+export const ordenarVideos = (resultados: Resultado[] | undefined, produto: string) =>
+  ordenar(resultados, (texto) => relevante(produto, texto), MAX_VIDEOS);
+
+const SINAL_DE_VENDA = [
+  "achadinh", "achado", "comprei", "link", "shop", "shein", "cupom", "carrinho", "loja", "compra", "preco", "r$",
+  "promo", "desconto", "mercado livre", "amazon", "provador", "unboxing", "vale a pena", "resenha", "testei",
+];
+// O público é feminino: "#modamasculina" aparecia em moda feminina.
+const FORA_DO_PUBLICO = ["masculin"];
+
+/** Vídeo de campeão: fala do nicho, tem sinal de venda e não é de moda masculina. */
+export const doNicho = (nicho: Nicho, texto: string): boolean => {
+  const t = semAcento(texto);
+  return (
+    nicho.palavras.some((p) => t.includes(p)) &&
+    SINAL_DE_VENDA.some((p) => t.includes(p)) &&
+    !FORA_DO_PUBLICO.some((p) => t.includes(p))
+  );
 };
 
 // Testados em 2026-11-06: 3 termos diferentes trazem ~50 vídeos por produto; 3 páginas do mesmo termo, ~20.
@@ -169,5 +192,37 @@ export const buscarVideos = async (produto: string): Promise<VideoRelacionado[]>
   const videos = ordenarVideos(listas.flat(), termo);
   // Lista vazia não vai para o cache: uma falha da Brave não fica presa por 3 dias.
   if (chaveCache && videos.length) await guardar(chaveCache, videos);
+  return videos;
+};
+
+/**
+ * Vídeos campeões de um nicho, iguais para todas as alunas: ficam 1 dia em `campeoes_cache` e são
+ * buscados de novo por quem abrir a aba depois disso. Se a Brave falhar, fica o que estava salvo.
+ */
+// ponytail: atualiza na hora em que alguém abre a aba vencida (essa pessoa espera as buscas); um cron, se pesar.
+export const buscarCampeoes = async (slug: string): Promise<VideoRelacionado[]> => {
+  const nicho = NICHOS.find((n) => n.slug === slug);
+  if (!nicho) return [];
+  let salvo: { videos: VideoRelacionado[]; fresco: boolean } | undefined;
+  try {
+    [salvo] = (await db()`
+      select videos, criado_em > now() - interval '1 day' as fresco
+      from public.campeoes_cache where nicho = ${slug}`) as unknown as (typeof salvo)[];
+  } catch (e) {
+    console.error("videos-tiktok: falha ao ler os campeões", e);
+  }
+  if (salvo?.fresco) return salvo.videos;
+  const chave = process.env.BRAVE_API_KEY;
+  if (!chave) return salvo?.videos ?? [];
+  const listas = await Promise.all(nicho.buscas.map((b) => buscar(`site:tiktok.com ${b}`, chave)));
+  const videos = ordenar(listas.flat(), (texto) => doNicho(nicho, texto), MAX_CAMPEOES);
+  if (!videos.length) return salvo?.videos ?? [];
+  try {
+    await db()`
+      insert into public.campeoes_cache (nicho, videos) values (${slug}, ${JSON.stringify(videos)}::text::jsonb)
+      on conflict (nicho) do update set videos = excluded.videos, criado_em = now()`;
+  } catch (e) {
+    console.error("videos-tiktok: falha ao gravar os campeões", e);
+  }
   return videos;
 };

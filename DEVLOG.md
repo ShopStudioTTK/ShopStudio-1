@@ -4,6 +4,29 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-06: Campeões por nicho, com os vídeos mais engajados
+
+**Pedido:** a tela de Campeões deixa de depender do cadastro da administração e ganha abas por nicho, com termos femininos e de venda. Cada aba mostra os vídeos de **produto** com mais engajamento (não qualquer vídeo do tema), iguais para todas as alunas, num cache de 1 dia sempre renovado. 5 abas e 10 vídeos por aba para começar.
+
+**Abas:** moda fitness, beleza e maternidade (pedidas) e casa e cozinha e moda feminina (escolha nossa: achadinhos de casa e roupa feminina são dos nichos mais fortes do TikTok Shop no Brasil). Ficam em `src/content/nichos.ts`, com as buscas e as palavras de cada uma.
+
+**Testes reais** (15 buscas, uma rodada por aba): cada aba junta de 40 a 55 vídeos; os 10 primeiros vão de ~5 mil a ~500 mil curtidas, quase todos em português e de compra (Shopee, Shein, provador, achadinhos). Ajustes que o teste mostrou:
+- "#modamasculina" aparecia em moda feminina: tudo que tem "masculin" sai.
+- "mãe" puxava "viagem em família com minha mãe": saiu das palavras de maternidade.
+- O filtro de sinal de venda quase não corta (as buscas já pedem achadinho/comprei), mas fica de proteção: tirou "enxoval: o que é realmente necessário", que é dica, não venda.
+
+**Como ficou:**
+- `buscarCampeoes` reaproveita a busca e a ordem do roteiro (goggle de só vídeos, curtidas + 3 × comentários, português primeiro), com outro filtro (`doNicho`) e até 10.
+- `campeoes_cache`, uma linha por nicho. Mais de 1 dia = quem abrir a aba busca de novo (espera ~0,5 s) e grava. Brave sem resultado = fica o que estava salvo, mesmo vencido. Custo máximo: 5 nichos × 3 buscas = 15 por dia.
+- Sem cron: a renovação acontece quando alguém abre a aba vencida. Se a espera incomodar, um cron resolve.
+- O cartão de vídeo do roteiro virou `CartaoTiktok` (`video-embed.tsx`), usado nas duas telas.
+
+**Avaliado para as abas mudarem sozinhas:** o feed "em alta" do Google para o Brasil (RSS) só traz notícias e famosos e não filtra por categoria; a API oficial do Google Trends está em teste fechado. DataForSEO e SerpApi dão as buscas em alta relacionadas a um termo, inclusive no Google Shopping, por ~US$ 0,002 por consulta ou no plano grátis, mas coletam do Google por conta própria e ainda não foram testadas. Ficou para depois, com as abas fixas.
+
+**Verificado:** testes, lint e build. Com o build em `localhost:3005`, uma conta de teste (apagada no fim) e a Brave de verdade: as 5 abas com 10 vídeos cada; na segunda rodada, todas do cache (~7 ms); nicho inválido = 400. O `next dev` que já estava rodando guardou a versão antiga do módulo e deu 500 (`buscarCampeoes is not a function`); reiniciar o dev resolve. A tela não foi vista no navegador (a extensão do Chrome estava desconectada).
+
+---
+
 ## 2026-11-06: Cache dos vídeos do roteiro por termo parecido
 
 **Pedido:** não gastar 3 buscas da Brave toda vez. Alunas pedem produtos parecidos, então o resultado de uma pode servir para outra, por um tempo limitado (3 dias).

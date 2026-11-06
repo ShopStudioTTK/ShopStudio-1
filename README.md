@@ -140,6 +140,8 @@ Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de e
 
 **Vídeos sobre o produto:** em paralelo com a IA, a rota faz 3 buscas na **Brave Search API** (`site:tiktok.com <produto>` com 3 grupos de termos em `OR`, Brasil, português, goggle que deixa só páginas de vídeo) e devolve até 6 vídeos em `videos` (`src/lib/videos-tiktok.ts`). Só entram vídeos que citam o produto, e os mais engajados (curtidas + 3 × comentários, lidos do texto que o TikTok publica na página) vêm primeiro: português primeiro e no máximo 2 em outra língua. A tela mostra com o player oficial do TikTok, avisa que é uma amostra (pode ter vídeo antigo ou em outro idioma) e tem o link "Ver os mais recentes no TikTok". Sem `BRAVE_API_KEY` ou com a Brave fora do ar, o roteiro sai sem vídeos. A busca conta no mesmo limite de 10 roteiros/dia (3 buscas da Brave por roteiro). **Cache:** o resultado fica 3 dias em `videos_cache` e serve para qualquer aluna que pedir um termo parecido (similaridade `pg_trgm` ≥ 0,7 sobre o termo sem acento, sem plural e com as palavras em ordem), sem chamar a Brave. Por que não scraping nem API do TikTok: ver o DEVLOG.
 
+**Vídeos campeões:** a tela tem uma aba por nicho (`src/content/nichos.ts`: moda fitness, beleza, maternidade, casa e cozinha, moda feminina). Cada aba chama `GET /api/campeoes?nicho=<slug>`, que devolve até 10 vídeos de produto do TikTok, os mais engajados, iguais para todas as alunas. Eles saem da mesma busca do roteiro (3 buscas na Brave por nicho, com termos de venda), filtrados por `doNicho`: o texto precisa citar uma palavra do nicho, ter sinal de venda (achadinho, comprei, Shopee, provador…) e não ser de moda masculina. O resultado fica 1 dia em `campeoes_cache`; quem abre a aba depois disso espera a busca nova. Se a Brave falhar, fica o que estava salvo. Custo máximo: 15 buscas por dia. A galeria antiga, cadastrada pela administração (`chapter_videos`, coleção `campeao`), continua só no bloco da tela inicial.
+
 ### Custos e provedor
 - O modelo **DeepSeek v4.1 Flash** é oferecido por dezenas de provedores, com preços muito diferentes. As chamadas vão fixas para o **Morph (fp8)**, com a **DeepInfra (fp8)** de reserva (`PROVEDORES` em `src/lib/api-auth.ts`).
 - O material vem no início do prompt e é igual para todas as alunas. Isso aproveita o **cache de prompt**: medido ~**US$ 0,0004** por pergunta com cache e ~US$ 0,0018 com o cache vazio.
@@ -176,6 +178,7 @@ Migrations em `supabase/migrations/`:
 | `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
 | `chapter_videos` + bucket `studio-videos` | vídeos dos capítulos | só service role |
 | `videos_cache` | vídeos do TikTok por termo normalizado, reaproveitados por 3 dias (compartilhado, sem `user_id`) | servidor (`/api/roteiro`) |
+| `campeoes_cache` | os 10 vídeos campeões de cada nicho, renovados a cada 1 dia (compartilhado, sem `user_id`) | servidor (`/api/campeoes`) |
 | `ai_perguntas` | perguntas ao assistente, tokens e custo | servidor (`/api/assistente`) |
 
 Ainda não existe página de administração. Códigos, vídeos, persona e base de conhecimento são editados no painel do Supabase.

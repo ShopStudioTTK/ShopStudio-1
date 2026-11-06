@@ -1,13 +1,28 @@
 "use client";
 
-import Link from "next/link";
-import { Clapperboard, Trophy } from "lucide-react";
-import { VideoEmbed } from "@/components/video-embed";
-import { useChampionVideos } from "@/hooks/use-videos";
-import { chapterPath } from "@/content/chapters";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ExternalLink, Trophy } from "lucide-react";
+import { CartaoTiktok } from "@/components/video-embed";
+import { NICHOS } from "@/content/nichos";
+import { useAuth } from "@/hooks/use-auth";
+import { api } from "@/lib/api-cliente";
+import { parseVideoUrl } from "@/lib/video";
+import { cn } from "@/lib/utils";
+
+type Video = { url: string; titulo: string; outraLingua: boolean };
 
 const Champioes = () => {
-  const { data: videos = [], isLoading } = useChampionVideos();
+  const { user } = useAuth();
+  const [aba, setAba] = useState(NICHOS[0].slug);
+  const nicho = NICHOS.find((n) => n.slug === aba) ?? NICHOS[0];
+  const { data: videos = [], isLoading } = useQuery({
+    queryKey: ["campeoes", aba],
+    enabled: Boolean(user?.id),
+    staleTime: 60 * 60 * 1000,
+    queryFn: async () => (await api<{ videos: Video[] }>(`/api/campeoes?nicho=${aba}`)).videos,
+  });
+  const lista = videos.filter((v) => parseVideoUrl(v.url).provider === "tiktok");
 
   return (
     <div className="space-y-8">
@@ -17,59 +32,66 @@ const Champioes = () => {
           Vídeos campeões
         </h1>
         <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-          Os vídeos que mais venderam, com o gancho, o produto e o formato que funcionaram. Assista,
-          anote o que dá certo e adapte para o seu produto — modelar não é copiar.
+          Os vídeos de produto com mais curtidas e comentários em cada nicho, atualizados todo dia. Assista, anote
+          o gancho e o formato que funcionaram e adapte para o seu produto — modelar não é copiar.
         </p>
       </header>
 
-      {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[0, 1].map((item) => (
-            <div key={item} className="aspect-video animate-pulse rounded-2xl border border-border bg-secondary/40" />
-          ))}
-        </div>
-      ) : videos.length ? (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {videos.map((video) => (
-            <article key={video.id} className="space-y-3">
-              <VideoEmbed url={video.url} titulo={video.titulo} />
-              <div>
-                <p className="font-display text-[19px] leading-snug">{video.titulo}</p>
-                {video.descricao ? (
-                  <p className="mt-1 text-[14.5px] leading-relaxed text-muted-foreground">
-                    {video.descricao}
-                  </p>
-                ) : null}
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-3xl border border-dashed border-border px-6 py-12 text-center">
-          <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-rose-soft text-rose">
-            <Trophy className="h-5 w-5" />
-          </span>
-          <p className="mt-4 font-display text-2xl leading-snug">
-            A galeria ainda está vazia.
-          </p>
-          <p className="mx-auto mt-2 max-w-md text-[14.5px] leading-relaxed text-muted-foreground">
-            Os vídeos campeões são cadastrados pela administração. Enquanto isso, estude a estrutura
-            do capítulo 10 e use o Banco de ganchos para montar o seu.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            <Link
-              href={chapterPath("a-estrutura-dos-videos-que-vendem")}
-              className="sticker hover:border-rose/50"
-            >
-              <Clapperboard className="h-3 w-3 text-rose" />
-              abrir capítulo 10
-            </Link>
-            <Link href="/app/roteiros" className="sticker hover:border-rose/50">
-              banco de ganchos
-            </Link>
+      <div role="tablist" aria-label="Nichos" className="flex flex-wrap gap-2">
+        {NICHOS.map((n) => (
+          <button
+            key={n.slug}
+            type="button"
+            role="tab"
+            aria-selected={n.slug === aba}
+            onClick={() => setAba(n.slug)}
+            className={cn("sticker transition-colors", n.slug === aba ? "border-rose/60 bg-rose-soft text-rose" : "hover:border-rose/50")}
+          >
+            {n.rotulo}
+          </button>
+        ))}
+      </div>
+
+      <section role="tabpanel" aria-label={nicho.rotulo} className="space-y-4">
+        {isLoading ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="aspect-[9/16] animate-pulse rounded-2xl border border-border bg-secondary/40" />
+            ))}
           </div>
-        </div>
-      )}
+        ) : lista.length ? (
+          <>
+            <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+              Achados por um buscador, do mais engajado ao menos. Não são necessariamente os mais recentes, e alguns
+              podem estar em outro idioma.
+            </p>
+            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+              {lista.map((v) => (
+                <CartaoTiktok key={v.url} {...v} />
+              ))}
+            </ul>
+          </>
+        ) : (
+          <div className="rounded-3xl border border-dashed border-border px-6 py-12 text-center">
+            <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-rose-soft text-rose">
+              <Trophy className="h-5 w-5" />
+            </span>
+            <p className="mt-4 font-display text-2xl leading-snug">Não achei vídeos de {nicho.rotulo.toLowerCase()} agora.</p>
+            <p className="mx-auto mt-2 max-w-md text-[14.5px] leading-relaxed text-muted-foreground">
+              Tente de novo mais tarde ou veja direto no TikTok.
+            </p>
+          </div>
+        )}
+        <a
+          href={`https://www.tiktok.com/search?q=${encodeURIComponent(`achadinhos ${nicho.rotulo}`)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-foreground/80 hover:text-foreground"
+        >
+          Ver os mais recentes no TikTok
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      </section>
     </div>
   );
 };

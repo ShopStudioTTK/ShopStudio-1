@@ -7,7 +7,8 @@ vi.mock("@/lib/db", async () => {
 });
 
 import { naTabela, reiniciarDb, responderCom } from "../apoio/db-falso";
-import { buscarVideos, engajamento, lingua, normalizarTermo, ordenarVideos, relevante } from "@/lib/videos-tiktok";
+import { buscarCampeoes, buscarVideos, doNicho, engajamento, lingua, normalizarTermo, ordenarVideos, relevante } from "@/lib/videos-tiktok";
+import { NICHOS } from "@/content/nichos";
 
 const r = (url: string, title: string, extra?: string) => ({ url, title, extra_snippets: extra ? [extra] : undefined });
 const v = (n: number) => `https://www.tiktok.com/@c${n}/video/7${String(n).padStart(18, "0")}`;
@@ -228,5 +229,82 @@ describe("buscarVideos", () => {
       await buscarVideos("de");
       expect(naTabela("videos_cache")).toHaveLength(0);
     });
+  });
+});
+
+describe("doNicho", () => {
+  const maternidade = NICHOS.find((n) => n.slug === "maternidade")!;
+
+  it("precisa falar do nicho e ter sinal de venda", () => {
+    expect(doNicho(maternidade, "Comprei todo o enxoval do bebê na Shopee")).toBe(true);
+    expect(doNicho(maternidade, "Enxoval do bebê: o que é realmente necessário")).toBe(false);
+    expect(doNicho(maternidade, "Viagem em família com minha mãe, comprei tudo")).toBe(false);
+  });
+
+  it("nada de moda masculina", () => {
+    const moda = NICHOS.find((n) => n.slug === "moda-feminina")!;
+    expect(doNicho(moda, "Outfit completo da shein #roupas #modamasculina")).toBe(false);
+    expect(doNicho(moda, "Provando roupas que comprei na shein")).toBe(true);
+  });
+});
+
+describe("buscarCampeoes (cache geral de 1 dia)", () => {
+  const salvos = [{ url: v(9), titulo: "Achadinhos de bebê", outraLingua: false }];
+  const achado = (n: number) => r(v(n), `Comprei o enxoval do bebê ${n}`, `${n}K Likes, 0 Comments.`);
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    reiniciarDb();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("BRAVE_API_KEY", "k");
+    global.fetch = vi.fn(async () => brave(Array.from({ length: 12 }, (_, i) => achado(i + 1)))) as typeof fetch;
+  });
+
+  it("salvo há menos de 1 dia: devolve do banco, sem chamar a Brave", async () => {
+    responderCom([["from public.campeoes_cache", [{ videos: salvos, fresco: true }]]]);
+    expect(await buscarCampeoes("maternidade")).toEqual(salvos);
+    expect(fetch).not.toHaveBeenCalled();
+    const [busca] = naTabela("campeoes_cache");
+    expect(busca.sql).toContain("interval '1 day'");
+    expect(busca.valores).toEqual(["maternidade"]);
+  });
+
+  it("vencido ou sem nada: faz as buscas do nicho, guarda e devolve até 10, do mais engajado", async () => {
+    responderCom([["from public.campeoes_cache", [{ videos: salvos, fresco: false }]]]);
+    const out = await buscarCampeoes("maternidade");
+    const nicho = NICHOS.find((n) => n.slug === "maternidade")!;
+    expect(fetch).toHaveBeenCalledTimes(nicho.buscas.length);
+    const qs = vi.mocked(fetch).mock.calls.map(([url]) => new URL(String(url)).searchParams.get("q"));
+    expect(qs).toEqual(nicho.buscas.map((b) => `site:tiktok.com ${b}`));
+    expect(out).toHaveLength(10);
+    expect(out[0].url).toBe(v(12));
+    const grava = naTabela("campeoes_cache")[1];
+    expect(grava.sql).toContain("on conflict (nicho) do update");
+    expect(grava.valores).toEqual(["maternidade", JSON.stringify(out)]);
+  });
+
+  it("Brave sem resultado: mostra o que estava salvo, mesmo vencido, e não grava", async () => {
+    responderCom([["from public.campeoes_cache", [{ videos: salvos, fresco: false }]]]);
+    vi.mocked(fetch).mockRejectedValue(new Error("net"));
+    expect(await buscarCampeoes("maternidade")).toEqual(salvos);
+    expect(naTabela("campeoes_cache")).toHaveLength(1);
+  });
+
+  it("banco fora do ar: busca na Brave mesmo assim", async () => {
+    responderCom([["campeoes_cache", new Error("db")]]);
+    expect(await buscarCampeoes("maternidade")).toHaveLength(10);
+  });
+
+  it("sem BRAVE_API_KEY: só o que estiver salvo", async () => {
+    vi.stubEnv("BRAVE_API_KEY", "");
+    expect(await buscarCampeoes("maternidade")).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("nicho desconhecido: lista vazia, sem banco nem Brave", async () => {
+    expect(await buscarCampeoes("xyz")).toEqual([]);
+    expect(naTabela("campeoes_cache")).toHaveLength(0);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { VideoEmbed } from "@/components/video-embed";
+import { CartaoTiktok } from "@/components/video-embed";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
 import { parseVideoUrl } from "@/lib/video";
@@ -27,22 +27,7 @@ const VideosRelacionados = ({ produto, videos }: { produto: string; videos?: Scr
           </p>
           <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
             {lista.map((v) => (
-              <li key={v.url} className="space-y-2">
-                <VideoEmbed url={v.url} titulo={v.titulo} previa />
-                <a
-                  href={v.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="line-clamp-2 text-[12px] leading-snug text-foreground/75 underline-offset-2 hover:text-foreground hover:underline"
-                >
-                  {v.outraLingua ? (
-                    <span className="mr-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-                      outro idioma
-                    </span>
-                  ) : null}
-                  {v.titulo || "Ver no TikTok"}
-                </a>
-              </li>
+              <CartaoTiktok key={v.url} {...v} />
             ))}
           </ul>
         </>
