@@ -14,13 +14,15 @@ export type ScriptResult = {
 };
 
 export const METHOD = `Método do guia Shop Studio (capítulo 10):
-- Gancho (0 a 3 segundos): faz a pessoa parar de rolar. Tipos: curiosidade, quebra de padrão, visual, texto na tela em caixa alta. Nunca comece com "oi gente, vim mostrar".
-- Problema (até 15 segundos): uma dor real que gera identificação, dita como quem conversa com uma amiga.
-- Solução (até 45 segundos): a transformação que o produto entrega, nunca medidas, gramas ou embalagem.
-- CTA (até 60 segundos): direciona a compra com escassez e urgência sem desespero, sempre citando o link da sacolinha.
-- Duração ideal: 30 a 60 segundos.
-- Tom: conselho de amiga, brasileiro, natural, sem parecer anúncio e sem promessas milagrosas.
-- Formatos possíveis: conselho de amiga, tela verde, unboxing, storytelling, respondendo comentários, música viral.`;
+- Gancho (2 a 5 segundos): faz a pessoa parar de rolar. Ângulos: curiosidade (informação incompleta de propósito), problema (dor que a pessoa reconhece), transformação (antes e depois), choque (quebra o padrão do feed, e o vídeo precisa sustentar) e prova social (só com sinal que dá para conferir). Pode vir com uma entrega visual (abrindo a caixa, produto perto da câmera, já em uso) ou texto na tela em caixa alta. Nunca comece com "oi gente, vim mostrar" nem com frase genérica como "você precisa conhecer isso".
+- Problema: uma dor real que gera identificação, dita como quem conversa com uma amiga.
+- Solução: a transformação que o produto entrega, nunca medidas, gramas ou embalagem. O meio paga o que o gancho prometeu: prometeu preço, mostra o preço; prometeu transformação, mostra no corpo ou no espaço. Tem pelo menos uma prova concreta, uma situação de uso e um motivo para comprar, nunca uma lista de atributos.
+- CTA: direciona para o link da sacolinha. Escassez só no condicional ("se ainda tiver nesse preço, aproveita"); nunca "vai acabar", "vai subir" ou "últimas unidades".
+- Duração: 30 a 50 segundos, no máximo 1 minuto.
+- Tom: conselho de amiga, no jeito de uma criadora comum (não da mentora), com frases que cabem numa respiração, palavras inteiras, sem parecer anúncio.
+- Verdade antes de criatividade: Nunca invente preço, desconto, estoque, comissão, depoimento, número de avaliações, celebridade usando, recomendação de médico ou dermatologista, nem efeito de saúde, emagrecimento ou pele. Para preço, use "confere o preço no carrinho".
+- Regras da plataforma: sem palavrão, sem promessa (nem a palavra "promete"), sem resultado milagroso. Marca concorrente nunca aparece, nem pelo nome ("você sabe de qual loja é essa, né?"). Nada de insulto ("burra", "baranga") nos ganchos.
+- Formatos possíveis: conselho de amiga, tela verde, unboxing, storytelling (só com história real de quem vai gravar), respondendo comentários (mesmo assim começa com gancho), música viral (produto no corpo com uma música liberada para uso comercial e texto na tela).`;
 
 export const SYSTEM_PROMPT = `Você é roteirista de vídeos de TikTok Shop para criadoras afiliadas no Brasil, treinada no guia Shop Studio.
 
