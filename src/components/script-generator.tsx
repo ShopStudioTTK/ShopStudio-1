@@ -1,14 +1,61 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Copy, Loader2, Plus, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { Copy, ExternalLink, Loader2, Plus, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { VideoEmbed } from "@/components/video-embed";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
+import { parseVideoUrl } from "@/lib/video";
+
+/** Amostra de vídeos do TikTok sobre o produto. Roteiro salvo volta do navegador: só aceita URL do TikTok. */
+const VideosRelacionados = ({ produto, videos }: { produto: string; videos?: ScriptResult["videos"] }) => {
+  const lista = (videos ?? []).filter((v) => parseVideoUrl(String(v?.url ?? "")).provider === "tiktok");
+  const busca = `https://www.tiktok.com/search?q=${encodeURIComponent(produto.trim())}`;
+  return (
+    <div className="rounded-2xl border border-border bg-card/70 p-5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-rose">Vídeos sobre esse produto</p>
+      {lista.length ? (
+        <>
+          <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
+            Uma amostra de vídeos do TikTok sobre “{produto}”, achados por um buscador. Não são necessariamente
+            os mais recentes, e alguns podem estar em outro idioma.
+          </p>
+          <ul className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {lista.map((v) => (
+              <li key={v.url} className="space-y-2">
+                <VideoEmbed url={v.url} titulo={v.titulo} />
+                <p className="line-clamp-2 text-[12px] leading-snug text-foreground/75">
+                  {v.outraLingua ? (
+                    <span className="mr-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                      outro idioma
+                    </span>
+                  ) : null}
+                  {v.titulo}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="mt-2 text-[12.5px] text-muted-foreground">Não achei vídeos sobre esse produto agora.</p>
+      )}
+      <a
+        href={busca}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-foreground/80 hover:text-foreground"
+      >
+        Ver os mais recentes no TikTok
+        <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+    </div>
+  );
+};
 
 type ScriptResult = {
   ganchos?: string[];
@@ -18,6 +65,7 @@ type ScriptResult = {
   roteiro?: { gancho?: string; problema?: string; solucao?: string; cta?: string };
   hashtags?: string[];
   formatoSugerido?: string;
+  videos?: { url: string; titulo: string; outraLingua: boolean }[];
 };
 
 type RoteiroSalvo = {
@@ -264,6 +312,8 @@ export const ScriptGenerator = () => {
               ) : null}
             </div>
           ) : null}
+
+          <VideosRelacionados produto={savedProduto || produto} videos={result.videos} />
 
           <div className="flex flex-wrap items-center gap-3">
             <Input

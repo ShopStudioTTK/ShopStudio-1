@@ -4,6 +4,35 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-05: Vídeos do TikTok embaixo do roteiro
+
+**Pedido:** depois de gerar o roteiro, mostrar vídeos do TikTok sobre aquele produto. Não precisam ser os mais recentes, mas os mais relevantes, de preferência em português, deixando claro que é uma amostra.
+
+**Opções avaliadas:**
+- **Scraping do TikTok:** os termos de uso proíbem coleta automatizada sem autorização, e o anti-bot quebra o scraper com frequência. Descartado. Serviços de terceiros (Apify, ScrapeCreators…) fazem o mesmo por baixo.
+- **APIs oficiais:** a Research API é só acadêmica e sem fins comerciais; a Display API mostra só os vídeos da própria conta; a API de parceiros do TikTok Shop exige aprovação como empresa e não tem busca de vídeos conhecida.
+- **Embutir a busca do TikTok:** impossível, porque a página responde `x-frame-options: SAMEORIGIN`. O TikTok só deixa embutir um vídeo por vez (ou um perfil).
+- **Google Custom Search:** fechada para clientes novos e desligada em 2027-01-01.
+- **Brave Search API + player oficial:** escolhida. O buscador acha as URLs e o vídeo toca no player do TikTok, que é permitido.
+
+**Testes reais com a Brave** (~60 buscas, 12 produtos):
+- Com filtro de data (`freshness`) só voltam páginas `/discover`, que não dá para embutir. Sem ele, os vídeos vêm, mas de 2022 a 2026: o índice não acompanha o que acabou de sair.
+- O endpoint de vídeos da Brave não traz nada do TikTok; só o de web.
+- Acrescentar **"resenha"** ao termo foi o que mais ajudou: air fryer foi de 1 para 10 vídeos em português, e o sérum de vitamina C (o pior caso, cheio de vídeos em espanhol) de 1 para 4. `country=BR` + `search_lang=pt-br` ajudam um pouco.
+- O campo `language` da Brave erra (marcou título em português como `en`). Por isso o idioma sai de uma heurística por palavras do título. Os trechos extras foram ignorados, porque vêm com texto em inglês ("TikTok video from…").
+- Resultado final: 3 a 6 vídeos por produto, quase todos em português e sobre o produto.
+
+**Decisões:**
+- A busca roda **dentro de `/api/roteiro`**, em paralelo com a IA: não atrasa, usa o mesmo limite diário (protege a cota da Brave) e não precisa de rota nova.
+- Falha da Brave ou falta da chave nunca derruba o roteiro.
+- Até 6 vídeos, português primeiro, no máximo 2 em outra língua, marcados com "outro idioma".
+- A tela tem também o link "Ver os mais recentes no TikTok" (busca do próprio TikTok), para quem quer o que acabou de sair.
+- Os vídeos vão junto quando o roteiro é salvo; como o salvo volta do navegador, a tela só mostra URLs do TikTok.
+
+**Verificado:** testes, lint e build. No navegador, com uma conta de teste (apagada no fim): roteiro de "escova alisadora de cabelo" com 6 vídeos em português, o player do TikTok tocando sem erro de CSP, e a tela em 375 px com 2 colunas.
+
+---
+
 ## 2026-11-05: Login por e-mail + senha, conta criada por webhook
 
 **Pedido:** tirar o login social e usar e-mail + senha (JWT). A conta da cliente é criada por um webhook da plataforma de venda, com uma senha temporária; no primeiro acesso ela define a sua. A marca de "senha temporária" não pode ser pública nem visível pelo console. A compra já libera o acesso. Como a senha temporária chega à cliente fica para depois (serviço de e-mail), então por enquanto o webhook só a devolve.
