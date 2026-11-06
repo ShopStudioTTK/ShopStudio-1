@@ -23,7 +23,7 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 **Avaliado para as abas mudarem sozinhas:** o feed "em alta" do Google para o Brasil (RSS) só traz notícias e famosos e não filtra por categoria; a API oficial do Google Trends está em teste fechado. DataForSEO e SerpApi dão as buscas em alta relacionadas a um termo, inclusive no Google Shopping, por ~US$ 0,002 por consulta ou no plano grátis, mas coletam do Google por conta própria e ainda não foram testadas. Ficou para depois, com as abas fixas.
 
-**Verificado:** testes, lint e build. Com o build em `localhost:3005`, uma conta de teste (apagada no fim) e a Brave de verdade: as 5 abas com 10 vídeos cada; na segunda rodada, todas do cache (~7 ms); nicho inválido = 400. O `next dev` que já estava rodando guardou a versão antiga do módulo e deu 500 (`buscarCampeoes is not a function`); reiniciar o dev resolve. A tela não foi vista no navegador (a extensão do Chrome estava desconectada).
+**Verificado:** testes, lint e build. Com o build em `localhost:3005`, uma conta de teste (apagada no fim) e a Brave de verdade: as 5 abas com 10 vídeos cada; na segunda rodada, todas do cache (~7 ms); nicho inválido = 400. O `next dev` que já estava rodando guardou a versão antiga do módulo e deu 500 (`buscarCampeoes is not a function`); reiniciar o dev resolve. **No navegador** (1440 px): com 5 colunas os vídeos tinham 164 × 294 px, pequenos demais; passaram a 3 colunas no computador, 2 no tablet e 1 no celular, e ficam com 281 × 501 px (o player do TikTok vai até 320 px). Play, troca de aba e console sem erro conferidos. A largura de celular não foi vista: a janela não aceitou o redimensionamento e a CSP (`frame-ancestors`) impede simular num iframe.
 
 ---
 

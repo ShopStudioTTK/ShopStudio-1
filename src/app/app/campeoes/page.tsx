@@ -54,9 +54,9 @@ const Champioes = () => {
 
       <section role="tabpanel" aria-label={nicho.rotulo} className="space-y-4">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {Array.from({ length: 5 }, (_, i) => (
-              <div key={i} className="aspect-[9/16] animate-pulse rounded-2xl border border-border bg-secondary/40" />
+          <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="mx-auto aspect-[9/16] w-full max-w-[320px] animate-pulse rounded-2xl border border-border bg-secondary/40" />
             ))}
           </div>
         ) : lista.length ? (
@@ -65,7 +65,7 @@ const Champioes = () => {
               Achados por um buscador, do mais engajado ao menos. Não são necessariamente os mais recentes, e alguns
               podem estar em outro idioma.
             </p>
-            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <ul className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
               {lista.map((v) => (
                 <CartaoTiktok key={v.url} {...v} />
               ))}
