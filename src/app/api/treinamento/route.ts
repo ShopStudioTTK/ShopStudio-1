@@ -69,11 +69,12 @@ export async function GET(req: Request) {
     sql`select status, count(*)::int as n from public.treinamento group by status`,
   ]);
 
-  const conversas = new Map<string, { id: string; criado_em: unknown; perguntas: (Linha & { ordem: number })[] }>();
+  type Conversa = { id: string; criado_em: unknown; perguntas: (Linha & { ordem: number })[] };
+  const conversas = new Map<string, Conversa>();
   const soltas: Linha[] = [];
   for (const l of linhas) {
     if (status === "pendente" && l.origem === "aluna" && l.conversa_id) {
-      const c = conversas.get(l.conversa_id) ?? { id: l.conversa_id, criado_em: l.criado_em, perguntas: [] };
+      const c: Conversa = conversas.get(l.conversa_id) ?? { id: l.conversa_id, criado_em: l.criado_em, perguntas: [] };
       c.perguntas.push(l as Linha & { ordem: number });
       conversas.set(l.conversa_id, c);
     } else soltas.push(l);

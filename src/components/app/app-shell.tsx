@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpen,
   Clapperboard,
+  GraduationCap,
   Home,
   ListChecks,
   LogOut,
@@ -19,6 +20,7 @@ import {
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/brand";
+import { useAccess } from "@/hooks/use-access";
 import { useAuth } from "@/hooks/use-auth";
 import { useChapterProgress } from "@/hooks/use-progress";
 import { chapters } from "@/content/chapters";
@@ -40,6 +42,9 @@ const aprender: NavItem[] = [
   { to: "/app/checklist", label: "Checklist", icon: ListChecks },
   { to: "/app/resultados", label: "Mural das alunas", icon: Trophy },
 ];
+
+/** Só aparece para admin; quem bloqueia de verdade é admin() nas rotas de /api/treinamento. */
+const administracao: NavItem[] = [{ to: "/app/treinamento", label: "Treinamento da IA", icon: GraduationCap }];
 
 const ativo = (pathname: string, item: NavItem) =>
   item.end ? pathname === item.to : pathname.startsWith(item.to);
@@ -149,6 +154,7 @@ const BarraInferior = () => {
 const AppShell = ({ children }: { children: ReactNode }) => {
   const { user, signOut } = useAuth();
   const { completed } = useChapterProgress();
+  const { isAdmin } = useAccess();
   const router = useRouter();
   const [menuAberto, setMenuAberto] = useState(false);
   const fecharMenu = () => setMenuAberto(false);
@@ -179,6 +185,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
         onNavigate={onNavigate}
         extra={{ "/app/capitulos": progressoTrilha }}
       />
+      {isAdmin && <Grupo titulo="Admin" itens={administracao} onNavigate={onNavigate} />}
     </div>
   );
 
