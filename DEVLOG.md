@@ -4,6 +4,43 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-09: Treinamento da IA — RAG com as respostas da expert
+
+**Pedido (dona do produto):** as respostas do assistente ainda não soam como a especialista. A ideia veio do `../whatsappBot` (FAQ semântico + fila de Treinamento): a expert responde perguntas do jeito dela, e as perguntas novas saem com o mesmo tom, as mesmas frases e as mesmas gírias. Só admin acessa a página, e o servidor confere isso de um jeito que não dá para burlar. Design: `docs/superpowers/specs/2026-11-09-treinamento-ia-design.md`; plano: `docs/superpowers/plans/2026-11-09-treinamento-ia.md`.
+
+**Como ficou:**
+- **Admin:** tabela `admins` (só pelo painel do Supabase) e guarda `admin()`, que roda o `autenticar()` e confere a tabela no banco a cada chamada, sem cache e sem nada do navegador ou do JWT. O `GET /api/acesso` devolve `admin: true` só para o menu.
+- **Fila** (`treinamento`, pgvector 1536):
+  - perguntas **mapeadas** (25, gravadas pela migration);
+  - **conversas de alunas**: cada conversa do assistente é um item só, com as perguntas em ordem e o que a IA respondeu;
+  - **criadas** pelo botão "Nova pergunta".
+
+  A expert responde uma por uma, aprova a resposta da IA ou descarta. Cada pergunta mostra a respondida mais parecida (≥ 0,6), que dá para editar ali mesmo. A linha não tem `user_id` de aluna. A conversa (`treinamento_conversas`) é sempre o par (`user_id` do token, id gerado pelo navegador), então uma aluna não pendura pergunta na conversa de outra.
+- **Contexto no embedding:** a pergunta é indexada junto com as 2 anteriores da conversa, e a busca usa o mesmo formato. Assim uma pergunta solta ("e quanto tempo?") sabe do que fala.
+- **Assistente:** busca as 4 respondidas mais parecidas.
+  - **≥ 0,9:** a IA recebe a ordem de repetir a resposta da expert quase palavra por palavra, só ligando com a conversa ou acrescentando um detalhe.
+  - **≥ 0,7:** as respostas entram como modelo de tom.
+
+  A resposta sempre passa pela IA, então o stream, o limite, o custo e a citação não mudam. O bloco vai no fim do prompt, e o cache continua valendo. Se o embedding falhar, o assistente responde como antes.
+- **Modelo de embedding:** `openai/text-embedding-3-small`, o do whatsappBot, que a conta já aceitava.
+
+**Verificado:**
+- Testes, lint e build.
+- As consultas SQL foram rodadas no Postgres local, com rollback: ligação de parecidas sem apontar para si, busca, e conversa com `ordem` 1 e 2.
+- No navegador, com o build em `localhost:3005` e uma conta de teste (apagada no fim, junto com os dados):
+  - as 25 mapeadas aparecem;
+  - a resposta foi salva e indexada com a OpenRouter de verdade;
+  - no assistente, "como eu ativo a conta de afiliada no tiktok shop?" deu **0,966** contra a mapeada respondida. A IA repetiu a resposta da expert e acrescentou requisitos e citações (Aula 5);
+  - a conversa virou um item com as 2 perguntas em ordem e a ligação "Parecida com… (97%)";
+  - sem a linha em `admins`, o menu some e a página só mostra o aviso;
+  - 390 px sem rolagem lateral; console sem erro.
+
+**Achado para a calibragem:** a pergunta solta "e se eu tiver menos de 2 mil?", indexada junto com a anterior ("como eu ativo a conta…"), deu **0,781** contra a resposta sobre ativar a conta. Passou do 0,7 e entrou como modelo. O assunto é próximo (2 mil é requisito), mas o contexto pesa bastante no vetor. Se isso puxar respostas erradas, há três caminhos: usar só 1 pergunta anterior; buscar com e sem contexto e ficar com a melhor; ou a expert reescrever a pergunta deixando-a completa (o embedding é refeito ao editar). Os limiares 0,9 / 0,7 / 0,6 são os de partida e devem ser medidos com uso real.
+
+**Achado fora do escopo:** no ambiente local, o assistente falhou com `Preset "ana-shop-studio-leads-behaviorAPPLYFY_WEBHOOK_TOKEN=" not found`. Pelo nome, falta a quebra de linha depois de `OPENROUTER_PRESET` no `.env.local`, o que também deixa o `APPLYFY_WEBHOOK_TOKEN` sem valor. O teste rodou com o preset passado na linha de comando.
+
+---
+
 ## 2026-11-09: Redesign 2.0 — roteiros no centro
 
 **Pedido (dona do produto):** a oferta é o gerador de roteiros, mas a primeira tela abria em "Mentalidade de Shop Girl" e "Semana 1". Funciona para quem está começando, não para quem já vende e veio pela ferramenta. A interface precisa servir aos dois públicos e conduzir a aluna para dentro da plataforma.

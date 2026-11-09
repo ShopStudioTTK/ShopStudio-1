@@ -17,6 +17,7 @@ Histórico de decisões: [`DEVLOG.md`](DEVLOG.md). Instruções para agentes de 
 5. [Estrutura do projeto](#estrutura-do-projeto)
 6. [Como o app funciona](#como-o-app-funciona)
 7. [IA: assistente, roteiros e custos](#ia-assistente-roteiros-e-custos)
+   - [Treinamento da IA](#treinamento-da-ia-só-admin)
 8. [Banco de dados](#banco-de-dados)
 9. [Login e criação de contas](#login-e-criação-de-contas)
 10. [Acesso e códigos](#acesso-e-códigos)
@@ -63,6 +64,7 @@ Preencha também no `.env.local`:
 | `OPENROUTER_API_KEY` | só servidor (rotas `/api/*`) | **sim** |
 | `BRAVE_API_KEY` | só servidor (`src/lib/videos-tiktok.ts`). Vídeos do TikTok embaixo do roteiro. Vazia = o roteiro sai sem vídeos | **sim** |
 | `OPENROUTER_MODEL` | só servidor. Hoje: `deepseek/deepseek-v4.1-flash-1017` | não |
+| `OPENROUTER_EMBEDDING_MODEL` | só servidor. Modelo de embedding do treinamento da IA. Padrão `openai/text-embedding-3-small` (1536 dimensões, acoplado à coluna `treinamento.embedding`) | não |
 | `OPENROUTER_PRESET` | só servidor, só o assistente. Slug do preset da OpenRouter com a voz da especialista (hoje: `ana-shop-studio-leads-behavior`). Com ele, a persona do `ai_config` sai do prompt do assistente. Vazio = sem preset | não |
 | `WEBHOOK_CONTA_SEGREDO` | só servidor (`/api/webhook/conta`). A plataforma de venda manda no `Authorization: Bearer`. Sem ele, o webhook responde 500 | **sim** |
 | `WEBHOOK_CONTA_ORIGENS` | só servidor. Origens liberadas no CORS do webhook, separadas por vírgula. Vazio = nenhuma | não |
@@ -100,9 +102,11 @@ src/
       assistente/             chat com a IA
       roteiros/               gerador 5×5 + banco de ganchos
       checklist/  resultados/  campeoes/
+      treinamento/            fila de treinamento da IA (só admin)
     api/
       assistente/route.ts     chat com streaming, limite diário, registro de custo
       roteiro/route.ts        gerador de roteiros (JSON)
+      treinamento/route.ts    fila de treinamento da IA (só admin, admin() em api-auth.ts)
       senha/route.ts          troca da senha temporária (primeiro acesso)
       webhook/conta/route.ts  cria a conta da aluna (chamado pela plataforma de venda)
       webhook/applyfy/route.ts compra paga na Applyfy → cria a conta e manda o e-mail de acesso
@@ -114,6 +118,8 @@ src/
     access.ts                 modo revisão + regra de acesso (cliente e servidor)
     api-auth.ts               checagens das rotas de IA + chamada à OpenRouter (provedores fixos)
     assistente.ts             prompt do assistente
+    embedding.ts              embedding pela OpenRouter (só servidor)
+    treinamento.ts            limiares, busca das respostas da expert e fila das conversas (só servidor)
     contas.ts                 criarConta: usuário + senha temporária + acesso (só servidor)
     email.ts                  e-mail de acesso (link, e-mail e senha temporária) pela Resend
     roteiro.ts                prompt do gerador de roteiros
@@ -163,6 +169,27 @@ where created_at >= date_trunc('month', now())
 group by user_id order by custo_usd desc;
 ```
 
+### Treinamento da IA (só admin)
+
+A expert responde perguntas do jeito dela em `/app/treinamento`, e o assistente usa essas respostas para falar com o mesmo tom, as mesmas frases e as mesmas gírias.
+
+- **Fila:** são três origens de pergunta. As **mapeadas** são 25, gravadas pela migration a partir das aulas e do dossiê. As **de alunas** vêm das conversas do assistente: cada conversa é um item só, com as perguntas em ordem e o que a IA respondeu. As **criadas** saem do botão "Nova pergunta". Para cada pergunta, a expert pode responder, aprovar a resposta da IA, descartar ou editar. A tela nunca mostra quem perguntou.
+- **Assistente:** antes de chamar a IA, a pergunta da aluna (com as 2 anteriores da conversa) vira embedding, e o servidor busca as 4 respondidas mais parecidas. O resultado depende da semelhança:
+
+  | Semelhança | O que acontece |
+  |---|---|
+  | **≥ 0,9** | a IA repete a resposta da expert quase palavra por palavra |
+  | **≥ 0,7** | as respostas entram como modelo |
+  | **≥ 0,6** | não vão para o prompt; só ligam as perguntas parecidas na tela de treinamento |
+
+  O bloco da expert vai no **fim** do prompt, então o cache continua valendo. Os limiares ficam em `src/lib/treinamento.ts`. Se o embedding falhar, o assistente responde como antes.
+- **Quem é admin:** a tabela `admins`, editada só no painel do Supabase. A guarda `admin()` confere a tabela no banco a cada chamada, e a aluna recebe 403.
+
+```sql
+insert into public.admins (user_id) select id from auth.users where email = 'expert@exemplo.com';
+delete from public.admins where user_id = '…';
+```
+
 ### Material da IA (`src/lib/conhecimento/`)
 - `transcricao.md`: transcrição das aulas, uma seção `## Aula N - título` por aula, com as marcações `[m:ss – m:ss]` do vídeo.
 - `dossie.md`: dossiê da especialista.
@@ -188,8 +215,11 @@ Migrations em `supabase/migrations/`:
 | `videos_cache` | vídeos do TikTok por termo normalizado, reaproveitados por 3 dias (compartilhado, sem `user_id`) | servidor (`/api/roteiro`) |
 | `campeoes_cache` | os 10 vídeos campeões de cada nicho, renovados a cada 1 dia (compartilhado, sem `user_id`) | servidor (`/api/campeoes`) |
 | `ai_perguntas` | perguntas ao assistente, tokens e custo | servidor (`/api/assistente`) |
+| `admins` | quem acessa o treinamento da IA | só service role (painel do Supabase) |
+| `treinamento` | perguntas e respostas da expert, com embedding (pgvector, 1536). Sem `user_id` de aluna | servidor (`/api/treinamento`, só admin; `/api/assistente` grava as conversas) |
+| `treinamento_conversas` | uma conversa do assistente = um item na fila. O `user_id` só serve para o servidor achar a conversa certa e nunca sai nas rotas | servidor (`/api/assistente`) |
 
-Ainda não existe página de administração. Códigos, vídeos, persona e base de conhecimento são editados no painel do Supabase.
+A única página de administração é a de treinamento da IA. Admins, códigos, vídeos, persona e base de conhecimento continuam sendo editados no painel do Supabase.
 
 Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql`, rode `pnpm supabase migration up` e depois `pnpm db:types`.
 
@@ -248,6 +278,8 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 | Marca de senha temporária visível ou alterável pela aluna | Fica em `senhas_temporarias`, sem privilégio para `anon`/`authenticated`; nunca nos metadados do JWT. |
 | Token roubado trocando a senha de outra pessoa | `POST /api/senha` só funciona com a senha temporária pendente. |
 | Conta logada ver o banco (tabelas, estrutura, dados de outras) | Data API desligada; o navegador só fala com as rotas do app. `anon` e `authenticated` sem privilégio nenhum no banco. Toda consulta filtra pelo `user_id` do token; testado com duas contas e em `tests/app/api/{protecao,isolamento}.test.ts`. |
+| Aluna ler ou mudar o treinamento da IA (vai no prompt de todas) | Toda rota de `/api/treinamento` passa por `admin()`, que confere `admins` no banco a cada chamada; a tela só esconde o menu. Testado em `protecao.test.ts` (aluna com acesso → 403). |
+| Aluna escrever na conversa de outra na fila de treinamento | A conversa é sempre o par (`user_id` do token, id do navegador). A linha do treinamento não tem `user_id`, e a expert não vê quem perguntou. |
 | Aluna liberar o próprio acesso, criar código ou mexer na IA | Essas tabelas não têm política de escrita: só a service role escreve. |
 | Chutar códigos de acesso | `resgatar_codigo` (só o servidor executa) bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
 | Gastar IA sem limite | 15 perguntas e 10 roteiros por dia por aluna, contados no servidor (`ai_perguntas.rota`). |
