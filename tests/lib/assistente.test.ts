@@ -23,6 +23,13 @@ describe("buildAssistantSystemPrompt", () => {
     expect(BASE_PROMPT).not.toMatch(/club/i);
   });
 
+  it("fora do material, responde mesmo assim e diz de onde vem a informação, sem abrir com 'não cobre'", () => {
+    expect(BASE_PROMPT).not.toContain("o material não cobre isso");
+    expect(BASE_PROMPT).toContain("responda mesmo assim");
+    expect(BASE_PROMPT).toContain("não está nas aulas");
+    expect(BASE_PROMPT).toContain("Nunca comece a resposta dizendo que o material não cobre");
+  });
+
   it("proíbe copiar o material pago palavra por palavra", () => {
     expect(BASE_PROMPT).toContain("Nunca reproduza trechos longos da transcrição ou do dossiê");
   });

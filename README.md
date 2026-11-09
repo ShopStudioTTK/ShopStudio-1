@@ -144,7 +144,7 @@ docs/superpowers/             design e plano da migração do Enter
 
 ### Assistente (`/api/assistente`)
 - Cada pergunta envia ao modelo as regras, o **resumo dos 12 capítulos**, a **transcrição das aulas** e o **dossiê da especialista** (~78 mil tokens). Junto vão a persona e a base de conhecimento do banco (`ai_config`, `ai_knowledge`) e as últimas 12 mensagens da conversa.
-- A IA responde só com base no material, cita a aula e o minuto ("Aula 7, 3:12") e diz quando não sabe. A resposta chega aos poucos (SSE).
+- A IA usa primeiro o material e cita a aula e o minuto ("Aula 7, 3:12"). Quando o material não cobre o assunto, ela responde mesmo assim com o que se sabe em geral e diz que aquela parte não está nas aulas. Não abre com "o material não cobre", não atribui à Ana o que não é dela e não dá número, prazo ou regra inventados como certos. A resposta chega aos poucos (SSE).
 - **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. Nesse caso, a persona do `ai_config` não vai, para as duas não brigarem. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
 - **Limite de 15 perguntas por dia** por aluna, contadas a partir da meia-noite de Brasília. O aviso "Você ainda pode fazer N perguntas hoje" aparece a partir da 12ª. Pergunta que a IA não conseguiu responder não conta.
 
@@ -173,7 +173,7 @@ group by user_id order by custo_usd desc;
 
 A expert responde perguntas do jeito dela em `/app/treinamento`, e o assistente usa essas respostas para falar com o mesmo tom, as mesmas frases e as mesmas gírias.
 
-- **Fila:** são três origens de pergunta. As **mapeadas** são 25, gravadas pela migration a partir das aulas e do dossiê. As **de alunas** vêm das conversas do assistente: cada conversa é um item só, com as perguntas em ordem e o que a IA respondeu. As **criadas** saem do botão "Nova pergunta". Para cada pergunta, a expert pode responder, aprovar a resposta da IA, descartar ou editar. A tela nunca mostra quem perguntou. Como a pergunta e a resposta aprovadas viram exemplo no prompt de outras alunas, numa pergunta de aluna o editor avisa para reescrever a pergunta de forma genérica e tirar o que for pessoal. "Revisar e aprovar a da IA" abre o editor com a resposta da IA; não há aprovação direta.
+- **Fila:** são três origens de pergunta. As **mapeadas** são 25, gravadas pela migration a partir das aulas e do dossiê. As **de alunas** vêm das conversas do assistente: cada conversa é um item só, com as perguntas em ordem e o que a IA respondeu. As **criadas** saem do botão "Nova pergunta". Para cada pergunta, a expert pode responder, descartar ou editar. "Responder" abre o editor já com a resposta da IA dentro, e ela só muda o que quiser. A tela nunca mostra quem perguntou. Como a pergunta e a resposta salvas viram exemplo no prompt de outras alunas, numa pergunta de aluna o editor avisa para reescrever a pergunta de forma genérica e tirar o que for pessoal. Não há aprovação direta, sem passar pelo editor.
 - **Assistente:** antes de chamar a IA, a pergunta da aluna (com as 2 anteriores da conversa) vira embedding, e o servidor busca as 4 respondidas mais parecidas. O resultado depende da semelhança:
 
   | Semelhança | O que acontece |

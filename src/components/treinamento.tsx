@@ -170,8 +170,7 @@ const Parecida = ({ parecida }: { parecida: NonNullable<PerguntaTreino["parecida
 
 /** Uma pergunta, com as ações conforme o status. Numa conversa, `numero` mostra a ordem. */
 export const CartaoPergunta = ({ p, numero }: { p: PerguntaTreino; numero?: number }) => {
-  // "aprovar" = o editor já com a resposta da IA, para revisar antes de virar exemplo.
-  const [modo, setModo] = useState<"ver" | "responder" | "aprovar" | "apagar">("ver");
+  const [modo, setModo] = useState<"ver" | "responder" | "apagar">("ver");
   const salvar = useSalvarTreino();
   const patch = (body: Record<string, unknown>) => salvar.mutate({ method: "PATCH", body: { id: p.id, ...body } }, { onSuccess: () => setModo("ver") });
 
@@ -192,7 +191,7 @@ export const CartaoPergunta = ({ p, numero }: { p: PerguntaTreino; numero?: numb
         <p className="whitespace-pre-wrap text-[12px] text-muted-foreground">Antes, a aluna perguntou: {p.contexto}</p>
       )}
 
-      {p.resposta_ia && (
+      {p.resposta_ia && modo !== "responder" && (
         <div className="rounded-xl bg-secondary/50 p-3">
           <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             <MessageCircle className="h-3 w-3" /> O que a IA respondeu
@@ -201,7 +200,7 @@ export const CartaoPergunta = ({ p, numero }: { p: PerguntaTreino; numero?: numb
         </div>
       )}
 
-      {p.resposta && modo !== "responder" && modo !== "aprovar" && (
+      {p.resposta && modo !== "responder" && (
         <div className="rounded-xl border border-rose/30 bg-rose-soft/40 p-3">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-rose">Resposta da expert</p>
           <p className="mt-1.5 whitespace-pre-wrap text-[14px] leading-relaxed">{p.resposta}</p>
@@ -210,12 +209,13 @@ export const CartaoPergunta = ({ p, numero }: { p: PerguntaTreino; numero?: numb
 
       {p.parecida && <Parecida parecida={p.parecida} />}
 
-      {modo === "responder" || modo === "aprovar" ? (
+      {modo === "responder" ? (
         <Editor
           pergunta={p.pergunta}
-          resposta={modo === "aprovar" ? (p.resposta_ia ?? "") : (p.resposta ?? "")}
+          // Já vem com a resposta (a dela, se houver; senão a da IA): a expert só muda o que quiser.
+          resposta={p.resposta ?? p.resposta_ia ?? ""}
           comPergunta
-          rotulo={modo === "aprovar" ? "Aprovar" : "Salvar resposta"}
+          rotulo="Salvar resposta"
           aviso={p.origem === "aluna" ? AVISO_ALUNA : undefined}
           salvando={salvar.isPending}
           onCancelar={() => setModo("ver")}
@@ -236,11 +236,6 @@ export const CartaoPergunta = ({ p, numero }: { p: PerguntaTreino; numero?: numb
           {p.status === "pendente" && (
             <>
               <Button size="sm" onClick={() => setModo("responder")}>Responder</Button>
-              {p.resposta_ia && (
-                <Button size="sm" variant="outline" onClick={() => setModo("aprovar")}>
-                  <Check className="h-4 w-4" /> Revisar e aprovar a da IA
-                </Button>
-              )}
               <Button size="sm" variant="ghost" disabled={salvar.isPending} onClick={() => patch({ status: "descartada" })}>
                 <X className="h-4 w-4" /> Descartar
               </Button>
