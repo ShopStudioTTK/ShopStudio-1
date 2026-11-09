@@ -95,19 +95,19 @@ describe("estadoDaSenhaTemporaria", () => {
     expect(await estadoDaSenhaTemporaria("u1")).toBeNull();
   });
 
-  it("criada há menos de 30 minutos: pendente", async () => {
+  it("criada há menos de 24 horas: pendente", async () => {
     responderCom([["from public.senhas_temporarias", [{ valida: true }]]]);
     expect(await estadoDaSenhaTemporaria("u1")).toBe("pendente");
   });
 
-  it("criada há mais de 30 minutos: expirada", async () => {
+  it("criada há mais de 24 horas: expirada", async () => {
     responderCom([["from public.senhas_temporarias", [{ valida: false }]]]);
     expect(await estadoDaSenhaTemporaria("u1")).toBe("expirada");
   });
 
-  it("o prazo é de 30 minutos, contado pelo relógio do banco, e só da conta pedida", async () => {
+  it("o prazo é de 24 horas, contado pelo relógio do banco, e só da conta pedida", async () => {
     await estadoDaSenhaTemporaria("u1");
     expect(consultas[0].sql).toContain("now()");
-    expect(consultas[0].valores).toEqual([30, "u1"]);
+    expect(consultas[0].valores).toEqual([24 * 60, "u1"]);
   });
 });

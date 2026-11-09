@@ -51,7 +51,7 @@ describe("POST /api/senha", () => {
     expect(updateUserById).not.toHaveBeenCalled();
   });
 
-  it("senha temporária expirada (30 min) → 403 e nada muda", async () => {
+  it("senha temporária expirada (24 h) → 403 e nada muda", async () => {
     responderCom([["from public.senhas_temporarias", [{ valida: false }]]]);
     const res = await POST(req({ senha: "nova123" }));
     expect(res.status).toBe(403);

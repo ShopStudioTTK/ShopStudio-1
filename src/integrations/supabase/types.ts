@@ -149,6 +149,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"compras_applyfy": {
+                  Row: {
+                    "criada_em": string,"email": string,"transaction_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criada_em"?: string,"email": string,"transaction_id": string
+                  }
+                  Update: {
+                    "criada_em"?: string,"email"?: string,"transaction_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"entitlements": {
                   Row: {
                     "codigo": string | null,"criado_em": string,"origem": string,"user_id": string
