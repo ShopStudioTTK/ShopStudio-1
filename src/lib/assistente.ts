@@ -65,6 +65,7 @@ export const buildAssistantSystemPrompt = (
   config: AssistantConfig,
   knowledge: { titulo: string; conteudo: string }[],
   chapterTitle?: string,
+  expert = "",
 ): string => {
   let prompt = BASE_PROMPT;
   if (config) {
@@ -90,6 +91,8 @@ Siga estas instruções de estilo com prioridade sobre o estilo padrão. As regr
   if (chapterTitle) {
     prompt += `\n\nA página aberta agora é o capítulo "${chapterTitle}". Priorize responder com base nele quando a pergunta for relacionada.`;
   }
+  // Respostas da expert (treinamento) sempre no fim: mudam a cada pergunta.
+  if (expert) prompt += `\n\n${expert}`;
   return prompt;
 };
 

@@ -7,14 +7,20 @@ export type Uso = {
   prompt_tokens_details?: { cached_tokens?: number };
 };
 
-/** Repassa o SSE da OpenRouter sem alterar e, ao fim, entrega o `usage` (tokens e custo) do stream. */
+export type FimDoStream = { texto: string; finishReason: string | null };
+
+/**
+ * Repassa o SSE da OpenRouter sem alterar e, ao fim, entrega o `usage` (tokens e custo) do stream,
+ * o texto gerado e o último `finish_reason`.
+ */
 export const comRegistroDeUso = (
   corpo: ReadableStream<Uint8Array>,
-  aoTerminar: (uso: Uso | null) => Promise<void> | void,
+  aoTerminar: (uso: Uso | null, fim: FimDoStream) => Promise<void> | void,
 ): ReadableStream<Uint8Array> => {
   const decoder = new TextDecoder();
   let buffer = "";
   let uso: Uso | null = null;
+  const fim: FimDoStream = { texto: "", finishReason: null };
   const examinar = (texto: string) => {
     const { dados, resto } = lerEventos(texto);
     buffer = resto;
@@ -22,6 +28,9 @@ export const comRegistroDeUso = (
       try {
         const evento = JSON.parse(dado);
         if (evento?.usage) uso = evento.usage;
+        const escolha = evento?.choices?.[0];
+        if (typeof escolha?.delta?.content === "string") fim.texto += escolha.delta.content;
+        if (escolha?.finish_reason) fim.finishReason = escolha.finish_reason;
       } catch {
         // [DONE] e afins
       }
@@ -35,7 +44,7 @@ export const comRegistroDeUso = (
       },
       async flush() {
         examinar(buffer + decoder.decode() + "\n\n");
-        await aoTerminar(uso);
+        await aoTerminar(uso, fim);
       },
     }),
   );

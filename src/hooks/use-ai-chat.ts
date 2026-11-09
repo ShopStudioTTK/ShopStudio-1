@@ -22,6 +22,8 @@ export const useAiChat = (capitulo?: string) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Uma conversa = um item na fila de treinamento da expert. Novo id a cada "Nova conversa".
+  const conversaRef = useRef<string | null>(null);
 
   const patchLast = (patch: (message: ChatMessage) => ChatMessage) =>
     setMessages((prev) => {
@@ -59,6 +61,7 @@ export const useAiChat = (capitulo?: string) => {
           body: JSON.stringify({
             messages: history.map(({ role, content: text }) => ({ role, content: text })),
             capitulo,
+            conversa: (conversaRef.current ??= crypto.randomUUID()),
           }),
           signal: abortRef.current.signal,
         });
@@ -103,6 +106,7 @@ export const useAiChat = (capitulo?: string) => {
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
+    conversaRef.current = null;
     setMessages([]);
     setError(null);
     setIsLoading(false);

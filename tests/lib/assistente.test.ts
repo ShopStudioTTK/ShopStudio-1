@@ -6,6 +6,14 @@ vi.mock("@/lib/conhecimento/material", () => ({ DOSSIE: "DOSSIE-TESTE", TRANSCRI
 import { buildAssistantSystemPrompt, BASE_PROMPT, sanitizeMessages } from "@/lib/assistente";
 
 describe("buildAssistantSystemPrompt", () => {
+  it("o bloco da expert vai no fim, sem mexer no prefixo do cache", () => {
+    const com = buildAssistantSystemPrompt(null, [], "Capítulo X", "BLOCO-EXPERT");
+    expect(com.startsWith(BASE_PROMPT)).toBe(true);
+    expect(com.endsWith("BLOCO-EXPERT")).toBe(true);
+    expect(com.indexOf("Capítulo X")).toBeLessThan(com.indexOf("BLOCO-EXPERT"));
+    expect(buildAssistantSystemPrompt(null, [], "Capítulo X", "")).toBe(buildAssistantSystemPrompt(null, [], "Capítulo X"));
+  });
+
   it("começa pelo prompt fixo com guia, transcrição e dossiê (prefixo estável para cache)", () => {
     const p = buildAssistantSystemPrompt(null, []);
     expect(p).toBe(BASE_PROMPT);

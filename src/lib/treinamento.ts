@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { gerarEmbedding } from "@/lib/embedding";
 
 /**
  * Semelhança (1 - distância de cosseno) entre a pergunta e as já respondidas pela expert.
@@ -49,3 +50,49 @@ export const blocoDaExpert = (respostas: RespostaDaExpert[]): string => {
   if (!parecidas.length) return "";
   return `RESPOSTAS DA ESPECIALISTA A PERGUNTAS PARECIDAS — imite o tom, as gírias, o jeito de falar e o tamanho. Use o conteúdo quando for a mesma dúvida; as regras de conteúdo acima continuam valendo, e a citação (Aula N, m:ss) continua obrigatória quando a informação vier da transcrição.\n\n${parecidas.map(par).join("\n\n")}`;
 };
+
+/**
+ * Embedding da pergunta da aluna (com as anteriores da conversa) e as respostas da expert mais
+ * parecidas. Nunca lança: qualquer falha = assistente sem respostas da expert, como antes.
+ */
+export async function consultarExpert(
+  contexto: string[],
+  pergunta: string,
+): Promise<{ vetor: number[] | null; respostas: RespostaDaExpert[] }> {
+  let vetor: number[] | null = null;
+  try {
+    vetor = await gerarEmbedding(textoParaEmbedding(contexto, pergunta));
+    return { vetor, respostas: await buscarRespostasDaExpert(vetor) };
+  } catch (e) {
+    console.error("assistente: falha ao buscar respostas da expert", e);
+    return { vetor, respostas: [] };
+  }
+}
+
+/**
+ * Grava a pergunta da aluna na conversa dela da fila de treinamento. A conversa é sempre o par
+ * (user_id do token, id do navegador): uma aluna nunca escreve na conversa de outra. A linha do
+ * treinamento não leva user_id. Lança em erro (quem chama só loga).
+ * ponytail: contexto guardado com "\n" entre as perguntas; pergunta com quebra de linha vira duas no embedding refeito.
+ */
+export async function registrarNaFila(p: {
+  userId: string;
+  conversa: string;
+  contexto: string[];
+  pergunta: string;
+  respostaIa: string;
+  vetor: number[] | null;
+}): Promise<void> {
+  const contexto = p.contexto.slice(-MAX_CONTEXTO).join("\n") || null;
+  const v = p.vetor ? vetorSql(p.vetor) : null;
+  await db()`
+    with c as (
+      insert into public.treinamento_conversas (user_id, conversa_cliente) values (${p.userId}, ${p.conversa})
+      on conflict (user_id, conversa_cliente) do update set conversa_cliente = excluded.conversa_cliente
+      returning id
+    )
+    insert into public.treinamento (origem, conversa_id, ordem, contexto, pergunta, resposta_ia, embedding)
+    select 'aluna', c.id, coalesce((select max(ordem) from public.treinamento where conversa_id = c.id), 0) + 1,
+      ${contexto}, ${p.pergunta.slice(0, 1000)}, ${p.respostaIa}, ${v}::extensions.vector
+    from c`;
+}

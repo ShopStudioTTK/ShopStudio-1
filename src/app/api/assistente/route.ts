@@ -11,7 +11,9 @@ import {
   reservarChamada,
 } from "@/lib/api-auth";
 import { buildAssistantSystemPrompt, sanitizeMessages } from "@/lib/assistente";
+import { uuid } from "@/lib/entrada";
 import { LIMITE_DIARIO, mensagemDeLimite } from "@/lib/limite";
+import { blocoDaExpert, consultarExpert, registrarNaFila } from "@/lib/treinamento";
 import { comRegistroDeUso } from "@/lib/uso";
 
 export const runtime = "nodejs";
@@ -27,6 +29,11 @@ export async function POST(req: Request) {
   if (!turns.length) return erro("Escreva sua dúvida.", 400);
   // Só o slug vem do navegador; o título sai do conteúdo. Texto livre aqui entraria no prompt de sistema.
   const chapterTitle = typeof body?.capitulo === "string" ? getChapter(body.capitulo)?.title : undefined;
+  // Id da conversa gerado pelo navegador; só vale junto com o userId do token (ver registrarNaFila).
+  const conversa = uuid(body?.conversa);
+  const perguntas = turns.filter((t) => t.role === "user").map((t) => t.content);
+  const pergunta = perguntas.at(-1)!;
+  const anteriores = perguntas.slice(0, -1);
 
   const reserva = await reservarChamada(
     userId, "assistente", LIMITE_DIARIO, (usadas) => mensagemDeLimite(usadas)!,
@@ -35,8 +42,8 @@ export async function POST(req: Request) {
   if (reserva instanceof Response) return reserva;
   const descontar = () => liberarChamada(reserva.id);
 
-  // persona e base de conhecimento são opcionais
-  const { config, knowledge } = await configDaIA();
+  // persona, base de conhecimento e respostas da expert são opcionais
+  const [{ config, knowledge }, expert] = await Promise.all([configDaIA(), consultarExpert(anteriores, pergunta)]);
   // Preset da OpenRouter com a voz da especialista, só no assistente (o roteiro devolve JSON).
   // Só funciona no nome do modelo: o campo `preset` do corpo é ignorado. Com ele, a persona do ai_config sai.
   const preset = process.env.OPENROUTER_PRESET;
@@ -46,7 +53,7 @@ export async function POST(req: Request) {
     response = await chamarOpenRouter(apiKey, {
       model: preset ? `${model}@preset/${preset}` : model,
       messages: [
-        { role: "system", content: buildAssistantSystemPrompt(preset ? null : config, knowledge, chapterTitle) },
+        { role: "system", content: buildAssistantSystemPrompt(preset ? null : config, knowledge, chapterTitle, blocoDaExpert(expert.respostas)) },
         ...turns,
       ],
       stream: true,
@@ -68,7 +75,13 @@ export async function POST(req: Request) {
     return erro(parsed?.error?.message || "Não consegui responder agora. Tente de novo.", 502);
   }
 
-  const corpo = comRegistroDeUso(response.body, (uso) => registrarCusto(reserva.id, uso));
+  const corpo = comRegistroDeUso(response.body, async (uso, fim) => {
+    await registrarCusto(reserva.id, uso);
+    // A conversa vai para a fila de treinamento da expert. Resposta vazia ou cortada não entra.
+    if (!conversa || !fim.texto.trim() || fim.finishReason === "length") return;
+    await registrarNaFila({ userId, conversa, contexto: anteriores, pergunta, respostaIa: fim.texto, vetor: expert.vetor })
+      .catch((e) => console.error("assistente: falha ao gravar na fila de treinamento", e));
+  });
 
   return new Response(corpo, {
     headers: {
