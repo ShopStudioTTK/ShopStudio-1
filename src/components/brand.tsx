@@ -20,7 +20,7 @@ type WordmarkProps = {
 export const Wordmark = ({ className, tone = "ink", stacked = false }: WordmarkProps) => (
   <span
     className={cn(
-      "font-display leading-[0.82] tracking-[-0.035em]",
+      "font-display font-bold leading-[0.82] tracking-[-0.05em]",
       tone === "cream" ? "text-cream" : "text-foreground",
       className,
     )}
@@ -29,11 +29,13 @@ export const Wordmark = ({ className, tone = "ink", stacked = false }: WordmarkP
       <>
         shop
         <br />
-        studio
+        <span className={cn("accent-word font-normal", tone === "cream" ? "text-rose-soft" : "text-rose")}>studio</span>
       </>
     ) : (
-      "shop studio"
+      <>
+        shop<span className={cn("accent-word font-normal", tone === "cream" ? "text-rose-soft" : "text-rose")}>studio</span>
+      </>
     )}
-    <span className="text-rose">.</span>
+    <span className={tone === "cream" ? "text-gold" : "text-rose"}>.</span>
   </span>
 );

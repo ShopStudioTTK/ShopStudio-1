@@ -4,6 +4,24 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-09: Redesign 2.0 — roteiros no centro
+
+**Pedido (dona do produto):** a oferta é o gerador de roteiros, mas a primeira tela abria em "Mentalidade de Shop Girl" e "Semana 1". Funciona para quem está começando, não para quem já vende e veio pela ferramenta. A interface precisa servir aos dois públicos e conduzir a aluna para dentro da plataforma.
+
+**O que mudou:**
+- **Início virou "Studio":** o gerador está na primeira dobra ("O que a gente vai vender hoje?"): produto + formato → `/app/roteiros?produto=…&formato=…&gerar=1`, que gera na hora e limpa a URL (não gera de novo ao recarregar). Depois: gancho do dia (do banco, com "outro"), últimos roteiros salvos, nichos dos campeões e atalhos (ganchos, IA, mural).
+- **Dois públicos:** seletor "Tô começando / Já vendo" no topo. Começando: a trilha vira uma faixa discreta logo depois do gerador. Já vendo: a mesma faixa vai para o fim. (Os cartões grandes de trilha e semana 1 saíram do início a pedido da dona.) Sem escolha, quem tem 0 capítulos lidos cai em "começando". A escolha fica no `localStorage` (`shopstudio:modo`), por ser só conveniência.
+- **Menu:** grupos "Criar" (Studio, Roteiros e ganchos, Vídeos campeões, Pergunte pra IA) e "Aprender" (Trilha do zero com x/12, Checklist, Mural), botão "Novo roteiro" em destaque. "Capítulos" virou "Trilha do zero" na tela.
+- **Celular:** barra inferior com o "+" de criar no meio (some no assistente, que tem a caixa presa no rodapé). O menu lateral agora fecha ao navegar (bug conhecido resolvido).
+- **Gerador:** passos numerados, formatos em cartões com emoji, roteiro pronto em destaque com as 4 etapas, 5×5 em cartões coloridos (toque na frase copia), barra fixa de salvar/outra versão, biblioteca em cartões com o gancho. `?aba=ganchos` abre o banco; Campeões aceita `?nicho=`.
+- **Visual:** a paleta original (rosa + chocolate) foi mantida a pedido da dona; mudaram as fontes (ver CLAUDE.md), os raios, os cartões e os destaques. `--lilac`, `--butter` e `--mint` são tons auxiliares tirados da mesma paleta. `src/content/formatos.ts` guarda os formatos e as sugestões de produto (rótulos, sem segredo).
+
+**Não mudou:** rotas de API, regras de acesso, conteúdo protegido, limites. O `marquee.tsx` ficou sem uso.
+
+**Verificado:** prévia renderizada no Chrome (desktop 1440 e celular 390) com dados falsos. **Falta rodar** `pnpm test && pnpm lint && pnpm build` (o ambiente do redesign estava sem acesso ao npm).
+
+---
+
 ## 2026-11-06: Preset da voz com as instruções da Ana
 
 **Pedido:** a equipe da Ana mandou um PDF com instruções para a "IA da Ana" (10 páginas). Ver o que melhora no preset da OpenRouter. O PDF e o texto do preset ficam fora do repositório.

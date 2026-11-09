@@ -93,7 +93,7 @@ export const ChapterCover = ({
             <Icone className="h-5 w-5" style={{ color: paleta.accent }} />
           </div>
           <p
-            className="font-display text-[64px] leading-none tracking-[-0.04em] sm:text-[84px]"
+            className="font-display text-[64px] font-bold leading-none tracking-[-0.06em] sm:text-[84px]"
             style={{ color: paleta.ink }}
           >
             {String(numero).padStart(2, "0")}
@@ -121,7 +121,7 @@ export const ChapterCover = ({
       />
       <div className="relative p-4">
         <p
-          className="font-display text-[34px] leading-none tracking-[-0.03em]"
+          className="font-display text-[34px] font-bold leading-none tracking-[-0.05em]"
           style={{ color: paleta.ink }}
         >
           {String(numero).padStart(2, "0")}

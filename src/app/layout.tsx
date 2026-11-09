@@ -1,18 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Serif, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const display = Fraunces({
+// Títulos: grotesca arredondada e expressiva. Destaques: serifada em itálico. Texto: Jakarta.
+const display = Bricolage_Grotesque({
   subsets: ["latin"],
-  axes: ["opsz"],
-  style: ["normal", "italic"],
   variable: "--font-display",
 });
 
-const sans = Inter({
+const accent = Instrument_Serif({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-accent",
+});
+
+const sans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
 });
 
@@ -34,7 +40,7 @@ export const viewport: Viewport = { themeColor: "#F6E3E5" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${display.variable} ${sans.variable}`}>
+    <html lang="pt-BR" className={`${display.variable} ${accent.variable} ${sans.variable}`}>
       <body suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>

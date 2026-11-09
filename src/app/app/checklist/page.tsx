@@ -28,7 +28,7 @@ const Checklist = () => {
     <div className="space-y-8">
       <header>
         <p className="eyebrow">Sua semana</p>
-        <h1 className="mt-2 font-display text-4xl leading-[1.05] tracking-[-0.02em] sm:text-5xl">
+        <h1 className="mt-2 font-display text-[40px] font-semibold leading-[1] tracking-[-0.035em] sm:text-5xl">
           Checklists
         </h1>
         <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">

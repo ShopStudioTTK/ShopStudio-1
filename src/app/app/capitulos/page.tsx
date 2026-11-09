@@ -17,8 +17,8 @@ const Chapters = () => {
       <header className="flex flex-wrap items-end justify-between gap-5">
         <div>
           <p className="eyebrow">Guia completo</p>
-          <h1 className="mt-2 font-display text-4xl leading-[1.05] tracking-[-0.02em] sm:text-5xl">
-            Os 12 capítulos
+          <h1 className="mt-2 font-display text-[40px] font-semibold leading-[1] tracking-[-0.035em] sm:text-5xl">
+            Trilha <span className="accent-word text-gradient pr-1">do zero</span>
           </h1>
           <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
             Leia na ordem. Cada capítulo termina em algo prático para fazer hoje —

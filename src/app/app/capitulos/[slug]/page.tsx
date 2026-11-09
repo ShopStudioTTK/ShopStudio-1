@@ -86,7 +86,7 @@ const ChapterReader = () => {
             </span>
           </div>
           <div>
-            <h1 className="font-display text-[38px] leading-[1.02] tracking-[-0.025em] sm:text-[52px]">
+            <h1 className="font-display text-[38px] font-semibold leading-[1] tracking-[-0.035em] sm:text-[52px]">
               {chapter.title}
             </h1>
             <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-muted-foreground">

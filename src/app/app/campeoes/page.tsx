@@ -1,20 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ExternalLink, Trophy } from "lucide-react";
+import { Clapperboard, ExternalLink, Trophy } from "lucide-react";
 import { CartaoTiktok } from "@/components/video-embed";
 import { NICHOS } from "@/content/nichos";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
 import { parseVideoUrl } from "@/lib/video";
-import { cn } from "@/lib/utils";
 
 type Video = { url: string; titulo: string; outraLingua: boolean };
 
 const Champioes = () => {
   const { user } = useAuth();
-  const [aba, setAba] = useState(NICHOS[0].slug);
+  const searchParams = useSearchParams();
+  const pedido = searchParams.get("nicho");
+  const [aba, setAba] = useState(NICHOS.some((n) => n.slug === pedido) ? pedido! : NICHOS[0].slug);
   const nicho = NICHOS.find((n) => n.slug === aba) ?? NICHOS[0];
   const { data: videos = [], isLoading } = useQuery({
     queryKey: ["campeoes", aba],
@@ -27,9 +29,11 @@ const Champioes = () => {
   return (
     <div className="space-y-8">
       <header>
-        <p className="eyebrow">Inspiração</p>
-        <h1 className="mt-2 font-display text-4xl leading-[1.05] tracking-[-0.02em] sm:text-5xl">
-          Vídeos campeões
+        <p className="eyebrow">
+          <Clapperboard className="h-3 w-3" /> Inspiração
+        </p>
+        <h1 className="mt-2 font-display text-[40px] font-semibold leading-[1] tracking-[-0.035em] sm:text-[52px]">
+          Vídeos <span className="accent-word text-gradient pr-1">campeões</span>
         </h1>
         <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
           Os vídeos de produto com mais curtidas e comentários em cada nicho, atualizados todo dia. Assista, anote
@@ -45,7 +49,8 @@ const Champioes = () => {
             role="tab"
             aria-selected={n.slug === aba}
             onClick={() => setAba(n.slug)}
-            className={cn("sticker transition-colors", n.slug === aba ? "border-rose/60 bg-rose-soft text-rose" : "hover:border-rose/50")}
+            data-ativo={n.slug === aba}
+            className="chip"
           >
             {n.rotulo}
           </button>
@@ -96,4 +101,10 @@ const Champioes = () => {
   );
 };
 
-export default Champioes;
+const Page = () => (
+  <Suspense fallback={null}>
+    <Champioes />
+  </Suspense>
+);
+
+export default Page;
