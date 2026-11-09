@@ -15,7 +15,8 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				display: ["var(--font-display)", "Georgia", "serif"],
+				display: ["var(--font-display)", "system-ui", "sans-serif"],
+				accent: ["var(--font-accent)", "Georgia", "serif"],
 				sans: ["var(--font-sans)", "system-ui", "-apple-system", "sans-serif"],
 			},
 			colors: {
@@ -24,6 +25,12 @@ export default {
 					soft: 'hsl(var(--rose-soft))',
 				},
 				gold: 'hsl(var(--gold))',
+				lilac: {
+					DEFAULT: 'hsl(var(--lilac))',
+					soft: 'hsl(var(--lilac-soft))',
+				},
+				butter: 'hsl(var(--butter))',
+				mint: 'hsl(var(--mint))',
 				cream: 'hsl(var(--cream))',
 				sand: 'hsl(var(--sand))',
 				border: 'hsl(var(--border))',

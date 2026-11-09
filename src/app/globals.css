@@ -46,6 +46,13 @@
     --gradient-rose: linear-gradient(135deg, hsl(var(--rose)) 0%, hsl(348 48% 68%) 100%);
     --gradient-paper: linear-gradient(180deg, hsl(354 50% 99%) 0%, hsl(354 42% 95%) 100%);
 
+    /* tons auxiliares do redesign, derivados da paleta original */
+    --lilac: 352 35% 40%;
+    --lilac-soft: 354 40% 91%;
+    --butter: 30 52% 90%;
+    --mint: 354 30% 90%;
+    --gradient-mesh: none;
+
     --shadow-elegant: 0 30px 70px -40px hsl(16 42% 16% / 0.45);
     --shadow-card: 0 1px 2px hsl(16 40% 20% / 0.04), 0 16px 40px -30px hsl(16 42% 20% / 0.38);
     --shadow-glow: 0 0 60px hsl(var(--rose) / 0.28);
@@ -98,6 +105,12 @@
     --gradient-hero: linear-gradient(158deg, hsl(16 28% 8%) 0%, hsl(8 26% 13%) 55%, hsl(20 30% 7%) 100%);
     --gradient-paper: linear-gradient(180deg, hsl(16 26% 11%) 0%, hsl(16 30% 7%) 100%);
 
+    --lilac: 352 45% 65%;
+    --lilac-soft: 352 24% 24%;
+    --butter: 30 30% 20%;
+    --mint: 16 20% 21%;
+    --gradient-mesh: none;
+
     --shadow-elegant: 0 30px 70px -40px hsl(0 0% 0% / 0.75);
     --shadow-card: 0 1px 2px hsl(0 0% 0% / 0.3), 0 16px 40px -30px hsl(0 0% 0% / 0.6);
 
@@ -139,12 +152,56 @@
 
 @layer components {
   .display-xl {
-    @apply font-display font-normal tracking-[-0.02em];
-    font-variation-settings: "opsz" 120;
+    @apply font-display font-semibold tracking-[-0.035em];
   }
 
   .eyebrow {
-    @apply text-[11px] font-medium uppercase tracking-[0.28em] text-muted-foreground;
+    @apply inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-rose;
+  }
+
+  /* palavra de destaque: serifada em itálico, no estilo "revista" */
+  .accent-word {
+    @apply font-accent font-normal italic tracking-normal;
+  }
+
+  .text-gradient {
+    background: var(--gradient-rose);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .bg-gradient-pop {
+    background: var(--gradient-rose);
+  }
+
+  .glass {
+    background: hsl(var(--card) / 0.72);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    backdrop-filter: blur(16px) saturate(1.4);
+  }
+
+  /* borda em degradê para o cartão principal */
+  .ring-gradient {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .ring-gradient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    padding: 1.5px;
+    border-radius: inherit;
+    background: var(--gradient-rose);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
   }
 
   .paper {
@@ -182,10 +239,23 @@
   }
 
   .sticker {
-    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.18em];
-    border-color: hsl(var(--foreground) / 0.12);
-    background: hsl(var(--card) / 0.85);
-    box-shadow: 0 1px 0 hsl(var(--foreground) / 0.05);
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-medium;
+    border-color: hsl(var(--foreground) / 0.1);
+    background: hsl(var(--card) / 0.9);
+    box-shadow: 0 1px 0 hsl(var(--foreground) / 0.04);
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3.5 py-1.5 text-[13px] font-medium text-foreground/70 transition-all;
+  }
+
+  .chip:hover {
+    @apply border-rose/40 text-foreground;
+  }
+
+  .chip[data-ativo="true"] {
+    @apply border-transparent bg-foreground text-background;
+    box-shadow: var(--shadow-card);
   }
 
   .hover-lift {
@@ -217,6 +287,15 @@
   .animate-fade {
     animation: fade 0.6s ease-out both;
   }
+}
+
+@keyframes floaty {
+  0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+  50% { transform: translateY(-6px) rotate(var(--r, 0deg)); }
+}
+
+.animate-floaty {
+  animation: floaty 5s ease-in-out infinite;
 }
 
 @keyframes rise {

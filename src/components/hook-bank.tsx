@@ -11,7 +11,7 @@ const Highlighted = ({ text }: { text: string }) => (
   <>
     {text.split(/(\[[^\]]+\])/g).map((part, index) =>
       part.startsWith("[") && part.endsWith("]") ? (
-        <span key={index} className="font-medium text-rose">
+        <span key={index} className="rounded-md bg-rose-soft/70 px-1 font-semibold text-rose">
           {part}
         </span>
       ) : (
@@ -48,8 +48,8 @@ export const HookBank = () => {
 
   return (
     <section className="space-y-5">
-      <div className="rounded-2xl border border-border bg-card/70 p-5">
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
+      <div className="rounded-[28px] border border-border bg-card p-5 shadow-soft sm:p-6">
+        <p className="text-[13.5px] leading-relaxed text-muted-foreground">
           {ganchos.length} ganchos prontos, separados por tipo. Troque o que está entre colchetes
           pelo seu produto e fale do seu jeito — a estrutura é o que faz a pessoa parar de rolar.
         </p>
@@ -57,12 +57,8 @@ export const HookBank = () => {
           <button
             type="button"
             onClick={() => setCategoria("todos")}
-            className={cn(
-              "rounded-full border px-3.5 py-1.5 text-[12.5px] transition-colors",
-              categoria === "todos"
-                ? "border-rose bg-rose-soft text-foreground"
-                : "border-border text-foreground/65 hover:border-rose/40 hover:text-foreground",
-            )}
+            data-ativo={categoria === "todos"}
+            className="chip"
           >
             Todos
           </button>
@@ -71,15 +67,13 @@ export const HookBank = () => {
               key={item.id}
               type="button"
               onClick={() => setCategoria(item.id)}
-              className={cn(
-                "rounded-full border px-3.5 py-1.5 text-[12.5px] transition-colors",
-                categoria === item.id
-                  ? "border-rose bg-rose-soft text-foreground"
-                  : "border-border text-foreground/65 hover:border-rose/40 hover:text-foreground",
-              )}
+              data-ativo={categoria === item.id}
+              className="chip"
             >
               {item.label}
-              <span className="ml-1.5 text-[11px] text-muted-foreground/80">{item.hint}</span>
+              <span className={cn("text-[11px] font-normal", categoria === item.id ? "opacity-60" : "text-muted-foreground/80")}>
+                {item.hint}
+              </span>
             </button>
           ))}
         </div>
@@ -90,7 +84,7 @@ export const HookBank = () => {
             value={busca}
             onChange={(event) => setBusca(event.target.value)}
             placeholder="Buscar por palavra: cabelo, gaveta, preço..."
-            className="h-10 rounded-xl bg-background pl-9 text-[13.5px]"
+            className="h-11 rounded-full bg-secondary/50 pl-9 text-[13.5px] focus-visible:bg-card"
           />
         </div>
       </div>
@@ -108,13 +102,20 @@ export const HookBank = () => {
         {lista.map((gancho) => (
           <div
             key={gancho.id}
-            className="group flex items-start justify-between gap-3 rounded-2xl border border-border bg-card/70 p-4 transition-colors hover:border-rose/40"
+            className="group flex items-start justify-between gap-3 rounded-[22px] border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-rose/40 hover:shadow-soft"
           >
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+                  gancho.categoria === "quebra" && "bg-rose-soft text-rose",
+                  gancho.categoria === "problema" && "bg-lilac-soft text-lilac",
+                  gancho.categoria === "curiosidade" && "bg-butter text-foreground/70",
+                )}
+              >
                 {hookCategorias.find((item) => item.id === gancho.categoria)?.label}
-              </p>
-              <p className="mt-1.5 text-[13.5px] leading-relaxed text-foreground/85">
+              </span>
+              <p className="mt-2.5 text-[14px] leading-relaxed text-foreground/85">
                 <Highlighted text={gancho.texto} />
               </p>
             </div>

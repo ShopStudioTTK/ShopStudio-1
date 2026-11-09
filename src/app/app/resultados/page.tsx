@@ -81,8 +81,8 @@ const Results = () => {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="eyebrow">Motivação</p>
-          <h1 className="mt-2 font-display text-4xl leading-[1.05] tracking-[-0.02em] sm:text-5xl">
-            Resultados das alunas
+          <h1 className="mt-2 font-display text-[40px] font-semibold leading-[1] tracking-[-0.035em] sm:text-5xl">
+            Mural <span className="accent-word text-gradient pr-1">das alunas</span>
           </h1>
           <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
             Prints, vídeos e o que mudou depois do guia. Se você já teve um resultado — mesmo

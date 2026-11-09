@@ -64,8 +64,8 @@ const Assistant = () => {
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-6">
         <div>
           <p className="eyebrow">Assistente</p>
-          <h1 className="mt-2 font-display text-4xl leading-[1.05] tracking-[-0.02em]">
-            Pergunte como para uma amiga
+          <h1 className="mt-2 font-display text-[40px] font-semibold leading-[1] tracking-[-0.035em]">
+            Pergunte <span className="accent-word text-gradient pr-1">como pra uma amiga</span>
           </h1>
           <p className="mt-2 max-w-xl text-[14px] leading-relaxed text-muted-foreground">
             Respostas baseadas nos 12 capítulos e nas aulas do Shop Studio. Sem promessa de ganhos, sem
