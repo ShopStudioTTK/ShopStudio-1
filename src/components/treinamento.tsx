@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, ChevronDown, Link2, MessageCircle, Trash2, Undo2, X } from "lucide-react";
+import { Check, ChevronDown, Link2, MessageCircle, ShieldAlert, Trash2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api-cliente";
@@ -34,6 +34,13 @@ export type Fila = {
 export const MAX_PERGUNTA = 1000;
 export const MAX_RESPOSTA = 4000;
 
+/**
+ * A pergunta e a resposta aprovadas vão no prompt de outras alunas. Por isso, numa pergunta de aluna,
+ * a expert revisa antes: pergunta genérica e nada pessoal de quem perguntou.
+ */
+const AVISO_ALUNA =
+  "Isto vai servir de exemplo para outras alunas. Reescreva a pergunta de forma genérica e tire da resposta qualquer coisa pessoal de quem perguntou (nome, @, cidade, valores, detalhes da conversa).";
+
 export const ROTULO_ORIGEM: Record<Origem, string> = { mapeada: "Mapeada", aluna: "Aluna", admin: "Criada" };
 
 /** Todas as alterações passam por aqui e recarregam a fila. */
@@ -63,6 +70,7 @@ const Editor = ({
   resposta: respostaInicial,
   comPergunta,
   rotulo,
+  aviso,
   onSalvar,
   onCancelar,
   salvando,
@@ -71,6 +79,7 @@ const Editor = ({
   resposta: string;
   comPergunta: boolean;
   rotulo: string;
+  aviso?: string;
   onSalvar: (v: { pergunta: string; resposta: string }) => void;
   onCancelar: () => void;
   salvando: boolean;
@@ -81,6 +90,12 @@ const Editor = ({
     !resposta.trim() || resposta.length > MAX_RESPOSTA || (comPergunta && (!pergunta.trim() || pergunta.length > MAX_PERGUNTA));
   return (
     <div className="space-y-3">
+      {aviso && (
+        <p className="flex gap-2 rounded-xl border border-butter/60 bg-butter/25 p-3 text-[12.5px] leading-relaxed text-foreground/80">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose" />
+          {aviso}
+        </p>
+      )}
       {comPergunta && (
         <label className="block space-y-1">
           <span className="flex justify-between text-[12px] font-semibold text-foreground/70">
@@ -155,7 +170,8 @@ const Parecida = ({ parecida }: { parecida: NonNullable<PerguntaTreino["parecida
 
 /** Uma pergunta, com as ações conforme o status. Numa conversa, `numero` mostra a ordem. */
 export const CartaoPergunta = ({ p, numero }: { p: PerguntaTreino; numero?: number }) => {
-  const [modo, setModo] = useState<"ver" | "responder" | "apagar">("ver");
+  // "aprovar" = o editor já com a resposta da IA, para revisar antes de virar exemplo.
+  const [modo, setModo] = useState<"ver" | "responder" | "aprovar" | "apagar">("ver");
   const salvar = useSalvarTreino();
   const patch = (body: Record<string, unknown>) => salvar.mutate({ method: "PATCH", body: { id: p.id, ...body } }, { onSuccess: () => setModo("ver") });
 
@@ -185,7 +201,7 @@ export const CartaoPergunta = ({ p, numero }: { p: PerguntaTreino; numero?: numb
         </div>
       )}
 
-      {p.resposta && modo !== "responder" && (
+      {p.resposta && modo !== "responder" && modo !== "aprovar" && (
         <div className="rounded-xl border border-rose/30 bg-rose-soft/40 p-3">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-rose">Resposta da expert</p>
           <p className="mt-1.5 whitespace-pre-wrap text-[14px] leading-relaxed">{p.resposta}</p>
@@ -194,12 +210,13 @@ export const CartaoPergunta = ({ p, numero }: { p: PerguntaTreino; numero?: numb
 
       {p.parecida && <Parecida parecida={p.parecida} />}
 
-      {modo === "responder" ? (
+      {modo === "responder" || modo === "aprovar" ? (
         <Editor
           pergunta={p.pergunta}
-          resposta={p.resposta ?? ""}
+          resposta={modo === "aprovar" ? (p.resposta_ia ?? "") : (p.resposta ?? "")}
           comPergunta
-          rotulo="Salvar resposta"
+          rotulo={modo === "aprovar" ? "Aprovar" : "Salvar resposta"}
+          aviso={p.origem === "aluna" ? AVISO_ALUNA : undefined}
           salvando={salvar.isPending}
           onCancelar={() => setModo("ver")}
           onSalvar={(v) => patch(v.pergunta === p.pergunta ? { resposta: v.resposta } : v)}
@@ -220,8 +237,8 @@ export const CartaoPergunta = ({ p, numero }: { p: PerguntaTreino; numero?: numb
             <>
               <Button size="sm" onClick={() => setModo("responder")}>Responder</Button>
               {p.resposta_ia && (
-                <Button size="sm" variant="outline" disabled={salvar.isPending} onClick={() => patch({ resposta: p.resposta_ia })}>
-                  <Check className="h-4 w-4" /> Aprovar a da IA
+                <Button size="sm" variant="outline" onClick={() => setModo("aprovar")}>
+                  <Check className="h-4 w-4" /> Revisar e aprovar a da IA
                 </Button>
               )}
               <Button size="sm" variant="ghost" disabled={salvar.isPending} onClick={() => patch({ status: "descartada" })}>

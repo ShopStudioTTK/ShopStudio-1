@@ -173,7 +173,7 @@ group by user_id order by custo_usd desc;
 
 A expert responde perguntas do jeito dela em `/app/treinamento`, e o assistente usa essas respostas para falar com o mesmo tom, as mesmas frases e as mesmas gírias.
 
-- **Fila:** são três origens de pergunta. As **mapeadas** são 25, gravadas pela migration a partir das aulas e do dossiê. As **de alunas** vêm das conversas do assistente: cada conversa é um item só, com as perguntas em ordem e o que a IA respondeu. As **criadas** saem do botão "Nova pergunta". Para cada pergunta, a expert pode responder, aprovar a resposta da IA, descartar ou editar. A tela nunca mostra quem perguntou.
+- **Fila:** são três origens de pergunta. As **mapeadas** são 25, gravadas pela migration a partir das aulas e do dossiê. As **de alunas** vêm das conversas do assistente: cada conversa é um item só, com as perguntas em ordem e o que a IA respondeu. As **criadas** saem do botão "Nova pergunta". Para cada pergunta, a expert pode responder, aprovar a resposta da IA, descartar ou editar. A tela nunca mostra quem perguntou. Como a pergunta e a resposta aprovadas viram exemplo no prompt de outras alunas, numa pergunta de aluna o editor avisa para reescrever a pergunta de forma genérica e tirar o que for pessoal. "Revisar e aprovar a da IA" abre o editor com a resposta da IA; não há aprovação direta.
 - **Assistente:** antes de chamar a IA, a pergunta da aluna (com as 2 anteriores da conversa) vira embedding, e o servidor busca as 4 respondidas mais parecidas. O resultado depende da semelhança:
 
   | Semelhança | O que acontece |

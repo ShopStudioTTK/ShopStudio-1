@@ -37,6 +37,13 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 **Achado para a calibragem:** a pergunta solta "e se eu tiver menos de 2 mil?", indexada junto com a anterior ("como eu ativo a conta…"), deu **0,781** contra a resposta sobre ativar a conta. Passou do 0,7 e entrou como modelo. O assunto é próximo (2 mil é requisito), mas o contexto pesa bastante no vetor. Se isso puxar respostas erradas, há três caminhos: usar só 1 pergunta anterior; buscar com e sem contexto e ficar com a melhor; ou a expert reescrever a pergunta deixando-a completa (o embedding é refeito ao editar). Os limiares 0,9 / 0,7 / 0,6 são os de partida e devem ser medidos com uso real.
 
+**Texto de aluna no prompt (decisão da dona do produto):** aprovar uma pergunta de aluna põe o texto dela, e a resposta da IA se aprovada, no prompt de outras alunas. Os riscos são dado pessoal (@, cidade, valores, detalhes da conversa) e instrução escondida ("ignore as regras…"). A expert continua sendo o filtro, agora com aviso: numa pergunta de aluna, o editor pede uma pergunta genérica e nada pessoal, e "Aprovar a da IA" virou "Revisar e aprovar a da IA", que abre o editor com a resposta da IA em vez de salvar direto. Isso também resolve o corte silencioso de respostas com mais de 4.000 caracteres: o contador fica vermelho e bloqueia o salvamento. A exceção à regra "nada de texto livre do navegador no prompt" está registrada no CLAUDE.md. Descartado: tirar a pergunta do prompt, porque o modelo perderia a referência de qual dúvida a resposta atende.
+
+**Efeito no cache** (estimativa com os números de 2026-11-04):
+- o preset, o material e a base continuam no cache;
+- o bloco da expert e a conversa depois dele saem do cache: ~US$ 0,00002 por pergunta num bloco típico e ~US$ 0,0001 no pior caso;
+- editar respostas da expert não zera o cache.
+
 **Achado fora do escopo:** no ambiente local, o assistente falhou com `Preset "ana-shop-studio-leads-behaviorAPPLYFY_WEBHOOK_TOKEN=" not found`. Pelo nome, falta a quebra de linha depois de `OPENROUTER_PRESET` no `.env.local`, o que também deixa o `APPLYFY_WEBHOOK_TOKEN` sem valor. O teste rodou com o preset passado na linha de comando.
 
 ---
