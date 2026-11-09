@@ -77,6 +77,15 @@ describe("GET /api/treinamento", () => {
     expect(c.valores).toContain(0.6);
   });
 
+  it("lista com limite: as 30 conversas pendentes mais recentes e no máximo 500 linhas", async () => {
+    await GET(req("GET"));
+    const c = naTabela("treinamento").find((x) => x.sql.includes("from public.treinamento t"))!;
+    expect(c.sql).toMatch(/order by max\(criado_em\) desc limit \?/);
+    expect(c.sql).toMatch(/limit \?$/);
+    expect(c.valores).toContain(30);
+    expect(c.valores).toContain(500);
+  });
+
   it("status inválido vira pendente; nas outras abas, tudo solto", async () => {
     await GET(req("GET", undefined, "/api/treinamento?status=xyz"));
     expect(naTabela("treinamento").find((x) => x.sql.includes("from public.treinamento t"))!.valores).toContain("pendente");
@@ -140,6 +149,13 @@ describe("PATCH /api/treinamento", () => {
     for (const body of [{ id: ID, status: "x" }, { id: "abc", resposta: "R" }, { id: ID }, { id: ID, status: "respondida" }])
       expect((await PATCH(req("PATCH", body))).status).toBe(400);
     expect(naTabela("treinamento")).toHaveLength(0);
+  });
+
+  it("só mudar o status não gera embedding nem avisa de indexação", async () => {
+    existe();
+    const res = await PATCH(req("PATCH", { id: ID, status: "descartada" }));
+    expect(await res.json()).toEqual({});
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("linha inexistente → 404", async () => {

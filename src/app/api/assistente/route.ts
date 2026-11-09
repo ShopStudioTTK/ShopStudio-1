@@ -77,8 +77,9 @@ export async function POST(req: Request) {
 
   const corpo = comRegistroDeUso(response.body, async (uso, fim) => {
     await registrarCusto(reserva.id, uso);
-    // A conversa vai para a fila de treinamento da expert. Resposta vazia ou cortada não entra.
-    if (!conversa || !fim.texto.trim() || fim.finishReason === "length") return;
+    // A conversa vai para a fila de treinamento da expert. Só resposta completa ("stop"): cortada,
+    // com erro ou interrompida não entra, para meia resposta nunca ser aprovada como exemplo.
+    if (!conversa || !fim.texto.trim() || fim.finishReason !== "stop") return;
     await registrarNaFila({ userId, conversa, contexto: anteriores, pergunta, respostaIa: fim.texto, vetor: expert.vetor })
       .catch((e) => console.error("assistente: falha ao gravar na fila de treinamento", e));
   });

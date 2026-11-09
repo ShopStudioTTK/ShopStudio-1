@@ -31,7 +31,7 @@ const promptEnviado = () => JSON.parse(String(chat()[1]?.body)).messages[0].cont
 const CONV = "99999999-2222-3333-4444-555555555555";
 const daFila = () => consultas.find((c) => c.sql.includes("insert into public.treinamento_conversas"));
 const sse =
-  'data: {"choices":[{"delta":{"content":"Oi"}}]}\n\n' +
+  'data: {"choices":[{"delta":{"content":"Oi"},"finish_reason":"stop"}]}\n\n' +
   'data: {"choices":[],"usage":{"prompt_tokens":90000,"completion_tokens":800,"cost":0.0081,"prompt_tokens_details":{"cached_tokens":89000}}}\n\ndata: [DONE]\n\n';
 
 beforeEach(() => {
@@ -242,9 +242,11 @@ describe("respostas da expert e fila de treinamento", () => {
     }
   });
 
-  it("resposta cortada ou vazia não entra na fila", async () => {
+  it("resposta cortada, com erro, interrompida ou vazia não entra na fila", async () => {
     for (const corpo of [
       'data: {"choices":[{"delta":{"content":"Oi"},"finish_reason":"length"}]}\n\ndata: [DONE]\n\n',
+      'data: {"choices":[{"delta":{"content":"Oi"},"finish_reason":"error"}]}\n\ndata: [DONE]\n\n',
+      'data: {"choices":[{"delta":{"content":"Oi pela met"}}]}\n\n',
       "data: [DONE]\n\n",
     ]) {
       reiniciarDb();

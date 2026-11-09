@@ -15,6 +15,9 @@ type Status = (typeof STATUS)[number];
 const ehStatus = (v: unknown): v is Status => STATUS.includes(v as Status);
 const MAX_PERGUNTA = 1000;
 const MAX_RESPOSTA = 4000;
+// ponytail: limite fixo, sem paginação; paginar se a expert precisar ver além disso.
+const LIMITE_CONVERSAS = 30;
+const LIMITE_LINHAS = 500;
 
 /** Vetor ou null: embedding fora do ar nunca impede de salvar (a tela avisa "não indexada"). */
 const vetorDe = (contexto: string | null, pergunta: string) =>
@@ -47,7 +50,7 @@ export async function GET(req: Request) {
   const status: Status = ehStatus(pedido) ? pedido : "pendente";
   const sql = db();
 
-  // Em "pendente", a conversa inteira vem junto enquanto tiver alguma pergunta pendente.
+  // Em "pendente": as perguntas soltas pendentes e as conversas (inteiras) com alguma pendente, as mais recentes.
   const [linhas, contagens] = await Promise.all([
     sql`
       select t.id, t.origem, t.status, t.conversa_id, t.ordem, t.contexto, t.pergunta, t.resposta_ia, t.resposta,
@@ -62,10 +65,13 @@ export async function GET(req: Request) {
         order by r.embedding <=> t.embedding
         limit 1
       ) p on p.similaridade >= ${LIMIAR_PARECIDA}
-      where t.status = ${status}
+      where (${status} <> 'pendente' and t.status = ${status})
+        or (${status} = 'pendente' and t.status = 'pendente' and t.conversa_id is null)
         or (${status} = 'pendente' and t.conversa_id in (
-          select conversa_id from public.treinamento where status = 'pendente' and conversa_id is not null))
-      order by t.criado_em desc`,
+          select conversa_id from public.treinamento where status = 'pendente' and conversa_id is not null
+          group by conversa_id order by max(criado_em) desc limit ${LIMITE_CONVERSAS}))
+      order by t.criado_em desc
+      limit ${LIMITE_LINHAS}`,
     sql`select status, count(*)::int as n from public.treinamento group by status`,
   ]);
 
@@ -142,6 +148,8 @@ export async function PATCH(req: Request) {
       respondido_por = case when ${respondeu} then ${auth.userId}::uuid else respondido_por end,
       respondido_em = case when ${respondeu} then now() else respondido_em end
     where id = ${id}`;
+  // Só mudou o status: nada foi indexado agora, então não há o que avisar.
+  if (!novaPergunta && !resposta) return Response.json({});
   return Response.json({ indexada: v !== null || (manter && linha.indexada) });
 }
 
