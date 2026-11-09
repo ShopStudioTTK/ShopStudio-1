@@ -51,6 +51,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"admins": {
+                  Row: {
+                    "criado_em": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"user_id": string
+                  }
+                  Update: {
+                    "criado_em"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"ai_config": {
                   Row: {
                     "evitar": string | null,"exemplos": NonNullable<Json>,"id": string,"nome": string,"persona": string | null,"tom": string,"updated_at": string
@@ -229,6 +243,40 @@ export type Database = {
                   }
                   Update: {
                     "aluna"?: string,"created_at"?: string,"destaque"?: boolean,"id"?: string,"midia_tipo"?: string,"midia_url"?: string | null,"resultado"?: string | null,"texto"?: string | null,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"treinamento": {
+                  Row: {
+                    "contexto": string | null,"conversa_id": string | null,"criado_em": string,"embedding": string | null,"id": string,"ordem": number | null,"origem": string,"pergunta": string,"respondido_em": string | null,"respondido_por": string | null,"resposta": string | null,"resposta_ia": string | null,"status": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "contexto"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"embedding"?: string | null,"id"?: string,"ordem"?: number | null,"origem": string,"pergunta": string,"respondido_em"?: string | null,"respondido_por"?: string | null,"resposta"?: string | null,"resposta_ia"?: string | null,"status"?: string
+                  }
+                  Update: {
+                    "contexto"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"embedding"?: string | null,"id"?: string,"ordem"?: number | null,"origem"?: string,"pergunta"?: string,"respondido_em"?: string | null,"respondido_por"?: string | null,"resposta"?: string | null,"resposta_ia"?: string | null,"status"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "treinamento_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "treinamento_conversas"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"treinamento_conversas": {
+                  Row: {
+                    "conversa_cliente": string,"criado_em": string,"id": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "conversa_cliente": string,"criado_em"?: string,"id"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "conversa_cliente"?: string,"criado_em"?: string,"id"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     
