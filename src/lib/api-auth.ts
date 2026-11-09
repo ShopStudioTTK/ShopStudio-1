@@ -79,6 +79,26 @@ export async function autenticar(req: Request, rotulo: string, msgLogin: string)
   return auth;
 }
 
+export const ehAdmin = async (userId: string) =>
+  (await db()`select 1 from public.admins where user_id = ${userId}`).length > 0;
+
+/**
+ * autenticar() + a conta está em `admins`, conferido no banco a cada chamada (sem cache, sem
+ * nada do navegador ou do JWT). A tabela só muda pelo painel do Supabase.
+ */
+export async function admin(req: Request, rotulo: string): Promise<Logada | Response> {
+  const auth = await autenticar(req, rotulo, "Faça login.");
+  if (auth instanceof Response) return auth;
+  let ok: boolean;
+  try {
+    ok = await ehAdmin(auth.userId);
+  } catch (e) {
+    console.error(`${rotulo}: falha ao ler admins`, e);
+    return erro("Não consegui verificar seu acesso agora.", 500);
+  }
+  return ok ? auth : erro("Acesso restrito à administração.", 403);
+}
+
 /**
  * Provedores do modelo DeepSeek v4.1 Flash: Morph primeiro (mais barato em fp8, cache confiável
  * nos testes), DeepInfra de reserva. Só fp8: as versões fp4 respondem pior.

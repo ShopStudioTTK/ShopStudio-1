@@ -122,6 +122,14 @@ describe("cada conta só vê e mexe no que é dela", () => {
     expect(await (await acesso.GET(req("/api/acesso"))).json()).toEqual({ acesso: true });
   });
 
+  it("acesso: admin só aparece para quem está em admins, olhando a conta logada", async () => {
+    responderCom([["from public.admins", [{}]]]);
+    expect(await (await acesso.GET(req("/api/acesso?user_id=u2"))).json()).toEqual({ acesso: true, admin: true });
+    expect(naTabela("admins")[0].valores).toEqual(["u1"]);
+    reiniciarDb();
+    expect(await (await acesso.GET(req("/api/acesso"))).json()).not.toHaveProperty("admin");
+  });
+
   it("senha: troca a da conta logada, nunca a do id mandado no corpo", async () => {
     responderCom([["from public.senhas_temporarias", [{ valida: true }]]]);
     updateUserById.mockResolvedValue({ data: {}, error: null });
