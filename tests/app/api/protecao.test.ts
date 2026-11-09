@@ -20,6 +20,8 @@ import { consultas, getUser, reiniciarDb, responderCom } from "../../apoio/db-fa
 const modulos = import.meta.glob<Record<string, unknown>>("../../../src/app/api/**/route.ts", { eager: true });
 const SO_LOGIN = new Set(["perfil POST", "acesso GET", "acesso POST", "senha POST"]);
 const WEBHOOK = new Set(["webhook/conta POST", "webhook/applyfy POST"]);
+/** Só admin: aluna com acesso, mas fora de `admins`, leva 403 sem tocar no treinamento. */
+const ADMIN = new Set(["treinamento GET", "treinamento POST", "treinamento PATCH", "treinamento DELETE"]);
 const DE_ALUNA_COM_ACESSO = (h: { nome: string }) => !SO_LOGIN.has(h.nome) && !WEBHOOK.has(h.nome);
 const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
@@ -70,12 +72,18 @@ describe("toda rota da API", () => {
   });
 
   it("inclui o webhook (senão as exceções acima protegem uma rota que não existe)", () => {
-    expect(handlers.map((h) => h.nome)).toEqual(expect.arrayContaining([...WEBHOOK, ...SO_LOGIN]));
+    expect(handlers.map((h) => h.nome)).toEqual(expect.arrayContaining([...WEBHOOK, ...SO_LOGIN, ...ADMIN]));
   });
 
   // só as consultas do acesso em si
   const soChecagens = () =>
     consultas.every((c) => c.sql.includes("public.entitlements") || c.sql.includes("public.senhas_temporarias"));
+
+  it.each(handlers.filter((h) => ADMIN.has(h.nome)))("$nome: aluna com acesso, fora de admins → 403", async ({ chamar }) => {
+    responderCom([["from public.entitlements", [{}]]]);
+    expect((await chamar("Bearer tok")).status).toBe(403);
+    expect(consultas.some((c) => c.sql.includes("public.treinamento"))).toBe(false);
+  });
 
   it.each(handlers.filter(DE_ALUNA_COM_ACESSO))("$nome: sem acesso → 403", async ({ chamar }) => {
     temAcesso.mockReturnValue(false);

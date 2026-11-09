@@ -9,3 +9,6 @@ export const idDaUrl = (req: Request): string | null => {
   const id = new URL(req.url).searchParams.get("id");
   return id && UUID.test(id) ? id : null;
 };
+
+/** uuid vindo do corpo (id de linha, id de conversa). Outro formato vira null. */
+export const uuid = (v: unknown): string | null => (typeof v === "string" && UUID.test(v) ? v : null);
