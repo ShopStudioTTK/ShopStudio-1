@@ -197,6 +197,26 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"fichas_roteiro": {
+                  Row: {
+                    "atualizado_em": string,"criado_em": string,"criado_por": string | null,"cta": string,"cta_entonacao": string | null,"cta_porque": string | null,"embedding": string | null,"formato": string,"gancho": string,"gancho_entonacao": string,"gancho_gatilho": string,"gancho_porque": string,"id": string,"problema": string,"problema_entonacao": string | null,"problema_porque": string | null,"produto": string,"solucao": string,"solucao_entonacao": string | null,"solucao_porque": string | null,"tipo": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "atualizado_em"?: string,"criado_em"?: string,"criado_por"?: string | null,"cta": string,"cta_entonacao"?: string | null,"cta_porque"?: string | null,"embedding"?: string | null,"formato": string,"gancho": string,"gancho_entonacao": string,"gancho_gatilho": string,"gancho_porque": string,"id"?: string,"problema": string,"problema_entonacao"?: string | null,"problema_porque"?: string | null,"produto": string,"solucao": string,"solucao_entonacao"?: string | null,"solucao_porque"?: string | null,"tipo": string
+                  }
+                  Update: {
+                    "atualizado_em"?: string,"criado_em"?: string,"criado_por"?: string | null,"cta"?: string,"cta_entonacao"?: string | null,"cta_porque"?: string | null,"embedding"?: string | null,"formato"?: string,"gancho"?: string,"gancho_entonacao"?: string,"gancho_gatilho"?: string,"gancho_porque"?: string,"id"?: string,"problema"?: string,"problema_entonacao"?: string | null,"problema_porque"?: string | null,"produto"?: string,"solucao"?: string,"solucao_entonacao"?: string | null,"solucao_porque"?: string | null,"tipo"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "fichas_roteiro_gancho_gatilho_fkey"
+      columns: ["gancho_gatilho"]
+isOneToOne: false
+      referencedRelation: "gatilhos"
+      referencedColumns: ["slug"]
+    }
+                  ]
                 },"gancho_notas": {
                   Row: {
                     "atualizado_em": string,"gancho_id": string,"nota": number,"user_id": string
@@ -227,6 +247,20 @@ isOneToOne: false
                   }
                   Update: {
                     "categoria"?: string,"comunidade"?: boolean,"criado_em"?: string,"id"?: string,"texto"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"gatilhos": {
+                  Row: {
+                    "criado_em": string,"rotulo": string,"slug": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"rotulo": string,"slug": string
+                  }
+                  Update: {
+                    "criado_em"?: string,"rotulo"?: string,"slug"?: string
                   }
                   Relationships: [
                     
