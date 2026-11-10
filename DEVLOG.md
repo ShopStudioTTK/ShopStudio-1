@@ -4,6 +4,22 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-10: Minha conta (nome, e-mail e senha)
+
+**Pedido:** uma tela de configurações para a aluna trocar o nome, o e-mail e a senha.
+
+**Como ficou:**
+- `/app/conta`, aberta pelo cartão da conta no rodapé do menu (que agora mostra o nome). Três cartões, cada um com o seu "Salvar".
+- `PATCH /api/conta` com `autenticar()`, sempre na conta do token. O nome vai para o `user_metadata.full_name` (o mesmo que `nomeDoPerfil` lê) e para `profiles`.
+- **E-mail e senha só mudam com a senha atual.** São o login: sem isso, um token roubado tomava a conta. A senha é conferida pelo próprio login do Supabase (`conferirSenha` em `src/lib/supabase/admin.ts`), que encerra na hora a sessão que abriu. Errada → 403; limite de logins → 429.
+- O e-mail novo entra **já confirmado** (`email_confirm: true`): os modelos de e-mail do Supabase não têm link (blindagem de 2026-11-05), então não há como confirmar por e-mail. Por isso a tela pede para conferir bem. E-mail de outra conta → 409. **Decisão da dona:** por enquanto vale na hora; a confirmação do e-mail novo pela Resend vem depois.
+- Trocar a senha derruba as sessões; a tela entra de novo sozinha com os dados novos (no e-mail também, porque o token antigo ainda leva o e-mail velho). Nome só renova o token.
+- `EMAIL`, `SENHA_MIN/MAX` e `senhaValida` foram para `src/lib/entrada.ts` (eram cópias nos webhooks e em `/api/senha`).
+
+**Limite conhecido:** o Supabase limita os logins por IP (10 a cada 5 min), e a conferência sai do IP do servidor, que é o mesmo para todas as alunas. Para uma tela usada raramente, serve. Se começar a dar 429, a saída é conferir pelo hash em `auth.users`, com um limite próprio.
+
+**Verificado:** testes, lint e build. No Supabase local (build em `localhost:3005`, contas de teste apagadas no fim): com a senha temporária pendente → 403; nome → 204; senha sem a atual ou errada → 403; com a atual → 204, o token antigo passa a dar 401 e a senha velha não entra mais; e-mail → 204, o novo entra e o velho não. `profiles` e `user_metadata` ficaram iguais, e a sessão aberta pela conferência foi encerrada. No navegador, salvar o nome mostrou o aviso e atualizou o menu na hora, sem erro no console. **Não conferido:** a largura de celular.
+
 ## 2026-11-10: Ganchos primeiro, com notas e comunidade
 
 **Pedido:** na página de roteiros e ganchos, os ganchos vêm antes e com mais destaque. As alunas dão nota de 1 a 5 aos ganchos e registram os delas, com o tipo que escolherem, numa lista "Ganchos da comunidade". A admin edita e apaga os ganchos.

@@ -103,11 +103,13 @@ src/
       checklist/  resultados/
       campeoes/               vídeos campeões por nicho (admin adiciona e remove ali mesmo)
       treinamento/            fila de treinamento da IA (só admin)
+      conta/                  minha conta: nome, e-mail e senha
     api/
       assistente/route.ts     chat com streaming, limite diário, registro de custo
       roteiro/route.ts        gerador de roteiros (JSON)
       treinamento/route.ts    fila de treinamento da IA (só admin, admin() em api-auth.ts)
       senha/route.ts          troca da senha temporária (primeiro acesso)
+      conta/route.ts          muda nome, e-mail e senha (e-mail e senha pedem a senha atual)
       webhook/conta/route.ts  cria a conta da aluna (chamado pela plataforma de venda)
       webhook/applyfy/route.ts compra paga na Applyfy → cria a conta e manda o e-mail de acesso
     icon.tsx  apple-icon.tsx  manifest.ts    identidade "ss" gerada no build
@@ -207,7 +209,7 @@ Migrations em `supabase/migrations/`:
 
 | Tabela | Para quê | Quem escreve |
 |---|---|---|
-| `profiles` | nome e e-mail da aluna | a própria aluna |
+| `profiles` | nome e e-mail da aluna (espelho do login) | servidor (`/api/perfil` no primeiro login, `/api/conta`) |
 | `compras_applyfy` | transações da Applyfy já processadas (o aviso repetido não gera outra senha) | servidor (`/api/webhook/applyfy`) |
 | `senhas_temporarias` | contas que ainda não trocaram a senha temporária | servidor (webhook e `/api/senha`) |
 | `chapter_progress`, `checklist_progress` | progresso | a própria aluna |
@@ -238,7 +240,8 @@ Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql
 3. A resposta é `201 { email, senhaTemporaria }`. **O envio da senha à aluna ainda não existe:** quando houver um serviço de e-mail, ele entra nessa rota.
 4. A aluna entra em `/entrar` com o e-mail e a senha temporária, e o app pede a senha nova (mínimo de 6 caracteres). Até ela trocar, toda rota de conteúdo responde 403.
 5. **A senha temporária vale 24 horas** (`VALIDADE_SENHA_TEMPORARIA_MIN`, contados pelo relógio do banco). Depois disso, o app mostra "Sua senha temporária expirou" e não deixa trocar. Para gerar outra, chame o webhook de novo com o mesmo e-mail: ele cria uma senha nova, com mais 24 horas, e a antiga para de valer.
-6. A troca (`POST /api/senha`) apaga a linha da aluna em `senhas_temporarias` e derruba as sessões abertas. A tela entra de novo sozinha com a senha nova. Daí em diante, `GET /api/acesso` responde só `{ "acesso": true }`, sem campo de senha, e o JWT nunca carrega nada sobre isso.
+6. Depois, a aluna muda nome, e-mail e senha em **Minha conta** (`/app/conta`, pelo cartão no rodapé do menu). E-mail e senha pedem a senha atual; o e-mail novo entra já confirmado.
+7. A troca (`POST /api/senha`) apaga a linha da aluna em `senhas_temporarias` e derruba as sessões abertas. A tela entra de novo sozinha com a senha nova. Daí em diante, `GET /api/acesso` responde só `{ "acesso": true }`, sem campo de senha, e o JWT nunca carrega nada sobre isso.
 
 Respostas do webhook: `201` conta criada (ou senha temporária renovada) · `400` e-mail inválido · `401` segredo ausente ou errado · `403` `Origin` fora da lista · `409` a aluna já definiu a própria senha · `500` segredo não configurado ou falha.
 
@@ -283,7 +286,7 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 |---|---|
 | Criar conta sem ter comprado | Cadastro público desligado (`enable_signup = false`). Só o webhook, com o segredo, cria conta. |
 | Marca de senha temporária visível ou alterável pela aluna | Fica em `senhas_temporarias`, sem privilégio para `anon`/`authenticated`; nunca nos metadados do JWT. |
-| Token roubado trocando a senha de outra pessoa | `POST /api/senha` só funciona com a senha temporária pendente. |
+| Token roubado trocando a senha de outra pessoa | `POST /api/senha` só funciona com a senha temporária pendente. Em "Minha conta" (`PATCH /api/conta`), e-mail e senha só mudam com a senha atual, conferida no servidor. |
 | Conta logada ver o banco (tabelas, estrutura, dados de outras) | Data API desligada; o navegador só fala com as rotas do app. `anon` e `authenticated` sem privilégio nenhum no banco. Toda consulta filtra pelo `user_id` do token; testado com duas contas e em `tests/app/api/{protecao,isolamento}.test.ts`. |
 | Aluna ler ou mudar o treinamento da IA (vai no prompt de todas) | Toda rota de `/api/treinamento` passa por `admin()`, que confere `admins` no banco a cada chamada; a tela só esconde o menu. Testado em `protecao.test.ts` (aluna com acesso → 403). |
 | Aluna escrever na conversa de outra na fila de treinamento | A conversa é sempre o par (`user_id` do token, id do navegador). A linha do treinamento não tem `user_id`, e a expert não vê quem perguntou. |
