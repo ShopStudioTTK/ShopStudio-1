@@ -4,6 +4,14 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-10: Limiares das fichas e cartões em dropdown
+
+**Pedido:** depois do achado da calibragem, a dona baixou os limiares para **0,45** (cartão "produtos parecidos") e **0,55** (prompt do gerador), e pediu os cartões como dropdown: a aluna vê e, se quiser, fecha.
+
+**O que mudou:** `LIMIAR_CARTAO` e `LIMIAR_MODELO` em `src/lib/fichas.ts`. Os cartões viraram `<details open>` nativos, com o título como `summary` e a seta girando: vêm abertos, e o clique no título fecha e abre.
+
+**Verificado:** testes, lint e build. No build em `localhost:3005` (conta e ficha de teste apagadas no fim), "sérum de vitamina C" agora traz o Sérum Principia no cartão 1 (47%), que antes não aparecia. A 0,47 a ficha fica fora do prompt (< 0,55), então ela aparece para a aluna sem moldar o roteiro. O cartão fecha e abre pelo título, sem erro no console.
+
 ## 2026-11-10: Treinamento de roteiros (fichas da expert)
 
 **Pedido:** o treinamento só valia para o Pergunte pra IA. A dona quer que a expert ensine o jeito dela de pensar um roteiro: para um produto, qual gatilho no gancho e por quê, com que entonação, em que formato, e como estrutura problema, solução e CTA. Design: `docs/superpowers/specs/2026-11-10-treinamento-roteiros-design.md`; plano: `docs/superpowers/plans/2026-11-10-treinamento-roteiros.md`.

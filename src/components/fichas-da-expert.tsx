@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, Sparkles } from "lucide-react";
 import { PARTES, type FichaCartao } from "@/lib/fichas-tipos";
 
 /**
  * Cartão embaixo do roteiro com fichas da Ana: a primeira aberta, as outras numa linha com "ver".
  * O roteiro da aluna não explica nada; o porquê aparece só aqui, nas palavras dela.
+ * Dropdown nativo (<details>): vem aberto e a aluna fecha pelo título.
  */
 export const CartaoDaExpert = ({ titulo, subtitulo, fichas }: { titulo: string; subtitulo: string; fichas: FichaCartao[] }) => {
   const [abertaId, setAbertaId] = useState<string | null>(null);
@@ -14,13 +15,18 @@ export const CartaoDaExpert = ({ titulo, subtitulo, fichas }: { titulo: string; 
   const aberta = fichas.find((f) => f.id === abertaId) ?? fichas[0];
 
   return (
-    <div className="hero-surface relative overflow-hidden rounded-[26px] p-5 text-cream shadow-editorial sm:p-6">
-      <div className="grain absolute inset-0 opacity-20" aria-hidden="true" />
+    <details open className="group hero-surface relative overflow-hidden rounded-[26px] p-5 text-cream shadow-editorial sm:p-6">
+      <div className="grain pointer-events-none absolute inset-0 opacity-20" aria-hidden="true" />
+      <summary className="relative flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
+        <span>
+          <span className="flex items-center gap-2 font-display text-lg font-semibold leading-tight">
+            <Sparkles className="h-4 w-4 shrink-0" /> {titulo}
+          </span>
+          <span className="mt-1 block text-[13px] text-cream/70">{subtitulo}</span>
+        </span>
+        <ChevronDown className="mt-1 h-5 w-5 shrink-0 text-cream/80 transition-transform group-open:rotate-180" aria-hidden="true" />
+      </summary>
       <div className="relative">
-        <p className="flex items-center gap-2 font-display text-lg font-semibold leading-tight">
-          <Sparkles className="h-4 w-4 shrink-0" /> {titulo}
-        </p>
-        <p className="mt-1 text-[13px] text-cream/70">{subtitulo}</p>
 
         <div className="mt-4 rounded-2xl bg-white/10 p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -80,6 +86,6 @@ export const CartaoDaExpert = ({ titulo, subtitulo, fichas }: { titulo: string; 
           </ul>
         )}
       </div>
-    </div>
+    </details>
   );
 };
