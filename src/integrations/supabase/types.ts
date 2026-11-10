@@ -119,7 +119,13 @@ export type Database = {
                     "criado_em"?: string,"id"?: string,"nicho"?: string,"titulo"?: string,"url"?: string
                   }
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "campeoes_nicho_fkey"
+      columns: ["nicho"]
+isOneToOne: false
+      referencedRelation: "nichos"
+      referencedColumns: ["slug"]
+    }
                   ]
                 },"chapter_progress": {
                   Row: {
@@ -187,6 +193,20 @@ export type Database = {
                   }
                   Update: {
                     "codigo"?: string | null,"criado_em"?: string,"origem"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"nichos": {
+                  Row: {
+                    "criado_em": string,"rotulo": string,"slug": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"rotulo": string,"slug": string
+                  }
+                  Update: {
+                    "criado_em"?: string,"rotulo"?: string,"slug"?: string
                   }
                   Relationships: [
                     

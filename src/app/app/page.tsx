@@ -21,11 +21,11 @@ import { Button } from "@/components/ui/button";
 import { useRoteirosSalvos } from "@/components/script-generator";
 import { useAuth } from "@/hooks/use-auth";
 import { useConteudo } from "@/hooks/use-conteudo";
+import { useNichos } from "@/hooks/use-nichos";
 import { useChapterProgress } from "@/hooks/use-progress";
 import { chapters, chapterPath } from "@/content/chapters";
 import { FORMATOS, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
 import { hookCategorias } from "@/content/hooks";
-import { NICHOS } from "@/content/nichos";
 import { primeiroNome } from "@/lib/nome";
 import { cn } from "@/lib/utils";
 
@@ -261,6 +261,7 @@ const UltimosRoteiros = () => {
 
 const Ferramentas = () => {
   const { data: ganchos } = useConteudo("ganchos");
+  const { data: nichos = [] } = useNichos();
   const tiles = [
     {
       to: "/app/roteiros?aba=ganchos",
@@ -302,7 +303,7 @@ const Ferramentas = () => {
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {NICHOS.map((n, i) => (
+          {nichos.map((n, i) => (
             <Link
               key={n.slug}
               href={`/app/campeoes?nicho=${n.slug}`}

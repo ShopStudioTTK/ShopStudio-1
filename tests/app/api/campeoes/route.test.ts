@@ -8,7 +8,7 @@ vi.mock("@/lib/db", async () => {
 vi.mock("@/lib/supabase/admin", async () => (await import("../../../apoio/db-falso")).adminFalso);
 vi.mock("@/lib/access", () => ({ temAcesso: () => true }));
 
-import { getUser, naTabela, reiniciarDb, responderCom } from "../../../apoio/db-falso";
+import { consultas, getUser, naTabela, reiniciarDb, responderCom } from "../../../apoio/db-falso";
 import { DELETE, GET, POST } from "@/app/api/campeoes/route";
 
 const ID = "11111111-1111-4111-8111-111111111111";
@@ -40,8 +40,8 @@ describe("GET /api/campeoes", () => {
     expect(consulta.valores).toContain("beleza");
   });
 
-  it("nicho que não existe → 400, sem consultar", async () => {
-    for (const r of [await get(), await get("xyz")]) expect(r.status).toBe(400);
+  it("sem nicho ou fora do formato → 400, sem consultar", async () => {
+    for (const r of [await get(), await get("A%20B")]) expect(r.status).toBe(400);
     expect(naTabela("campeoes")).toHaveLength(0);
   });
 });
@@ -53,11 +53,11 @@ describe("POST /api/campeoes (só admin)", () => {
   });
 
   it("grava o link limpo (sem query) no nicho", async () => {
-    comoAdmin([["insert into public.campeoes", [{ id: ID, url: VIDEO, titulo: "Sérum" }]]]);
+    comoAdmin([["from public.nichos", [{}]], ["insert into public.campeoes", [{ id: ID, url: VIDEO, titulo: "Sérum" }]]]);
     const res = await post({ nicho: "beleza", url: `${VIDEO}?is_from_webapp=1&sender_device=pc`, titulo: "  Sérum " });
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ video: { id: ID, url: VIDEO, titulo: "Sérum" } });
-    expect(naTabela("campeoes")[0].valores).toEqual(["beleza", VIDEO, "Sérum"]);
+    expect(naTabela("campeoes").at(-1)?.valores).toEqual(["beleza", VIDEO, "Sérum"]);
   });
 
   it("link que não é de vídeo do TikTok → 400", async () => {
@@ -67,14 +67,14 @@ describe("POST /api/campeoes (só admin)", () => {
     expect(naTabela("campeoes")).toHaveLength(0);
   });
 
-  it("nicho inválido → 400", async () => {
+  it("nicho que não está em nichos → 400, sem gravar", async () => {
     comoAdmin();
     expect((await post({ nicho: "xyz", url: VIDEO })).status).toBe(400);
-    expect(naTabela("campeoes")).toHaveLength(0);
+    expect(consultas.some((c) => c.sql.includes("insert into public.campeoes"))).toBe(false);
   });
 
   it("vídeo já cadastrado no nicho → 409", async () => {
-    comoAdmin(); // o insert … on conflict do nothing não devolve linha
+    comoAdmin([["from public.nichos", [{}]]]); // o insert … on conflict do nothing não devolve linha
     expect((await post({ nicho: "beleza", url: VIDEO })).status).toBe(409);
   });
 });
