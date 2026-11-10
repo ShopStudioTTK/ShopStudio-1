@@ -4,6 +4,34 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-10: Ficha de roteiro começa por um rascunho da IA
+
+**Pedido:** a expert montava a ficha do zero. Agora ela põe o produto, a IA gera o roteiro como faz para as alunas, já com o porquê e a entonação, e ela corrige o que quiser. "Escrever do zero" continua como opção, num botão ao lado do "Nova ficha". Admin não tem limite de roteiros.
+
+**Decisões da dona:**
+- a mesma rota `/api/roteiro`, com a checagem de admin dentro dela (o projeto não tem middleware);
+- o rascunho traz o porquê e a entonação, e ela só corrige;
+- a prévia mostra o 5×5 como a aluna vê, com as mudanças dela; no 5×5 muda só a frase escolhida, e as outras opções não são salvas.
+
+**Como ficou:**
+- `ehAdmin` no banco a cada chamada (se falhar, segue como aluna). Admin: limite `Infinity` em `reservarChamada`, então o custo continua registrado. Com `rascunho: true` de uma admin, o `RASCUNHO_BLOCK` entra depois das fichas (o cache continua valendo) e pede `tipo` e `explicacao`.
+- Tela: `GeradorDeRascunho` em `fichas-roteiro.tsx`. O roteiro pronto e o 5×5 saíram do `ScriptGenerator` para o `PreviaDoRoteiro`, usado nas duas telas. Gerar de novo sempre pede confirmação: a tela não acompanha se ela mexeu no rascunho.
+
+**Verificado:** testes, lint e build. Com o build em `localhost:3005`, uma admin de teste (apagada no fim) e a OpenRouter de verdade, "escova alisadora de cabelo" saiu em 25 s, com 1.103 tokens de saída e US$ 0,0005. Vieram o 5×5, o gatilho `problema`, o tipo "beleza capilar" e o porquê e a entonação das 4 partes. O gancho escolhido estava entre os 5, então a troca no 5×5 funciona; o problema, a solução e o CTA do roteiro pronto são parágrafos que não estão na lista, e nesses o 5×5 não muda.
+
+**No navegador** (build em `localhost:3005`, admin e aluna de teste e a ficha apagadas no fim; console sem erro):
+- **Admin:**
+  - "Nova ficha" com "escova alisadora de cabelo": o formulário veio todo preenchido, com tipo "cabelo", gatilho "Problema" e porquê e entonação nas 4 partes;
+  - ela trocou o gancho para "PARA TUDO. Olha o que acontece com esse cabelo armado em uma passada só.", mudou o porquê e passou o gatilho para "Choque";
+  - a prévia mudou na hora: o roteiro pronto e o gancho 1 do 5×5;
+  - a ficha foi salva e indexada.
+- **Aluna, "escova secadora de cabelo" em Conselho de amiga:**
+  - **antes da ficha:** gatilho "curiosidade", gancho "Demorei pra descobrir que dava pra secar e escovar com uma coisa só.";
+  - **depois** (ficha a 0,70, no prompt e no cartão 1), duas gerações: gatilho "choque" nas duas, ganchos "Para tudo: olha o que essa escova faz com o cabelo armado em uma passada." e "Para tudo: esse cabelo armado foi embora em uma passada só.".
+- **Conclusão:** a correção da admin muda o roteiro das alunas. O gatilho segue o dela, e o gancho segue a ideia e quase a frase. É o mesmo achado de antes: se a ideia é o raciocínio e não a frase, falta pedir no bloco das fichas que a IA não repita as frases dela.
+
+Depois do teste, o formulário que nasce do rascunho passou a se chamar "Corrija o rascunho", porque as duas caixas apareciam como "Nova ficha".
+
 ## 2026-11-10: Teste de ponta a ponta com admin e aluna (e dois bugs corrigidos)
 
 **Pedido:** um último teste no navegador com duas contas, uma admin e uma aluna: a admin treina pela tela (e pelo terminal) e a aluna usa o Pergunte pra IA e o gerador de roteiros.

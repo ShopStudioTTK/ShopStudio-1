@@ -26,6 +26,9 @@ export type ScriptResult = {
   hashtags?: string[];
   formatoSugerido?: string;
   gatilho?: string;
+  /** Só no rascunho da ficha da admin. */
+  tipo?: string;
+  explicacao?: Partial<Record<"gancho" | "problema" | "solucao" | "cta", { porque?: string; entonacao?: string }>>;
   /** Cartões das fichas da Ana: só na resposta do gerador, nunca no roteiro salvo. */
   fichas?: FichasDoRoteiro;
 };
@@ -96,6 +99,122 @@ const Frase = ({ texto, numero }: { texto: string; numero: number }) => {
     </li>
   );
 };
+
+/** Roteiro pronto + 5×5, como a aluna vê. Também é a prévia do rascunho da ficha (treinamento). */
+export const PreviaDoRoteiro = ({ titulo, result }: { titulo: string; result: ScriptResult }) => (
+  <>
+    {result.roteiro ? (
+      <div className="hero-surface relative overflow-hidden rounded-[30px] p-6 text-cream shadow-editorial sm:p-8">
+        <div className="grain absolute inset-0 opacity-20" aria-hidden="true" />
+        <div
+          className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full opacity-60 blur-[70px]"
+          style={{ background: "radial-gradient(circle, hsl(var(--gold) / 0.7), transparent 70%)" }}
+          aria-hidden="true"
+        />
+        <div className="relative flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
+              <Sparkles className="h-3 w-3" /> Roteiro pronto · 30 a 60s
+            </p>
+            <h2 className="mt-3 font-display text-[28px] font-semibold leading-[1.05] tracking-tight sm:text-[34px]">
+              {titulo}
+            </h2>
+          </div>
+          <Button
+            variant="cream"
+            size="sm"
+            onClick={() =>
+              copiar(
+                [
+                  `Gancho: ${result.roteiro?.gancho ?? ""}`,
+                  `Problema: ${result.roteiro?.problema ?? ""}`,
+                  `Solução: ${result.roteiro?.solucao ?? ""}`,
+                  `CTA: ${result.roteiro?.cta ?? ""}`,
+                  result.hashtags?.length ? `Hashtags: ${result.hashtags.join(" ")}` : "",
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
+                "Roteiro copiado.",
+              )
+            }
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Copiar roteiro
+          </Button>
+        </div>
+
+        <ol className="relative mt-6 space-y-3">
+          {etapas.map((etapa, i) => (
+            <li key={etapa.key} className="flex gap-4 rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cream font-display text-sm font-bold text-rose">
+                {i + 1}
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/65">
+                  {etapa.label} · {etapa.tempo}
+                </p>
+                <p className="mt-1 text-[15px] leading-relaxed text-cream">{result.roteiro?.[etapa.key]}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        {result.hashtags?.length ? (
+          <div className="relative mt-5 flex flex-wrap gap-1.5">
+            {result.hashtags.map((tag) => (
+              <span key={tag} className="rounded-full bg-white/15 px-2.5 py-1 text-[12px] font-medium">
+                {tag}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        {result.formatoSugerido ? (
+          <p className="relative mt-4 text-[13px] leading-relaxed text-cream/75">🎬 {result.formatoSugerido}</p>
+        ) : null}
+      </div>
+    ) : null}
+
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="eyebrow">Exercício 5×5</p>
+          <p className="mt-1.5 font-display text-xl font-semibold tracking-tight">
+            Mais opções pra misturar e testar
+          </p>
+        </div>
+        <p className="text-[12px] text-muted-foreground">Toque numa frase para copiar</p>
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {fields.map((field) => {
+          const items = result[field.key] ?? [];
+          return (
+            <div key={field.key} className="rounded-[24px] border border-border bg-card p-4 shadow-soft">
+              <div className="flex items-center justify-between px-2.5 pb-2 pt-1">
+                <span className={cn("rounded-full px-3 py-1 text-[12px] font-bold", field.tom)}>
+                  5 {field.label}
+                  <span className="ml-1.5 font-medium opacity-75">{field.sub}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copiar(items.join("\n"))}
+                  className="text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={`Copiar os 5 ${field.label}`}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <ol>
+                {items.map((item, index) => (
+                  <Frase key={`${field.key}-${index}`} texto={item} numero={index + 1} />
+                ))}
+              </ol>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </>
+);
 
 type Props = {
   inicial?: { produto?: string; publico?: string; formato?: Formato };
@@ -284,116 +403,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
 
       {result ? (
         <section ref={resultadoRef} className="scroll-mt-24 space-y-5">
-          {result.roteiro ? (
-            <div className="hero-surface relative overflow-hidden rounded-[30px] p-6 text-cream shadow-editorial sm:p-8">
-              <div className="grain absolute inset-0 opacity-20" aria-hidden="true" />
-              <div
-                className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full opacity-60 blur-[70px]"
-                style={{ background: "radial-gradient(circle, hsl(var(--gold) / 0.7), transparent 70%)" }}
-                aria-hidden="true"
-              />
-              <div className="relative flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
-                    <Sparkles className="h-3 w-3" /> Roteiro pronto · 30 a 60s
-                  </p>
-                  <h2 className="mt-3 font-display text-[28px] font-semibold leading-[1.05] tracking-tight sm:text-[34px]">
-                    {savedProduto || produto}
-                  </h2>
-                </div>
-                <Button
-                  variant="cream"
-                  size="sm"
-                  onClick={() =>
-                    copiar(
-                      [
-                        `Gancho: ${result.roteiro?.gancho ?? ""}`,
-                        `Problema: ${result.roteiro?.problema ?? ""}`,
-                        `Solução: ${result.roteiro?.solucao ?? ""}`,
-                        `CTA: ${result.roteiro?.cta ?? ""}`,
-                        result.hashtags?.length ? `Hashtags: ${result.hashtags.join(" ")}` : "",
-                      ]
-                        .filter(Boolean)
-                        .join("\n"),
-                      "Roteiro copiado.",
-                    )
-                  }
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                  Copiar roteiro
-                </Button>
-              </div>
-
-              <ol className="relative mt-6 space-y-3">
-                {etapas.map((etapa, i) => (
-                  <li key={etapa.key} className="flex gap-4 rounded-2xl bg-white/10 p-4 backdrop-blur-sm">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cream font-display text-sm font-bold text-rose">
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/65">
-                        {etapa.label} · {etapa.tempo}
-                      </p>
-                      <p className="mt-1 text-[15px] leading-relaxed text-cream">{result.roteiro?.[etapa.key]}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-
-              {result.hashtags?.length ? (
-                <div className="relative mt-5 flex flex-wrap gap-1.5">
-                  {result.hashtags.map((tag) => (
-                    <span key={tag} className="rounded-full bg-white/15 px-2.5 py-1 text-[12px] font-medium">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-              {result.formatoSugerido ? (
-                <p className="relative mt-4 text-[13px] leading-relaxed text-cream/75">🎬 {result.formatoSugerido}</p>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div>
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <p className="eyebrow">Exercício 5×5</p>
-                <p className="mt-1.5 font-display text-xl font-semibold tracking-tight">
-                  Mais opções pra misturar e testar
-                </p>
-              </div>
-              <p className="text-[12px] text-muted-foreground">Toque numa frase para copiar</p>
-            </div>
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {fields.map((field) => {
-                const items = result[field.key] ?? [];
-                return (
-                  <div key={field.key} className="rounded-[24px] border border-border bg-card p-4 shadow-soft">
-                    <div className="flex items-center justify-between px-2.5 pb-2 pt-1">
-                      <span className={cn("rounded-full px-3 py-1 text-[12px] font-bold", field.tom)}>
-                        5 {field.label}
-                        <span className="ml-1.5 font-medium opacity-75">{field.sub}</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => copiar(items.join("\n"))}
-                        className="text-muted-foreground transition-colors hover:text-foreground"
-                        aria-label={`Copiar os 5 ${field.label}`}
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <ol>
-                      {items.map((item, index) => (
-                        <Frase key={`${field.key}-${index}`} texto={item} numero={index + 1} />
-                      ))}
-                    </ol>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <PreviaDoRoteiro titulo={savedProduto || produto} result={result} />
 
           <CartaoDaExpert
             titulo="A Ana já fez roteiro de produtos parecidos"
