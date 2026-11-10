@@ -54,9 +54,15 @@ export function gatilhoDaIa(valor: unknown, gatilhos: Gatilho[]): string {
   return gatilhos.find((g) => g.slug === v || slugDe(g.rotulo) === v)?.slug ?? "";
 }
 
-/** Cartão 1: fichas de produtos parecidos (≥ LIMIAR_CARTAO). Nunca lança: falha = sem cartão. */
+/**
+ * Cartão 1: fichas de produtos parecidos (≥ LIMIAR_CARTAO). Nunca lança: falha = sem cartão.
+ * Sem nenhuma ficha indexada, nem chama o embedding (o cartão é um extra, não vale a espera).
+ */
 export async function buscarParecidas(produto: string): Promise<FichaCartao[]> {
   try {
+    const [{ tem }] = await db()`
+      select exists (select 1 from public.fichas_roteiro where embedding is not null) as tem`;
+    if (!tem) return [];
     const v = vetorSql(await gerarEmbedding(produto));
     const linhas = await db()`
       select f.id, f.produto, f.tipo, f.formato, f.gancho_gatilho, g.rotulo as gatilho_rotulo,

@@ -86,7 +86,7 @@ describe("listarGatilhos", () => {
 
 describe("buscarParecidas", () => {
   it("só ≥ 0,45, embedding do produto da aluna", async () => {
-    responderCom([[
+    responderCom([["as tem", [{ tem: true }]], [
       "from public.fichas_roteiro",
       [0.8, 0.47, 0.44].map((s, i) => linha({ id: `f${i}`, similaridade: s })),
     ]]);
@@ -95,7 +95,14 @@ describe("buscarParecidas", () => {
     expect(naTabela("fichas_roteiro")[0].sql).toMatch(/embedding is not null/);
   });
 
+  it("sem nenhuma ficha indexada → [] sem chamar o embedding", async () => {
+    responderCom([["as tem", [{ tem: false }]]]);
+    expect(await buscarParecidas("sérum")).toEqual([]);
+    expect(gerarEmbedding).not.toHaveBeenCalled();
+  });
+
   it("embedding falhou → [] sem lançar", async () => {
+    responderCom([["as tem", [{ tem: true }]]]);
     gerarEmbedding.mockRejectedValue(new Error("fora"));
     expect(await buscarParecidas("sérum")).toEqual([]);
   });

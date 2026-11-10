@@ -10,6 +10,8 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 **O que mudou:** `LIMIAR_CARTAO` e `LIMIAR_MODELO` em `src/lib/fichas.ts`. Os cartões viraram `<details open>` nativos, com o título como `summary` e a seta girando: vêm abertos, e o clique no título fecha e abre.
 
+**Depois, também a pedido da dona:** sem nenhuma ficha indexada, o gerador não chama o embedding (o cartão é um extra e não vale a espera); e `/api/roteiros-salvos` descarta `fichas` no servidor, além da tela. O risco do gatilho novo com nome quase igual a um antigo ficou como está: os gatilhos são poucos e bem diferentes entre si.
+
 **Verificado:** testes, lint e build. No build em `localhost:3005` (conta e ficha de teste apagadas no fim), "sérum de vitamina C" agora traz o Sérum Principia no cartão 1 (47%), que antes não aparecia. A 0,47 a ficha fica fora do prompt (< 0,55), então ela aparece para a aluna sem moldar o roteiro. O cartão fecha e abre pelo título, sem erro no console.
 
 ## 2026-11-10: Treinamento de roteiros (fichas da expert)
