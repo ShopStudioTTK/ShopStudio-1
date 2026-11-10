@@ -36,10 +36,12 @@ export const createSignedUrls = vi.fn();
 export const createUser = vi.fn();
 export const deleteUser = vi.fn();
 export const updateUserById = vi.fn();
+export const conferirSenha = vi.fn();
 /** Mock de @/lib/supabase/admin: só login, contas e storage (o banco é o db falso). */
 export const adminFalso = {
   createAdminClient: () => ({
     auth: { getUser, admin: { createUser, deleteUser, updateUserById } },
     storage: { from: () => ({ createSignedUrls }) },
   }),
+  conferirSenha: (email: string, senha: string) => conferirSenha(email, senha),
 };

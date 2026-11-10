@@ -1,13 +1,10 @@
 import { erro, logada, MSG_SENHA } from "@/lib/api-auth";
 import { estadoDaSenhaTemporaria } from "@/lib/contas";
 import { db } from "@/lib/db";
+import { SENHA_MAX, SENHA_MIN, senhaValida } from "@/lib/entrada";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
-
-// 6 = minimum_password_length do supabase/config.toml; 72 = limite do bcrypt.
-const SENHA_MIN = 6;
-const SENHA_MAX = 72;
 
 /**
  * Primeiro acesso: troca a senha temporária pela definitiva (o Supabase guarda só o hash bcrypt).
@@ -19,7 +16,7 @@ export async function POST(req: Request) {
   const auth = await logada(req, "senha", "Faça login.");
   if (auth instanceof Response) return auth;
   const senha = (await req.json().catch(() => null))?.senha;
-  if (typeof senha !== "string" || senha.length < SENHA_MIN || senha.length > SENHA_MAX)
+  if (!senhaValida(senha))
     return erro(`A senha precisa ter de ${SENHA_MIN} a ${SENHA_MAX} caracteres.`, 400);
 
   const estado = await estadoDaSenhaTemporaria(auth.userId);

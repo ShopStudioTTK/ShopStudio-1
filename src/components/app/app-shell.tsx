@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useChapterProgress } from "@/hooks/use-progress";
 import { chapters } from "@/content/chapters";
 import type { ReactNode } from "react";
+import { nomeDoPerfil } from "@/lib/nome";
 import { cn } from "@/lib/utils";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
@@ -158,6 +159,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const [menuAberto, setMenuAberto] = useState(false);
   const fecharMenu = () => setMenuAberto(false);
+  const nome = nomeDoPerfil(user?.user_metadata);
 
   const handleSignOut = async () => {
     await signOut();
@@ -191,13 +193,15 @@ const AppShell = ({ children }: { children: ReactNode }) => {
 
   const account = (
     <div className="flex items-center gap-3 rounded-2xl border border-border bg-card/80 p-2.5">
-      <span className="bg-gradient-pop flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold text-primary-foreground">
-        {(user?.email ?? "s").slice(0, 1).toUpperCase()}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[12.5px] font-medium text-foreground/85">{user?.email}</p>
-        <p className="text-[11px] text-muted-foreground">Shop Girl ✦</p>
-      </div>
+      <Link href="/app/conta" onClick={fecharMenu} title="Minha conta" className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="bg-gradient-pop flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold text-primary-foreground">
+          {(nome ?? user?.email ?? "s").slice(0, 1).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12.5px] font-medium text-foreground/85">{nome ?? user?.email}</p>
+          <p className="text-[11px] text-muted-foreground">Minha conta ✦</p>
+        </div>
+      </Link>
       <button
         type="button"
         onClick={handleSignOut}

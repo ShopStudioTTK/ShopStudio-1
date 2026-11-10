@@ -26,3 +26,12 @@ export const slugDe = (rotulo: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 40)
     .replace(/-+$/, "");
+
+/** E-mail: o mesmo formato nos webhooks e na conta da aluna. */
+export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** 6 = minimum_password_length do supabase/config.toml; 72 = limite do bcrypt. */
+export const SENHA_MIN = 6;
+export const SENHA_MAX = 72;
+export const senhaValida = (v: unknown): v is string =>
+  typeof v === "string" && v.length >= SENHA_MIN && v.length <= SENHA_MAX;

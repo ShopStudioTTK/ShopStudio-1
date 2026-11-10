@@ -8,8 +8,9 @@ vi.mock("@/lib/db", async () => {
 vi.mock("@/lib/supabase/admin", async () => (await import("../../apoio/db-falso")).adminFalso);
 vi.mock("@/lib/access", () => ({ temAcesso: () => true }));
 
-import { createSignedUrls, getUser, naTabela, reiniciarDb, responderCom, updateUserById } from "../../apoio/db-falso";
+import { conferirSenha, createSignedUrls, getUser, naTabela, reiniciarDb, responderCom, updateUserById } from "../../apoio/db-falso";
 import * as acesso from "@/app/api/acesso/route";
+import * as conta from "@/app/api/conta/route";
 import * as ganchos from "@/app/api/ganchos/route";
 import * as notaDoGancho from "@/app/api/ganchos/nota/route";
 import * as perfil from "@/app/api/perfil/route";
@@ -130,6 +131,15 @@ describe("cada conta só vê e mexe no que é dela", () => {
     expect(naTabela("admins")[0].valores).toEqual(["u1"]);
     reiniciarDb();
     expect(await (await acesso.GET(req("/api/acesso"))).json()).not.toHaveProperty("admin");
+  });
+
+  it("conta: muda a conta logada e confere a senha dela, nunca a do id mandado no corpo", async () => {
+    conferirSenha.mockResolvedValue("ok");
+    updateUserById.mockResolvedValue({ data: {}, error: null });
+    await conta.PATCH(req("/api/conta", "PATCH", { nome: "Hack", senha: "nova123", senhaAtual: "x", user_id: OUTRA, id: OUTRA }));
+    expect(conferirSenha).toHaveBeenCalledWith("u1@x.com", "x");
+    expect(updateUserById).toHaveBeenCalledWith("u1", expect.anything());
+    expect(naTabela("profiles")[0].valores[0]).toBe("u1");
   });
 
   it("senha: troca a da conta logada, nunca a do id mandado no corpo", async () => {
