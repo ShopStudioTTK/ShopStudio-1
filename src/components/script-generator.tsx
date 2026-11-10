@@ -7,10 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
+import { CartaoDaExpert } from "@/components/fichas-da-expert";
 import { FORMATOS, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
 import { cn } from "@/lib/utils";
+import type { FichasDoRoteiro } from "@/lib/fichas-tipos";
+
+/** undefined some no JSON: o campo não chega ao servidor. */
+const semFichas = (r: ScriptResult | null): ScriptResult | null => r && { ...r, fichas: undefined };
 
 export type ScriptResult = {
   ganchos?: string[];
@@ -20,6 +25,9 @@ export type ScriptResult = {
   roteiro?: { gancho?: string; problema?: string; solucao?: string; cta?: string };
   hashtags?: string[];
   formatoSugerido?: string;
+  gatilho?: string;
+  /** Cartões das fichas da Ana: só na resposta do gerador, nunca no roteiro salvo. */
+  fichas?: FichasDoRoteiro;
 };
 
 export type RoteiroSalvo = {
@@ -144,7 +152,8 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
       if (!user?.id || !result) throw new Error("Gere um roteiro antes de salvar.");
       await api("/api/roteiros-salvos", {
         method: "POST",
-        body: { produto: savedProduto || produto, formato, conteudo: result },
+        // Os cartões dependem das fichas do momento: não vão para o roteiro salvo.
+        body: { produto: savedProduto || produto, formato, conteudo: semFichas(result) },
       });
     },
     onSuccess: () => {
@@ -385,6 +394,17 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
               })}
             </div>
           </div>
+
+          <CartaoDaExpert
+            titulo="A Ana já fez roteiro de produtos parecidos"
+            subtitulo="Veja como ela pensou."
+            fichas={result.fichas?.parecidas ?? []}
+          />
+          <CartaoDaExpert
+            titulo="A Ana já fez alguns roteiros desse jeito"
+            subtitulo="Mesmo formato e mesmo gatilho. Ela estruturou assim."
+            fichas={result.fichas?.mesmoJeito ?? []}
+          />
 
           <div className="glass sticky bottom-24 z-20 flex flex-wrap items-center gap-2 rounded-[22px] border border-border p-2.5 shadow-editorial lg:bottom-4">
             <Input
