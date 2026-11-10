@@ -10,6 +10,8 @@ vi.mock("@/lib/access", () => ({ temAcesso: () => true }));
 
 import { createSignedUrls, getUser, naTabela, reiniciarDb, responderCom, updateUserById } from "../../apoio/db-falso";
 import * as acesso from "@/app/api/acesso/route";
+import * as ganchos from "@/app/api/ganchos/route";
+import * as notaDoGancho from "@/app/api/ganchos/nota/route";
 import * as perfil from "@/app/api/perfil/route";
 import * as progresso from "@/app/api/progresso/route";
 import * as resultados from "@/app/api/resultados/route";
@@ -147,6 +149,19 @@ describe("cada conta só vê e mexe no que é dela", () => {
     const res = await acesso.POST(req("/api/acesso", "POST", { codigo: "ABC" }));
     expect(res.status).toBe(429);
     expect((await res.json()).error.message).toBe("Muitas tentativas erradas.");
+  });
+
+  it("ganchos: a nota que volta é a da aluna logada; o autor nunca sai; registra e dá nota em nome dela", async () => {
+    await ganchos.GET(req("/api/ganchos?user_id=u2"));
+    expect(naTabela("ganchos")[0].valores).toEqual(["u1"]);
+    expect(naTabela("ganchos")[0].sql).not.toMatch(/select[^]*g\.user_id[^]*from/);
+
+    await ganchos.POST(req("/api/ganchos", "POST", { categoria: "quebra", texto: "Um gancho meu", user_id: OUTRA }));
+    expect(naTabela("ganchos")[1].valores.filter((v) => v === "u1")).toHaveLength(2); // grava e conta o dia dela
+    expect(naTabela("ganchos")[1].valores).not.toContain(OUTRA);
+
+    await notaDoGancho.POST(req("/api/ganchos/nota", "POST", { id: ID, nota: 5, user_id: OUTRA }));
+    expect(naTabela("gancho_notas").at(-1)?.valores).toEqual([ID, "u1", 5]);
   });
 
   it("vídeos: arquivo do bucket sai assinado com a validade do .env; link externo passa direto", async () => {

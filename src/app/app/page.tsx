@@ -20,7 +20,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useRoteirosSalvos } from "@/components/script-generator";
 import { useAuth } from "@/hooks/use-auth";
-import { useConteudo } from "@/hooks/use-conteudo";
+import { useGanchos } from "@/hooks/use-ganchos";
 import { useNichos } from "@/hooks/use-nichos";
 import { useChapterProgress } from "@/hooks/use-progress";
 import { chapters, chapterPath } from "@/content/chapters";
@@ -134,7 +134,7 @@ const Compositor = () => {
 };
 
 const GanchoDoDia = () => {
-  const { data: ganchos } = useConteudo("ganchos");
+  const { data: ganchos } = useGanchos();
   const [indice, setIndice] = useState(diaDoAno);
   const lista = ganchos ?? [];
   const gancho = lista.length ? lista[indice % lista.length] : null;
@@ -217,7 +217,7 @@ const UltimosRoteiros = () => {
     <article className="flex flex-col rounded-[28px] border border-border bg-card p-5 shadow-soft sm:p-6">
       <div className="flex items-center justify-between">
         <p className="font-display text-lg font-semibold tracking-tight">Seus roteiros</p>
-        <Link href="/app/roteiros#biblioteca" className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-rose hover:underline">
+        <Link href="/app/roteiros?aba=gerador#biblioteca" className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-rose hover:underline">
           Biblioteca <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -232,7 +232,7 @@ const UltimosRoteiros = () => {
           {roteiros.slice(0, 3).map((r) => (
             <li key={r.id}>
               <Link
-                href="/app/roteiros#biblioteca"
+                href="/app/roteiros?aba=gerador#biblioteca"
                 className="flex items-center gap-3 rounded-2xl px-2 py-2.5 transition-colors hover:bg-secondary"
               >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-soft text-base" aria-hidden="true">
@@ -260,7 +260,7 @@ const UltimosRoteiros = () => {
 };
 
 const Ferramentas = () => {
-  const { data: ganchos } = useConteudo("ganchos");
+  const { data: ganchos } = useGanchos();
   const { data: nichos = [] } = useNichos();
   const tiles = [
     {

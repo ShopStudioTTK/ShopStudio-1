@@ -197,6 +197,40 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"gancho_notas": {
+                  Row: {
+                    "atualizado_em": string,"gancho_id": string,"nota": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "atualizado_em"?: string,"gancho_id": string,"nota": number,"user_id": string
+                  }
+                  Update: {
+                    "atualizado_em"?: string,"gancho_id"?: string,"nota"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "gancho_notas_gancho_id_fkey"
+      columns: ["gancho_id"]
+isOneToOne: false
+      referencedRelation: "ganchos"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"ganchos": {
+                  Row: {
+                    "categoria": string,"comunidade": boolean,"criado_em": string,"id": string,"texto": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "categoria": string,"comunidade"?: boolean,"criado_em"?: string,"id"?: string,"texto": string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "categoria"?: string,"comunidade"?: boolean,"criado_em"?: string,"id"?: string,"texto"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"nichos": {
                   Row: {
                     "criado_em": string,"rotulo": string,"slug": string

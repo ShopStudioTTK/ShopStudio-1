@@ -32,7 +32,7 @@ type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
 /** Ferramentas primeiro: é o que a aluna veio buscar. A trilha fica logo abaixo, para quem está começando. */
 const criar: NavItem[] = [
   { to: "/app", label: "Studio", icon: Home, end: true },
-  { to: "/app/roteiros", label: "Roteiros e ganchos", icon: Wand2 },
+  { to: "/app/roteiros", label: "Ganchos e roteiros", icon: Wand2 },
   { to: "/app/campeoes", label: "Vídeos campeões", icon: Clapperboard },
   { to: "/app/assistente", label: "Pergunte pra IA", icon: Sparkles },
 ];
@@ -105,7 +105,7 @@ const BarraInferior = () => {
   const itens: (NavItem & { criar?: boolean })[] = [
     { to: "/app", label: "Studio", icon: Home, end: true },
     { to: "/app/campeoes", label: "Campeões", icon: Clapperboard },
-    { to: "/app/roteiros", label: "Criar", icon: Plus, criar: true },
+    { to: "/app/roteiros?aba=gerador", label: "Criar", icon: Plus, criar: true },
     { to: "/app/assistente", label: "IA", icon: Sparkles },
     { to: "/app/capitulos", label: "Trilha", icon: BookOpen },
   ];
@@ -173,7 +173,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
   const navegacao = (onNavigate?: () => void) => (
     <div className="space-y-6">
       <Button asChild variant="pop" className="w-full">
-        <Link href="/app/roteiros" onClick={onNavigate}>
+        <Link href="/app/roteiros?aba=gerador" onClick={onNavigate}>
           <Wand2 className="h-4 w-4" />
           Novo roteiro
         </Link>

@@ -1,5 +1,4 @@
 import type { DesafioDia } from "./challenge";
-import type { Gancho } from "./hooks";
 
 export type CalloutVariant = "pratica" | "lembre" | "atencao" | "ouro";
 
@@ -29,7 +28,6 @@ export type ChecklistItem = { key: string; label: string };
 
 /** O que cada nome de /api/conteudo/<nome> devolve (o registro fica em protegido.ts). */
 export type ConteudoProtegido = {
-  ganchos: Gancho[];
   desafio: DesafioDia[];
   checklist: ChecklistItem[];
 } & { [slug: `capitulos/${string}`]: Block[] };

@@ -29,13 +29,13 @@ describe("GET /api/conteudo/[...nome]", () => {
   });
 
   it("sem token: 401, sem nem consultar o Supabase", async () => {
-    expect((await chamar("ganchos", null)).status).toBe(401);
+    expect((await chamar("checklist", null)).status).toBe(401);
     expect(getUser).not.toHaveBeenCalled();
   });
 
   it("token inválido: 401", async () => {
     getUser.mockResolvedValue({ data: { user: null }, error: { message: "jwt expired" } });
-    expect((await chamar("ganchos")).status).toBe(401);
+    expect((await chamar("checklist")).status).toBe(401);
   });
 
   it("sem acesso: 403", async () => {
@@ -49,15 +49,15 @@ describe("GET /api/conteudo/[...nome]", () => {
   });
 
   it("com acesso: devolve o conteúdo, sem cache compartilhado", async () => {
-    const res = await chamar("ganchos");
+    const res = await chamar("checklist");
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
     const { conteudo } = await res.json();
-    expect(conteudo.length).toBe(60);
+    expect(conteudo.length).toBeGreaterThan(0);
   });
 
   it("todo o conteúdo pago está registrado", async () => {
-    const nomes = ["ganchos", "desafio", "checklist", ...chapters.map((c) => `capitulos/${c.slug}`)];
+    const nomes = ["desafio", "checklist", ...chapters.map((c) => `capitulos/${c.slug}`)];
     for (const nome of nomes) {
       const { conteudo } = await (await chamar(nome)).json();
       expect(conteudo?.length, nome).toBeGreaterThan(0);

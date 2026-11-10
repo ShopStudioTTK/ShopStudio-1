@@ -23,7 +23,7 @@ const WEBHOOK = new Set(["webhook/conta POST", "webhook/applyfy POST"]);
 /** Só admin: aluna com acesso, mas fora de `admins`, leva 403 sem tocar na tabela da rota. */
 const ADMIN = new Set([
   "treinamento GET", "treinamento POST", "treinamento PATCH", "treinamento DELETE",
-  "campeoes POST", "campeoes DELETE", "nichos POST", "nichos DELETE",
+  "campeoes POST", "campeoes DELETE", "nichos POST", "nichos DELETE", "ganchos PATCH", "ganchos DELETE",
 ]);
 const DE_ALUNA_COM_ACESSO = (h: { nome: string }) => !SO_LOGIN.has(h.nome) && !WEBHOOK.has(h.nome);
 const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
@@ -39,7 +39,7 @@ const handlers = Object.entries(modulos).flatMap(([arquivo, mod]) => {
           headers: auth ? { Authorization: auth, "Content-Type": "application/json" } : {},
           body: m === "GET" ? undefined : "{}",
         }),
-        { params: Promise.resolve({ nome: ["ganchos"] }) },
+        { params: Promise.resolve({ nome: ["checklist"] }) },
       ),
   }));
 });
