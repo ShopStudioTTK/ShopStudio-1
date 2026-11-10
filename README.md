@@ -151,7 +151,7 @@ docs/superpowers/             design e plano da migração do Enter
 ### Gerador de roteiros (`/api/roteiro`)
 Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags e formato.
 
-**Vídeos campeões:** a tela tem uma aba por nicho (`src/content/nichos.ts`: moda fitness, beleza, maternidade, casa e cozinha, moda feminina). Os vídeos são **escolhidos pela administração**: quem está em `admins` vê, na própria aba, um campo para colar o link do TikTok (com título opcional) e um botão "Remover" em cada vídeo. `GET /api/campeoes?nicho=<slug>` devolve os vídeos do nicho, os mais novos primeiro (até 60), iguais para todas as alunas; `POST` e `DELETE` passam por `admin()` e a aluna recebe 403. Só entra link completo de vídeo (`https://www.tiktok.com/@perfil/video/…`); a query (`?is_from_webapp=…`) é tirada, link curto (`vm.tiktok.com`) é recusado, e o mesmo vídeo não entra duas vezes no mesmo nicho. A galeria antiga (`chapter_videos`, coleção `campeao`) continua só no bloco da tela inicial.
+**Vídeos campeões:** a tela tem uma aba por nicho, e as abas ficam na tabela `nichos` (começou com moda fitness, beleza, maternidade, casa e cozinha e moda feminina). Quem está em `admins` vê o botão **"Nova aba"** depois das abas: o nome vira o slug (`Casa & Cozinha` → `casa-cozinha`), e nome repetido dá 409. Uma aba vazia mostra "Apagar a aba"; aba com vídeo não é apagada (o banco também recusa). `GET /api/nichos` vale para todas as alunas; `POST` e `DELETE` passam por `admin()` antes de ler qualquer coisa do pedido. Os vídeos também são **escolhidos pela administração**: quem está em `admins` vê, na própria aba, um campo para colar o link do TikTok (com título opcional) e um botão "Remover" em cada vídeo. `GET /api/campeoes?nicho=<slug>` devolve os vídeos do nicho, os mais novos primeiro (até 60), iguais para todas as alunas; `POST` e `DELETE` passam por `admin()` e a aluna recebe 403. Só entra link completo de vídeo (`https://www.tiktok.com/@perfil/video/…`); a query (`?is_from_webapp=…`) é tirada, link curto (`vm.tiktok.com`) é recusado, e o mesmo vídeo não entra duas vezes no mesmo nicho. A galeria antiga (`chapter_videos`, coleção `campeao`) continua só no bloco da tela inicial.
 
 ### Custos e provedor
 - O modelo **DeepSeek v4.1 Flash** é oferecido por dezenas de provedores, com preços muito diferentes. As chamadas vão fixas para o **Morph (fp8)**, com a **DeepInfra (fp8)** de reserva (`PROVEDORES` em `src/lib/api-auth.ts`).
@@ -210,9 +210,10 @@ Migrations em `supabase/migrations/`:
 | `access_codes` | códigos de compra | só service role (painel do Supabase) |
 | `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
 | `chapter_videos` + bucket `studio-videos` | vídeos dos capítulos | só service role |
-| `campeoes` | vídeos campeões do TikTok por nicho (compartilhado, sem `user_id`) | servidor (`/api/campeoes`, só admin) |
+| `nichos` | abas da tela de Campeões (compartilhado, sem `user_id`) | servidor (`/api/nichos`, só admin) |
+| `campeoes` | vídeos campeões do TikTok por aba (compartilhado, sem `user_id`) | servidor (`/api/campeoes`, só admin) |
 | `ai_perguntas` | perguntas ao assistente, tokens e custo | servidor (`/api/assistente`) |
-| `admins` | quem acessa o treinamento da IA e cadastra os vídeos campeões | só service role (painel do Supabase) |
+| `admins` | quem acessa o treinamento da IA e cadastra as abas e os vídeos campeões | só service role (painel do Supabase) |
 | `treinamento` | perguntas e respostas da expert, com embedding (pgvector, 1536). Sem `user_id` de aluna | servidor (`/api/treinamento`, só admin; `/api/assistente` grava as conversas) |
 | `treinamento_conversas` | uma conversa do assistente = um item na fila. O `user_id` só serve para o servidor achar a conversa certa e nunca sai nas rotas | servidor (`/api/assistente`) |
 

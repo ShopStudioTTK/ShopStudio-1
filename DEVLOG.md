@@ -4,6 +4,19 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-10: Abas dos Campeões criadas pela admin
+
+**Pedido:** as abas não ficam mais só nas 5 categorias fixas. A admin cria as abas por um botão na tela, numa tabela nova, e toda inserção confere antes se o pedido é mesmo de admin.
+
+**O que mudou:**
+- Tabela `nichos` (`slug` pk, `rotulo`, `criado_em`), já com as 5 abas antigas na mesma ordem. `campeoes.nicho` virou FK para `nichos.slug`, sem cascade: aba com vídeo não pode ser apagada, nem por engano.
+- `/api/nichos`: `GET` com `autenticar()`; `POST` e `DELETE` começam por `admin()` (token, acesso e a tabela `admins` no banco), antes de ler o corpo ou a URL. As duas entraram no `ADMIN` do `protecao.test.ts`, e o teste da rota confere que a última consulta da aluna é a checagem de admin.
+- O slug sai do nome (`slugDe`, sem acento e com hífen); o banco confere o formato. Nome repetido = 409. Apagar só funciona com a aba vazia (`delete … where not exists`), senão 409.
+- `POST /api/campeoes` confere se a aba existe antes de gravar (a FK também segura). `src/content/nichos.ts` saiu, e as telas (Campeões e início) leem as abas por `useNichos()`.
+- Na tela, "Nova aba" e "Apagar a aba" só aparecem com `isAdmin`; quem bloqueia é o servidor.
+
+**Verificado:** testes, lint e build. No banco local: as 5 abas na ordem antiga, slug fora do formato recusado, vídeo em aba inexistente recusado pela FK, aba com vídeo não apagada e aba vazia apagada.
+
 ## 2026-11-10: Campeões cadastrados pela admin; roteiro sem vídeos
 
 **Pedido:** os vídeos da aba de Campeões passam a ser escolhidos pelas admins, sem busca automática, com a checagem de admin no servidor. O roteiro deixa de mostrar os vídeos sobre o produto: fica só o roteiro.
