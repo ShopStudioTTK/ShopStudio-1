@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FichasRoteiro } from "@/components/fichas-roteiro";
 import { CartaoPergunta, NovaPergunta, ROTULO_ORIGEM, type Fila, type Origem, type Status } from "@/components/treinamento";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
@@ -14,11 +15,8 @@ const ABAS: { id: Status; label: string }[] = [
   { id: "descartada", label: "Descartadas" },
 ];
 
-/**
- * Treinamento da IA, só para admin. A tela não decide nada: quem bloqueia é admin() no servidor,
- * em toda rota de /api/treinamento.
- */
-const Treinamento = () => {
+/** Fila de perguntas do Pergunte pra IA. */
+const Perguntas = () => {
   const { user } = useAuth();
   const [status, setStatus] = useState<Status>("pendente");
   const [origem, setOrigem] = useState<Origem | "todas">("todas");
@@ -42,26 +40,14 @@ const Treinamento = () => {
   const soltas = (fila.data?.soltas ?? []).filter((p) => origem === "todas" || p.origem === origem);
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">Administração</p>
-          <h1 className="mt-2 font-display text-[40px] font-semibold leading-[1] tracking-[-0.035em] sm:text-5xl">
-            Treinamento da <span className="accent-word">IA</span>
-          </h1>
-          <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-            Responda do seu jeito. Quando uma aluna perguntar algo parecido, a assistente responde com o seu tom, as suas
-            frases e as suas gírias.
-          </p>
-        </div>
-        {!criando && (
-          <Button variant="pop" onClick={() => setCriando(true)}>
-            <Plus className="h-4 w-4" /> Nova pergunta
-          </Button>
-        )}
-      </header>
-
-      {criando && <NovaPergunta onFechar={() => setCriando(false)} />}
+    <div className="space-y-6">
+      {criando ? (
+        <NovaPergunta onFechar={() => setCriando(false)} />
+      ) : (
+        <Button variant="pop" onClick={() => setCriando(true)}>
+          <Plus className="h-4 w-4" /> Nova pergunta
+        </Button>
+      )}
 
       <div className="grid grid-cols-3 gap-2 rounded-2xl border border-border bg-secondary/40 p-1.5">
         {ABAS.map((aba) => (
@@ -118,6 +104,47 @@ const Treinamento = () => {
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+type Secao = "perguntas" | "roteiros";
+
+/**
+ * Treinamento da IA, só para admin. A tela não decide nada: quem bloqueia é admin() no servidor,
+ * em toda rota de /api/treinamento, /api/fichas e /api/gatilhos.
+ */
+const Treinamento = () => {
+  // ponytail: a seção fica só no estado; recarregar volta para Perguntas. URL se isso incomodar.
+  const [secao, setSecao] = useState<Secao>("perguntas");
+  return (
+    <div className="space-y-8">
+      <header>
+        <p className="eyebrow">Administração</p>
+        <h1 className="mt-2 font-display text-[40px] font-semibold leading-[1] tracking-[-0.035em] sm:text-5xl">
+          Treinamento da <span className="accent-word">IA</span>
+        </h1>
+        <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+          {secao === "perguntas"
+            ? "Responda do seu jeito. Quando uma aluna perguntar algo parecido, a assistente responde com o seu tom, as suas frases e as suas gírias."
+            : "Mostre como você pensaria o roteiro de um produto. O gerador usa o seu jeito nos produtos parecidos, e a aluna vê as suas fichas embaixo do roteiro."}
+        </p>
+      </header>
+
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            ["perguntas", "Perguntas"],
+            ["roteiros", "Roteiros"],
+          ] as const
+        ).map(([id, rotulo]) => (
+          <button key={id} type="button" className="chip" data-ativo={secao === id} onClick={() => setSecao(id)}>
+            {rotulo}
+          </button>
+        ))}
+      </div>
+
+      {secao === "perguntas" ? <Perguntas /> : <FichasRoteiro />}
     </div>
   );
 };
