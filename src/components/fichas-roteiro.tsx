@@ -39,11 +39,21 @@ const deFicha = (f: FichaAdmin): Rascunho => ({
   ),
 }) as Rascunho;
 
+const TITULO = "text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground";
+
 const Campo = ({ rotulo, children }: { rotulo: string; children: React.ReactNode }) => (
   <label className="block space-y-1.5">
-    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{rotulo}</span>
+    <span className={TITULO}>{rotulo}</span>
     {children}
   </label>
+);
+
+/** Grupo de chips: <div>, não <label>, senão clicar no título escolhe o primeiro chip. */
+const Grupo = ({ rotulo, children }: { rotulo: string; children: React.ReactNode }) => (
+  <div role="group" aria-label={rotulo} className="space-y-1.5">
+    <span className={`block ${TITULO}`}>{rotulo}</span>
+    {children}
+  </div>
 );
 
 const Texto = ({ valor, onChange, placeholder }: { valor: string; onChange: (v: string) => void; placeholder?: string }) => (
@@ -150,7 +160,7 @@ const Formulario = ({ inicial, gatilhos, onFechar }: { inicial: Rascunho; gatilh
         </Campo>
       </div>
 
-      <Campo rotulo="Formato">
+      <Grupo rotulo="Formato">
         <div className="flex flex-wrap gap-2">
           {FORMATOS.map((f) => (
             <button key={f.id} type="button" className="chip" data-ativo={r.formato === f.id} onClick={() => setR({ ...r, formato: f.id })}>
@@ -158,13 +168,13 @@ const Formulario = ({ inicial, gatilhos, onFechar }: { inicial: Rascunho; gatilh
             </button>
           ))}
         </div>
-      </Campo>
+      </Grupo>
 
       {PARTES.map(({ chave, rotulo }) => (
         <fieldset key={chave} className="space-y-3 rounded-2xl border border-border bg-secondary/30 p-4">
           <legend className="px-1 font-display text-[15px] font-semibold">{rotulo}</legend>
           {chave === "gancho" && (
-            <Campo rotulo="Gatilho">
+            <Grupo rotulo="Gatilho">
               <div className="flex flex-wrap items-center gap-2">
                 {gatilhos.map((g) => (
                   <button key={g.slug} type="button" className="chip" data-ativo={r.gatilho === g.slug} onClick={() => setR({ ...r, gatilho: g.slug })}>
@@ -173,7 +183,7 @@ const Formulario = ({ inicial, gatilhos, onFechar }: { inicial: Rascunho; gatilh
                 ))}
                 <NovoGatilho onCriado={(slug) => setR((atual) => ({ ...atual, gatilho: slug }))} />
               </div>
-            </Campo>
+            </Grupo>
           )}
           <Campo rotulo="Texto">
             <Texto valor={r[chave].texto} onChange={(v) => parte(chave, "texto", v)} />

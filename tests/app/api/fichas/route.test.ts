@@ -88,17 +88,43 @@ describe("POST /api/fichas", () => {
 });
 
 describe("PATCH /api/fichas", () => {
-  it("atualiza e refaz o embedding", async () => {
-    comoAdmin([["update public.fichas_roteiro", [{ id: ID }]]]);
+  const ATUAL: [string, Record<string, unknown>[]] = ["from public.fichas_roteiro where id", [{ produto: "Sérum", tipo: "skincare", indexada: true }]];
+  const UPD: [string, Record<string, unknown>[]] = ["update public.fichas_roteiro", [{ id: ID }]];
+  const update = () => naTabela("fichas_roteiro").find((c) => c.sql.startsWith("update"));
+
+  it("produto mudou: refaz o embedding", async () => {
+    comoAdmin([ATUAL, UPD]);
     const res = await PATCH(req("PATCH", { ...FICHA, id: ID, produto: "Hidratante" }));
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ id: ID, indexada: true });
     expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).input).toBe("Hidratante — skincare");
-    expect(gravou()?.valores).toContain(ID);
+    expect(update()?.valores).toContain(ID);
   });
 
-  it("id que não existe → 404; id inválido → 400", async () => {
+  it("só o texto mudou: não chama o embedding e mantém o que já havia", async () => {
+    comoAdmin([ATUAL, UPD]);
+    const res = await PATCH(req("PATCH", { ...FICHA, id: ID, cta: parte("outro CTA") }));
+    expect(await res.json()).toEqual({ id: ID, indexada: true });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(update()?.valores).toContain(true); // manter = true
+  });
+
+  it("embedding fora do ar com produto e tipo iguais: a ficha continua indexada", async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error("fora"));
+    comoAdmin([ATUAL, UPD]);
+    expect(await (await PATCH(req("PATCH", { ...FICHA, id: ID, cta: parte("outro") }))).json()).toEqual({ id: ID, indexada: true });
+  });
+
+  it("ficha sem embedding: tenta indexar de novo ao editar", async () => {
+    comoAdmin([["from public.fichas_roteiro where id", [{ produto: "Sérum", tipo: "skincare", indexada: false }]], UPD]);
+    await PATCH(req("PATCH", { ...FICHA, id: ID }));
+    expect(fetch).toHaveBeenCalled();
+  });
+
+  it("id que não existe → 404 sem chamar o embedding; id inválido → 400", async () => {
     comoAdmin();
     expect((await PATCH(req("PATCH", { ...FICHA, id: ID }))).status).toBe(404);
+    expect(fetch).not.toHaveBeenCalled();
     expect((await PATCH(req("PATCH", { ...FICHA, id: "x" }))).status).toBe(400);
   });
 });

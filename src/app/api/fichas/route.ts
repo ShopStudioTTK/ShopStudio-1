@@ -90,7 +90,11 @@ export async function POST(req: Request) {
   }
 }
 
-/** Editar: a ficha inteira de novo. O embedding é refeito (texto pequeno, edição rara). */
+/**
+ * Editar: a ficha inteira de novo. O embedding só é refeito quando produto ou tipo mudam (ou a
+ * ficha ainda não estava indexada): corrigir um texto com a OpenRouter fora do ar não tira a
+ * ficha dos produtos parecidos.
+ */
 export async function PATCH(req: Request) {
   const auth = await admin(req, "fichas");
   if (auth instanceof Response) return auth;
@@ -99,20 +103,26 @@ export async function PATCH(req: Request) {
   const f = fichaDe(body);
   if (!id) return erro("Ficha inválida.", 400);
   if (!f) return erro(MSG_INVALIDA, 400);
-  const v = await vetorDe(f);
+  const sql = db();
+  const [atual] = await sql`
+    select produto, tipo, embedding is not null as indexada from public.fichas_roteiro where id = ${id}`;
+  if (!atual) return erro("Ficha não encontrada.", 404);
+  const reindexar = !atual.indexada || atual.produto !== f.produto || atual.tipo !== f.tipo;
+  const v = reindexar ? await vetorDe(f) : null;
+  const manter = !reindexar;
   try {
-    const atualizadas = await db()`
+    const atualizadas = await sql`
       update public.fichas_roteiro set
         produto = ${f.produto}, tipo = ${f.tipo}, formato = ${f.formato},
         gancho = ${f.gancho.texto}, gancho_gatilho = ${f.gatilho}, gancho_porque = ${f.gancho.porque}, gancho_entonacao = ${f.gancho.entonacao},
         problema = ${f.problema.texto}, problema_porque = ${f.problema.porque}, problema_entonacao = ${f.problema.entonacao},
         solucao = ${f.solucao.texto}, solucao_porque = ${f.solucao.porque}, solucao_entonacao = ${f.solucao.entonacao},
         cta = ${f.cta.texto}, cta_porque = ${f.cta.porque}, cta_entonacao = ${f.cta.entonacao},
-        embedding = ${v}::extensions.vector, atualizado_em = now()
+        embedding = case when ${manter} then embedding else ${v}::extensions.vector end, atualizado_em = now()
       where id = ${id}
       returning id`;
     if (!atualizadas.length) return erro("Ficha não encontrada.", 404);
-    return Response.json({ id, indexada: v !== null });
+    return Response.json({ id, indexada: manter || v !== null });
   } catch (e) {
     if (ehFkDoGatilho(e)) return erro("Esse gatilho não existe.", 400);
     throw e;
