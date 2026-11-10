@@ -62,7 +62,6 @@ Preencha também no `.env.local`:
 | `DATABASE_URL` | só servidor (`src/lib/db.ts`). Local: o `DB_URL` do `pnpm supabase status`. Produção: a connection string do **pooler em modo Transaction** (porta 6543), em Project Settings → Database | **sim** |
 | `VIDEO_URL_VALIDADE_SEGUNDOS` | só servidor. Validade do link assinado dos vídeos do bucket (padrão 3600 = 1 h) | não |
 | `OPENROUTER_API_KEY` | só servidor (rotas `/api/*`) | **sim** |
-| `BRAVE_API_KEY` | só servidor (`src/lib/videos-tiktok.ts`). Vídeos do TikTok embaixo do roteiro. Vazia = o roteiro sai sem vídeos | **sim** |
 | `OPENROUTER_MODEL` | só servidor. Hoje: `deepseek/deepseek-v4.1-flash-1017` | não |
 | `OPENROUTER_EMBEDDING_MODEL` | só servidor. Modelo de embedding do treinamento da IA. Padrão `openai/text-embedding-3-small` (1536 dimensões, acoplado à coluna `treinamento.embedding`) | não |
 | `OPENROUTER_PRESET` | só servidor, só o assistente. Slug do preset da OpenRouter com a voz da especialista (hoje: `ana-shop-studio-leads-behavior`). Com ele, a persona do `ai_config` sai do prompt do assistente. Vazio = sem preset | não |
@@ -101,7 +100,8 @@ src/
       capitulos/[slug]/       leitor do capítulo ("Perguntar à assistente" ao selecionar texto)
       assistente/             chat com a IA
       roteiros/               gerador 5×5 + banco de ganchos
-      checklist/  resultados/  campeoes/
+      checklist/  resultados/
+      campeoes/               vídeos campeões por nicho (admin adiciona e remove ali mesmo)
       treinamento/            fila de treinamento da IA (só admin)
     api/
       assistente/route.ts     chat com streaming, limite diário, registro de custo
@@ -151,9 +151,7 @@ docs/superpowers/             design e plano da migração do Enter
 ### Gerador de roteiros (`/api/roteiro`)
 Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags e formato.
 
-**Vídeos sobre o produto:** em paralelo com a IA, a rota faz 3 buscas na **Brave Search API** (`site:tiktok.com <produto>` com 3 grupos de termos em `OR`, Brasil, português, goggle que deixa só páginas de vídeo) e devolve até 6 vídeos em `videos` (`src/lib/videos-tiktok.ts`). Só entram vídeos que citam o produto, e os mais engajados (curtidas + 3 × comentários, lidos do texto que o TikTok publica na página) vêm primeiro: português primeiro e no máximo 2 em outra língua. A tela mostra com o player oficial do TikTok, avisa que é uma amostra (pode ter vídeo antigo ou em outro idioma) e tem o link "Ver os mais recentes no TikTok". Sem `BRAVE_API_KEY` ou com a Brave fora do ar, o roteiro sai sem vídeos. A busca conta no mesmo limite de 10 roteiros/dia (3 buscas da Brave por roteiro). **Cache:** o resultado fica 3 dias em `videos_cache` e serve para qualquer aluna que pedir um termo parecido (similaridade `pg_trgm` ≥ 0,7 sobre o termo sem acento, sem plural e com as palavras em ordem), sem chamar a Brave. Por que não scraping nem API do TikTok: ver o DEVLOG.
-
-**Vídeos campeões:** a tela tem uma aba por nicho (`src/content/nichos.ts`: moda fitness, beleza, maternidade, casa e cozinha, moda feminina). Cada aba chama `GET /api/campeoes?nicho=<slug>`, que devolve até 10 vídeos de produto do TikTok, os mais engajados, iguais para todas as alunas. Eles saem da mesma busca do roteiro (3 buscas na Brave por nicho, com termos de venda), filtrados por `doNicho`: o texto precisa citar uma palavra do nicho, ter sinal de venda (achadinho, comprei, Shopee, provador…) e não ser de moda masculina. O resultado fica 1 dia em `campeoes_cache`; quem abre a aba depois disso espera a busca nova. Se a Brave falhar, fica o que estava salvo. Custo máximo: 15 buscas por dia. A galeria antiga, cadastrada pela administração (`chapter_videos`, coleção `campeao`), continua só no bloco da tela inicial.
+**Vídeos campeões:** a tela tem uma aba por nicho (`src/content/nichos.ts`: moda fitness, beleza, maternidade, casa e cozinha, moda feminina). Os vídeos são **escolhidos pela administração**: quem está em `admins` vê, na própria aba, um campo para colar o link do TikTok (com título opcional) e um botão "Remover" em cada vídeo. `GET /api/campeoes?nicho=<slug>` devolve os vídeos do nicho, os mais novos primeiro (até 60), iguais para todas as alunas; `POST` e `DELETE` passam por `admin()` e a aluna recebe 403. Só entra link completo de vídeo (`https://www.tiktok.com/@perfil/video/…`); a query (`?is_from_webapp=…`) é tirada, link curto (`vm.tiktok.com`) é recusado, e o mesmo vídeo não entra duas vezes no mesmo nicho. A galeria antiga (`chapter_videos`, coleção `campeao`) continua só no bloco da tela inicial.
 
 ### Custos e provedor
 - O modelo **DeepSeek v4.1 Flash** é oferecido por dezenas de provedores, com preços muito diferentes. As chamadas vão fixas para o **Morph (fp8)**, com a **DeepInfra (fp8)** de reserva (`PROVEDORES` em `src/lib/api-auth.ts`).
@@ -212,14 +210,13 @@ Migrations em `supabase/migrations/`:
 | `access_codes` | códigos de compra | só service role (painel do Supabase) |
 | `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
 | `chapter_videos` + bucket `studio-videos` | vídeos dos capítulos | só service role |
-| `videos_cache` | vídeos do TikTok por termo normalizado, reaproveitados por 3 dias (compartilhado, sem `user_id`) | servidor (`/api/roteiro`) |
-| `campeoes_cache` | os 10 vídeos campeões de cada nicho, renovados a cada 1 dia (compartilhado, sem `user_id`) | servidor (`/api/campeoes`) |
+| `campeoes` | vídeos campeões do TikTok por nicho (compartilhado, sem `user_id`) | servidor (`/api/campeoes`, só admin) |
 | `ai_perguntas` | perguntas ao assistente, tokens e custo | servidor (`/api/assistente`) |
-| `admins` | quem acessa o treinamento da IA | só service role (painel do Supabase) |
+| `admins` | quem acessa o treinamento da IA e cadastra os vídeos campeões | só service role (painel do Supabase) |
 | `treinamento` | perguntas e respostas da expert, com embedding (pgvector, 1536). Sem `user_id` de aluna | servidor (`/api/treinamento`, só admin; `/api/assistente` grava as conversas) |
 | `treinamento_conversas` | uma conversa do assistente = um item na fila. O `user_id` só serve para o servidor achar a conversa certa e nunca sai nas rotas | servidor (`/api/assistente`) |
 
-A única página de administração é a de treinamento da IA. Admins, códigos, vídeos, persona e base de conhecimento continuam sendo editados no painel do Supabase.
+No app, a administração tem a página de treinamento da IA e o cadastro na aba de Campeões. Admins, códigos, vídeos dos capítulos, persona e base de conhecimento continuam sendo editados no painel do Supabase.
 
 Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql`, rode `pnpm supabase migration up` e depois `pnpm db:types`.
 

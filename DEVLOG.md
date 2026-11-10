@@ -4,6 +4,19 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-10: Campeões cadastrados pela admin; roteiro sem vídeos
+
+**Pedido:** os vídeos da aba de Campeões passam a ser escolhidos pelas admins, sem busca automática, com a checagem de admin no servidor. O roteiro deixa de mostrar os vídeos sobre o produto: fica só o roteiro.
+
+**O que mudou:**
+- Tabela `campeoes` (`nicho`, `url`, `titulo`, único por nicho + URL). O banco só aceita `https://www.tiktok.com/@perfil/video/<id>`, então nem um insert errado no servidor grava outro tipo de link.
+- `/api/campeoes`: `GET` com `autenticar()` (toda aluna com acesso), `POST` e `DELETE` com `admin()`, que confere `admins` no banco a cada chamada. As duas entraram no conjunto `ADMIN` do `protecao.test.ts`.
+- `urlDoTiktok` (`src/lib/video.ts`) limpa a query e recusa link curto (`vm.tiktok.com/…`): resolver o link curto exigiria o servidor chamar o TikTok. A admin cola o link do navegador.
+- Na tela, o formulário e o "Remover" só aparecem com `isAdmin`; quem bloqueia é o servidor.
+- Saíram `src/lib/videos-tiktok.ts`, a `BRAVE_API_KEY`, `videos_cache` e `campeoes_cache` (migration `20261110000000_campeoes`), e a seção de vídeos do gerador. Roteiros salvos antes ainda têm `videos` no JSON, que a tela ignora.
+
+**Verificado:** testes, lint e build. No banco local: link `javascript:` recusado pela restrição, o mesmo vídeo duas vezes no nicho não entra, e os dois caches não existem mais.
+
 ## 2026-11-09: Treinamento da IA — RAG com as respostas da expert
 
 **Pedido (dona do produto):** as respostas do assistente ainda não soam como a especialista. A ideia veio do `../whatsappBot` (FAQ semântico + fila de Treinamento): a expert responde perguntas do jeito dela, e as perguntas novas saem com o mesmo tom, as mesmas frases e as mesmas gírias. Só admin acessa a página, e o servidor confere isso de um jeito que não dá para burlar. Design: `docs/superpowers/specs/2026-11-09-treinamento-ia-design.md`; plano: `docs/superpowers/plans/2026-11-09-treinamento-ia.md`.
