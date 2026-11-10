@@ -20,8 +20,11 @@ import { consultas, getUser, reiniciarDb, responderCom } from "../../apoio/db-fa
 const modulos = import.meta.glob<Record<string, unknown>>("../../../src/app/api/**/route.ts", { eager: true });
 const SO_LOGIN = new Set(["perfil POST", "acesso GET", "acesso POST", "senha POST"]);
 const WEBHOOK = new Set(["webhook/conta POST", "webhook/applyfy POST"]);
-/** Só admin: aluna com acesso, mas fora de `admins`, leva 403 sem tocar no treinamento. */
-const ADMIN = new Set(["treinamento GET", "treinamento POST", "treinamento PATCH", "treinamento DELETE"]);
+/** Só admin: aluna com acesso, mas fora de `admins`, leva 403 sem tocar na tabela da rota. */
+const ADMIN = new Set([
+  "treinamento GET", "treinamento POST", "treinamento PATCH", "treinamento DELETE",
+  "campeoes POST", "campeoes DELETE",
+]);
 const DE_ALUNA_COM_ACESSO = (h: { nome: string }) => !SO_LOGIN.has(h.nome) && !WEBHOOK.has(h.nome);
 const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
@@ -82,7 +85,7 @@ describe("toda rota da API", () => {
   it.each(handlers.filter((h) => ADMIN.has(h.nome)))("$nome: aluna com acesso, fora de admins → 403", async ({ chamar }) => {
     responderCom([["from public.entitlements", [{}]]]);
     expect((await chamar("Bearer tok")).status).toBe(403);
-    expect(consultas.some((c) => c.sql.includes("public.treinamento"))).toBe(false);
+    expect(consultas.some((c) => /public\.(treinamento|campeoes)/.test(c.sql))).toBe(false);
   });
 
   it.each(handlers.filter(DE_ALUNA_COM_ACESSO))("$nome: sem acesso → 403", async ({ chamar }) => {

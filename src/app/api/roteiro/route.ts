@@ -1,7 +1,6 @@
 import { autorizar, chamarOpenRouter, configDaIA, erro, liberarChamada, registrarCusto, reservarChamada } from "@/lib/api-auth";
 import { LIMITE_ROTEIROS, MSG_LIMITE_ROTEIROS } from "@/lib/limite";
 import { buildSystemPrompt, buildUserPrompt, extractScriptJson } from "@/lib/roteiro";
-import { buscarVideos } from "@/lib/videos-tiktok";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -26,8 +25,6 @@ export async function POST(req: Request) {
   );
   if (reserva instanceof Response) return reserva;
   const descontar = () => liberarChamada(reserva.id);
-  // Em paralelo com a IA; nunca lança (falha = lista vazia).
-  const videos = buscarVideos(input.produto);
 
   // treino e base de conhecimento são opcionais
   const { config, knowledge } = await configDaIA();
@@ -64,7 +61,7 @@ export async function POST(req: Request) {
     return erro("A resposta da IA veio cortada. Tente de novo.", 502);
   try {
     const roteiro = extractScriptJson(payload?.choices?.[0]?.message?.content ?? "");
-    return Response.json({ ...roteiro, videos: await videos });
+    return Response.json(roteiro);
   } catch (e) {
     console.error("roteiro: JSON inválido na resposta da IA", e);
     return erro((e as Error).message, 502);

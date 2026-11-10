@@ -143,8 +143,8 @@ describe("POST /api/roteiro", () => {
   it("200 chama a OpenRouter uma vez e devolve o JSON", async () => {
     const res = await POST(req());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ganchos: ["a"], videos: [] });
-    expect(fetch).toHaveBeenCalledTimes(1); // sem BRAVE_API_KEY, não busca vídeos
+    expect(await res.json()).toEqual({ ganchos: ["a"] });
+    expect(fetch).toHaveBeenCalledTimes(1);
     const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
     const i = init as RequestInit;
@@ -199,32 +199,6 @@ describe("POST /api/roteiro", () => {
     expect(res.status).toBe(200);
     expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null]);
     expect(gravou("update")?.valores).toEqual([12000, 900, 11000, 0.0007, "r1"]);
-  });
-
-  it("com BRAVE_API_KEY, devolve junto os vídeos do TikTok sobre o produto", async () => {
-    vi.stubEnv("BRAVE_API_KEY", "k");
-    const video = "https://www.tiktok.com/@c/video/7368550087632375046";
-    vi.mocked(fetch).mockImplementation(async (url) =>
-      String(url).startsWith("https://api.search.brave.com")
-        ? new Response(JSON.stringify({ web: { results: [{ url: video, title: "Resenha do sérum" }] } }))
-        : ia('{"ganchos":["a"]}'),
-    );
-    const res = await POST(req());
-    expect(await res.json()).toEqual({
-      ganchos: ["a"],
-      videos: [{ url: video, titulo: "Resenha do sérum", outraLingua: false }],
-    });
-  });
-
-  it("falha na busca de vídeos não derruba o roteiro", async () => {
-    vi.stubEnv("BRAVE_API_KEY", "k");
-    vi.mocked(fetch).mockImplementation(async (url) => {
-      if (String(url).startsWith("https://api.search.brave.com")) throw new Error("net");
-      return ia('{"ganchos":["a"]}');
-    });
-    const res = await POST(req());
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ganchos: ["a"], videos: [] });
   });
 
   it("geração que falhou não conta no limite", async () => {

@@ -297,7 +297,7 @@ const Ferramentas = () => {
               <Clapperboard className="h-4 w-4 text-rose" /> O que tá vendendo agora
             </p>
             <p className="mt-1 text-[13px] text-muted-foreground">
-              Os vídeos de produto mais engajados por nicho, atualizados todo dia.
+              Vídeos de produto que estão vendendo, escolhidos pela equipe em cada nicho.
             </p>
           </div>
         </div>

@@ -107,16 +107,16 @@ export type Database = {
                   Relationships: [
                     
                   ]
-                },"campeoes_cache": {
+                },"campeoes": {
                   Row: {
-                    "criado_em": string,"nicho": string,"videos": NonNullable<Json>
+                    "criado_em": string,"id": string,"nicho": string,"titulo": string,"url": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "criado_em"?: string,"nicho": string,"videos": NonNullable<Json>
+                    "criado_em"?: string,"id"?: string,"nicho": string,"titulo"?: string,"url": string
                   }
                   Update: {
-                    "criado_em"?: string,"nicho"?: string,"videos"?: NonNullable<Json>
+                    "criado_em"?: string,"id"?: string,"nicho"?: string,"titulo"?: string,"url"?: string
                   }
                   Relationships: [
                     
@@ -277,20 +277,6 @@ isOneToOne: false
                   }
                   Update: {
                     "conversa_cliente"?: string,"criado_em"?: string,"id"?: string,"user_id"?: string | null
-                  }
-                  Relationships: [
-                    
-                  ]
-                },"videos_cache": {
-                  Row: {
-                    "criado_em": string,"termo": string,"videos": NonNullable<Json>
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "criado_em"?: string,"termo": string,"videos": NonNullable<Json>
-                  }
-                  Update: {
-                    "criado_em"?: string,"termo"?: string,"videos"?: NonNullable<Json>
                   }
                   Relationships: [
                     

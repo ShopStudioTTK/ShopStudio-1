@@ -1,19 +1,85 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { Clapperboard, ExternalLink, Trophy } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Clapperboard, ExternalLink, Loader2, Plus, Trash2, Trophy } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { CartaoTiktok } from "@/components/video-embed";
-import { NICHOS } from "@/content/nichos";
+import { NICHOS, type Nicho } from "@/content/nichos";
+import { useAccess } from "@/hooks/use-access";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
-import { parseVideoUrl } from "@/lib/video";
+import { urlDoTiktok } from "@/lib/video";
 
-type Video = { url: string; titulo: string; outraLingua: boolean };
+type Video = { id: string; url: string; titulo: string };
+
+/** Só aparece para admin; quem bloqueia de verdade é admin() em POST/DELETE /api/campeoes. */
+const NovoVideo = ({ nicho }: { nicho: Nicho }) => {
+  const queryClient = useQueryClient();
+  const [url, setUrl] = useState("");
+  const [titulo, setTitulo] = useState("");
+  const salvar = useMutation({
+    mutationFn: () => api("/api/campeoes", { method: "POST", body: { nicho: nicho.slug, url, titulo } }),
+    onSuccess: () => {
+      toast.success(`Vídeo adicionado em ${nicho.rotulo}.`);
+      setUrl("");
+      setTitulo("");
+      void queryClient.invalidateQueries({ queryKey: ["campeoes", nicho.slug] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const enviar = (e: FormEvent) => {
+    e.preventDefault();
+    if (!urlDoTiktok(url)) return toast.error("Cole o link completo do vídeo: https://www.tiktok.com/@perfil/video/…");
+    salvar.mutate();
+  };
+  return (
+    <form onSubmit={enviar} className="flex flex-col gap-2 rounded-[22px] border border-dashed border-border p-3 sm:flex-row">
+      <Input
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        placeholder="Link do vídeo no TikTok"
+        aria-label="Link do vídeo no TikTok"
+        inputMode="url"
+        className="h-10 min-w-0 flex-[2] rounded-full bg-card"
+      />
+      <Input
+        value={titulo}
+        onChange={(e) => setTitulo(e.target.value)}
+        placeholder="Título (opcional)"
+        aria-label="Título do vídeo"
+        maxLength={120}
+        className="h-10 min-w-0 flex-1 rounded-full bg-card"
+      />
+      <Button type="submit" disabled={salvar.isPending || !url.trim()}>
+        {salvar.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+        Adicionar em {nicho.rotulo}
+      </Button>
+    </form>
+  );
+};
+
+const Remover = ({ video, nicho }: { video: Video; nicho: string }) => {
+  const queryClient = useQueryClient();
+  const remover = useMutation({
+    mutationFn: () => api(`/api/campeoes?id=${video.id}`, { method: "DELETE" }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["campeoes", nicho] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <Button variant="ghost" size="sm" onClick={() => remover.mutate()} disabled={remover.isPending}>
+      {remover.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+      Remover
+    </Button>
+  );
+};
 
 const Champioes = () => {
   const { user } = useAuth();
+  const { isAdmin } = useAccess();
   const searchParams = useSearchParams();
   const pedido = searchParams.get("nicho");
   const [aba, setAba] = useState(NICHOS.some((n) => n.slug === pedido) ? pedido! : NICHOS[0].slug);
@@ -24,7 +90,6 @@ const Champioes = () => {
     staleTime: 60 * 60 * 1000,
     queryFn: async () => (await api<{ videos: Video[] }>(`/api/campeoes?nicho=${aba}`)).videos,
   });
-  const lista = videos.filter((v) => parseVideoUrl(v.url).provider === "tiktok");
 
   return (
     <div className="space-y-8">
@@ -36,7 +101,7 @@ const Champioes = () => {
           Vídeos <span className="accent-word text-gradient pr-1">campeões</span>
         </h1>
         <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-          Os vídeos de produto com mais curtidas e comentários em cada nicho, atualizados todo dia. Assista, anote
+          Vídeos de produto que estão vendendo em cada nicho, escolhidos a dedo pela equipe. Assista, anote
           o gancho e o formato que funcionaram e adapte para o seu produto — modelar não é copiar.
         </p>
       </header>
@@ -58,32 +123,29 @@ const Champioes = () => {
       </div>
 
       <section role="tabpanel" aria-label={nicho.rotulo} className="space-y-4">
+        {isAdmin && <NovoVideo nicho={nicho} />}
         {isLoading ? (
           <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }, (_, i) => (
               <div key={i} className="mx-auto aspect-[9/16] w-full max-w-[320px] animate-pulse rounded-2xl border border-border bg-secondary/40" />
             ))}
           </div>
-        ) : lista.length ? (
-          <>
-            <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-              Achados por um buscador, do mais engajado ao menos. Não são necessariamente os mais recentes, e alguns
-              podem estar em outro idioma.
-            </p>
-            <ul className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-              {lista.map((v) => (
-                <CartaoTiktok key={v.url} {...v} />
-              ))}
-            </ul>
-          </>
+        ) : videos.length ? (
+          <ul className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+            {videos.map((v) => (
+              <CartaoTiktok key={v.id} url={v.url} titulo={v.titulo}>
+                {isAdmin && <Remover video={v} nicho={aba} />}
+              </CartaoTiktok>
+            ))}
+          </ul>
         ) : (
           <div className="rounded-3xl border border-dashed border-border px-6 py-12 text-center">
             <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-rose-soft text-rose">
               <Trophy className="h-5 w-5" />
             </span>
-            <p className="mt-4 font-display text-2xl leading-snug">Não achei vídeos de {nicho.rotulo.toLowerCase()} agora.</p>
+            <p className="mt-4 font-display text-2xl leading-snug">Ainda não tem vídeos de {nicho.rotulo.toLowerCase()}.</p>
             <p className="mx-auto mt-2 max-w-md text-[14.5px] leading-relaxed text-muted-foreground">
-              Tente de novo mais tarde ou veja direto no TikTok.
+              {isAdmin ? "Cole o link de um vídeo do TikTok acima para começar." : "Logo entram novos. Enquanto isso, veja direto no TikTok."}
             </p>
           </div>
         )}
