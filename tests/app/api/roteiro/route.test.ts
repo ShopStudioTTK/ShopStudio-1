@@ -54,8 +54,9 @@ const ia = (content: string) =>
 const msg = async (res: Response) => (await res.json()).error.message;
 
 type R = Record<string, unknown>[] | Error;
-const regras = (o: { entitlements?: R; config?: R; usadas?: number } = {}): [string, R][] => [
+const regras = (o: { entitlements?: R; config?: R; usadas?: number; admins?: R } = {}): [string, R][] => [
   ["from public.entitlements", o.entitlements ?? [{}]],
+  ["from public.admins", o.admins ?? []],
   ["from public.ai_config", o.config ?? [{ tom: "alegre", persona: null, evitar: null }]],
   ["from public.ai_knowledge", [{ titulo: "t", conteudo: "c" }]],
   ["as usadas", [{ usadas: o.usadas ?? 0 }]],
@@ -269,6 +270,48 @@ describe("POST /api/roteiro", () => {
       const res = await POST(req({ produto: "Sérum", formato: "Unboxing" }));
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ ganchos: ["a"], gatilho: "", fichas: { parecidas: [], mesmoJeito: [] } });
+    });
+  });
+
+  describe("admin", () => {
+    const system = () => JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).messages[0].content as string;
+
+    it("admin não tem limite diário, mas a geração continua registrada", async () => {
+      responderCom(regras({ usadas: 10, admins: [{}] }));
+      const res = await POST(req());
+      expect(res.status).toBe(200);
+      expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null]);
+    });
+
+    it("rascunho da admin pede tipo, porquê e entonação, depois do dossiê, e devolve o que a IA mandou", async () => {
+      responderCom(regras({ admins: [{}] }));
+      const explicacao = { gancho: { porque: "pq", entonacao: "baixinho" } };
+      vi.mocked(fetch).mockResolvedValue(ia(JSON.stringify({ ganchos: ["a"], tipo: "skincare", explicacao })));
+      const json = await (await POST(req({ produto: "Sérum", rascunho: true }))).json();
+      expect(system()).toContain("RASCUNHO PARA A ESPECIALISTA");
+      expect(system().indexOf("RASCUNHO PARA A ESPECIALISTA")).toBeGreaterThan(system().indexOf("DOSSIÊ DA ESPECIALISTA"));
+      expect(json).toMatchObject({ tipo: "skincare", explicacao });
+    });
+
+    it("aluna que pede rascunho recebe o roteiro de sempre", async () => {
+      await POST(req({ produto: "Sérum", rascunho: true }));
+      expect(system()).not.toContain("RASCUNHO PARA A ESPECIALISTA");
+    });
+
+    it("aluna que pede rascunho continua no limite", async () => {
+      responderCom(regras({ usadas: 10 }));
+      expect((await POST(req({ produto: "Sérum", rascunho: true }))).status).toBe(429);
+    });
+
+    it("admins fora do ar → segue como aluna, com limite", async () => {
+      responderCom(regras({ usadas: 10, admins: new Error("db") }));
+      expect((await POST(req())).status).toBe(429);
+    });
+
+    it("admin sem pedir rascunho recebe o roteiro de sempre", async () => {
+      responderCom(regras({ admins: [{}] }));
+      await POST(req());
+      expect(system()).not.toContain("RASCUNHO PARA A ESPECIALISTA");
     });
   });
 });

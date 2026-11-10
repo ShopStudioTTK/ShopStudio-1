@@ -143,6 +143,11 @@ describe("blocoDasFichas", () => {
     expect(b).toMatch(/não explique/i);
   });
 
+  it("manda copiar a intenção, não as frases da especialista", () => {
+    const b = blocoDasFichas([ficha({ similaridade: 0.9 })], GATILHOS);
+    expect(b).toMatch(/não repita as frases/i);
+  });
+
   it("sem fichas ≥ 0,55, só a lista de gatilhos", () => {
     const b = blocoDasFichas([ficha({ similaridade: 0.5 })], GATILHOS);
     expect(b).toContain("fofoca");

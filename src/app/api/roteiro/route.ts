@@ -1,8 +1,8 @@
-import { autorizar, chamarOpenRouter, configDaIA, erro, liberarChamada, registrarCusto, reservarChamada } from "@/lib/api-auth";
+import { autorizar, chamarOpenRouter, configDaIA, ehAdmin, erro, liberarChamada, registrarCusto, reservarChamada } from "@/lib/api-auth";
 import { LIMITE_ROTEIROS, MSG_LIMITE_ROTEIROS } from "@/lib/limite";
 import { blocoDasFichas, buscarDoMesmoJeito, buscarParecidas, gatilhoDaIa, listarGatilhos } from "@/lib/fichas";
 import type { Gatilho } from "@/lib/fichas-tipos";
-import { buildSystemPrompt, buildUserPrompt, extractScriptJson } from "@/lib/roteiro";
+import { buildSystemPrompt, buildUserPrompt, extractScriptJson, RASCUNHO_BLOCK } from "@/lib/roteiro";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,8 +22,16 @@ export async function POST(req: Request) {
   };
   if (!input.produto) return erro("Diga qual é o produto.", 400);
 
+  // Admin (conferida no banco a cada chamada): sem limite, e o rascunho da ficha leva porquê e entonação.
+  // A falha na leitura de admins = segue como aluna.
+  const adm = await ehAdmin(userId).catch((e) => {
+    console.error("roteiro: falha ao ler admins", e);
+    return false;
+  });
+  const rascunho = adm && body?.rascunho === true;
+
   const reserva = await reservarChamada(
-    userId, "roteiro", LIMITE_ROTEIROS, () => MSG_LIMITE_ROTEIROS, input.produto,
+    userId, "roteiro", adm ? Infinity : LIMITE_ROTEIROS, () => MSG_LIMITE_ROTEIROS, input.produto,
   );
   if (reserva instanceof Response) return reserva;
   const descontar = () => liberarChamada(reserva.id);
@@ -43,7 +51,7 @@ export async function POST(req: Request) {
     response = await chamarOpenRouter(apiKey, {
       model,
       messages: [
-        { role: "system", content: buildSystemPrompt(config, knowledge, blocoDasFichas(parecidas, gatilhos)) },
+        { role: "system", content: buildSystemPrompt(config, knowledge, blocoDasFichas(parecidas, gatilhos) + (rascunho ? RASCUNHO_BLOCK : "")) },
         { role: "user", content: buildUserPrompt(input) },
       ],
       stream: false,

@@ -115,5 +115,5 @@ export function blocoDasFichas(fichas: FichaCartao[], gatilhos: Gatilho[]): stri
     : "";
   const modelos = fichas.filter((f) => (f.similaridade ?? 0) >= LIMIAR_MODELO);
   if (!modelos.length) return lista;
-  return `${lista}\n\nROTEIROS DA ESPECIALISTA PARA PRODUTOS PARECIDOS — pense como ela: o gatilho, o porquê de cada escolha, a entonação e a estrutura. Não explique as escolhas no roteiro; só escreva como ela escreveria.\n\n${modelos.map(textoDoModelo).join("\n\n")}`;
+  return `${lista}\n\nROTEIROS DA ESPECIALISTA PARA PRODUTOS PARECIDOS — copie a intenção, não o texto. Use o mesmo gatilho e o mesmo raciocínio dela (o porquê de cada escolha, a entonação e a estrutura), aplicados ao produto da aluna. Não repita as frases dela: nenhuma abertura igual (se ela abriu com \"para tudo\", abra de outro jeito), nenhum trecho de 3 palavras seguidas igual, nenhuma expressão marcante dela. Escreva frases novas, com detalhes do produto da aluna. Não explique as escolhas no roteiro.\n\n${modelos.map(textoDoModelo).join("\n\n")}`;
 }
