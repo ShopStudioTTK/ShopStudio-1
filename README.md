@@ -99,7 +99,7 @@ src/
       page.tsx                painel
       capitulos/[slug]/       leitor do capítulo ("Perguntar à assistente" ao selecionar texto)
       assistente/             chat com a IA
-      roteiros/               gerador 5×5 + banco de ganchos
+      roteiros/               banco de ganchos (com notas e comunidade) + gerador 5×5
       checklist/  resultados/
       campeoes/               vídeos campeões por nicho (admin adiciona e remove ali mesmo)
       treinamento/            fila de treinamento da IA (só admin)
@@ -112,7 +112,7 @@ src/
       webhook/applyfy/route.ts compra paga na Applyfy → cria a conta e manda o e-mail de acesso
     icon.tsx  apple-icon.tsx  manifest.ts    identidade "ss" gerada no build
   components/                 telas e peças (ui/ = shadcn)
-  content/                    texto dos capítulos, ganchos, checklist, desafio
+  content/                    texto dos capítulos, checklist, desafio (os ganchos ficam no banco)
   hooks/                      use-auth, use-access, use-ai-chat, use-perguntas-hoje…
   lib/
     access.ts                 modo revisão + regra de acesso (cliente e servidor)
@@ -147,6 +147,13 @@ docs/superpowers/             design e plano da migração do Enter
 - A IA usa primeiro o material e cita a aula e o minuto ("Aula 7, 3:12"). Quando o material não cobre o assunto, ela responde mesmo assim com o que se sabe em geral e diz que aquela parte não está nas aulas. Não abre com "o material não cobre", não atribui à Ana o que não é dela e não dá número, prazo ou regra inventados como certos. A resposta chega aos poucos (SSE).
 - **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. Nesse caso, a persona do `ai_config` não vai, para as duas não brigarem. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
 - **Limite de 15 perguntas por dia** por aluna, contadas a partir da meia-noite de Brasília. O aviso "Você ainda pode fazer N perguntas hoje" aparece a partir da 12ª. Pergunta que a IA não conseguiu responder não conta.
+
+### Ganchos (`/api/ganchos`)
+A tela de Roteiros abre nos **ganchos** (a aba "Criar roteiro" vem depois, em `?aba=gerador`). São duas listas, com o mesmo filtro por tipo, busca e "Mais bem avaliados":
+- **Banco do Studio:** os 60 ganchos de antes, agora na tabela `ganchos`.
+- **Ganchos da comunidade:** pelo botão **"Registrar meu gancho"**, no topo da aba, abre a caixa: a aluna escreve o gancho, escolhe o tipo (quebra de padrão, problema ou curiosidade) e publica. Aparece para todas, sem o nome dela, os mais novos primeiro. Até 10 por dia por aluna (429 depois disso).
+
+Toda aluna dá nota de 1 a 5 a qualquer gancho (`POST /api/ganchos/nota`; dar de novo troca a nota), e cada cartão mostra a média e quantas notas tem. Quem está em `admins` vê o lápis (muda o texto e o tipo) e a lixeira (pede confirmação) em todos os ganchos, do banco e da comunidade; `PATCH` e `DELETE` passam por `admin()`, e a aluna recebe 403. Apagar leva as notas junto.
 
 ### Gerador de roteiros (`/api/roteiro`)
 Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags e formato.
@@ -212,12 +219,14 @@ Migrations em `supabase/migrations/`:
 | `chapter_videos` + bucket `studio-videos` | vídeos dos capítulos | só service role |
 | `nichos` | abas da tela de Campeões (compartilhado, sem `user_id`) | servidor (`/api/nichos`, só admin) |
 | `campeoes` | vídeos campeões do TikTok por aba (compartilhado, sem `user_id`) | servidor (`/api/campeoes`, só admin) |
+| `ganchos` | banco de ganchos e os da comunidade (`comunidade = true`). O `user_id` de quem registrou só serve ao limite diário e nunca sai nas rotas | servidor (`/api/ganchos`: aluna cria, admin edita e apaga) |
+| `gancho_notas` | nota de 1 a 5 de cada aluna em cada gancho | servidor (`/api/ganchos/nota`) |
 | `ai_perguntas` | perguntas ao assistente, tokens e custo | servidor (`/api/assistente`) |
 | `admins` | quem acessa o treinamento da IA e cadastra as abas e os vídeos campeões | só service role (painel do Supabase) |
 | `treinamento` | perguntas e respostas da expert, com embedding (pgvector, 1536). Sem `user_id` de aluna | servidor (`/api/treinamento`, só admin; `/api/assistente` grava as conversas) |
 | `treinamento_conversas` | uma conversa do assistente = um item na fila. O `user_id` só serve para o servidor achar a conversa certa e nunca sai nas rotas | servidor (`/api/assistente`) |
 
-No app, a administração tem a página de treinamento da IA e o cadastro na aba de Campeões. Admins, códigos, vídeos dos capítulos, persona e base de conhecimento continuam sendo editados no painel do Supabase.
+No app, a administração tem a página de treinamento da IA, o cadastro na aba de Campeões e a edição dos ganchos. Admins, códigos, vídeos dos capítulos, persona e base de conhecimento continuam sendo editados no painel do Supabase.
 
 Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql`, rode `pnpm supabase migration up` e depois `pnpm db:types`.
 

@@ -4,6 +4,22 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-10: Ganchos primeiro, com notas e comunidade
+
+**Pedido:** na página de roteiros e ganchos, os ganchos vêm antes e com mais destaque. As alunas dão nota de 1 a 5 aos ganchos e registram os delas, com o tipo que escolherem, numa lista "Ganchos da comunidade". A admin edita e apaga os ganchos.
+
+**O que mudou:**
+- **Os ganchos foram para o banco.** Para a admin editar e apagar os 60 do banco do Studio (e não só os da comunidade), eles saíram de `src/content/hooks-textos.ts` para a tabela `ganchos`, na mesma ordem (migration `20261110020000_ganchos`). Deixaram de ser conteúdo de `/api/conteudo` e saem por `GET /api/ganchos`, com `autenticar()`: continuam fora do JavaScript público.
+- `gancho_notas`: uma nota por aluna por gancho (pk composta, upsert). O `GET` devolve a média, o número de notas e a `minhaNota` (do `userId` do token). O autor de um gancho da comunidade nunca sai na rota.
+- `POST /api/ganchos`: a aluna registra o dela. O tipo é uma das 3 categorias de antes, e o banco também confere tipo e tamanho (5 a 200). Limite de 10 por dia contra spam, contado no próprio insert (`insert … select … where count < 10`).
+- `PATCH`/`DELETE /api/ganchos` começam por `admin()` e entraram no `ADMIN` do `protecao.test.ts`. Na tela, lápis e lixeira só com `isAdmin`; a lixeira pede confirmação.
+- **Tela:** "Ganchos" virou a primeira aba e a padrão, com cabeçalho próprio ("Comece pelo gancho, o resto vem.") e a aba ativa com o gradiente do botão principal. A aba agora fica na URL: com ela só no estado, o "Novo roteiro" do menu não trocava de aba quando a página já estava aberta. Links para o gerador levam `?aba=gerador`. A criação do gancho fica no topo, como um botão "Registrar meu gancho" que abre a caixa (pedido da dona depois de ver a tela); ao publicar, a caixa fecha e a tela rola até a comunidade. O menu diz "Ganchos e roteiros". O Studio (gancho do dia e atalhos) lê o mesmo `useGanchos()`.
+- O texto das alunas não entra em prompt nenhum, então a regra "nada de texto livre do navegador no prompt" continua intacta.
+
+**Não mudou:** o `BASE_PROMPT` do assistente ainda fala em "60 ganchos prontos" (mudá-lo zera o cache uma vez; fica para quando houver outra mudança no prompt).
+
+**Verificado:** testes, lint e build. No banco local, com rollback: 60 ganchos na ordem antiga, tipo e tamanho recusados pelo banco, nota trocada pelo upsert, nota em gancho apagado → FK (vira 404), notas apagadas junto com o gancho, `authenticated` sem permissão. No navegador (build em `localhost:3005`, conta admin de teste apagada no fim): nota, publicar, editar o tipo, apagar com confirmação e o "Novo roteiro" trocando de aba; console sem erro. **Falta conferir** a largura de 390 px (o redimensionamento da janela não funcionou).
+
 ## 2026-11-10: Abas dos Campeões criadas pela admin
 
 **Pedido:** as abas não ficam mais só nas 5 categorias fixas. A admin cria as abas por um botão na tela, numa tabela nova, e toda inserção confere antes se o pedido é mesmo de admin.
