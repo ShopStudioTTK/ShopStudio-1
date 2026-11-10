@@ -13,7 +13,7 @@ export const useAccess = () => {
   const acessoQuery = useQuery({
     queryKey: acessoKey,
     enabled: Boolean(user?.id),
-    queryFn: () => api<{ acesso: boolean; trocarSenha?: "pendente" | "expirada" }>("/api/acesso"),
+    queryFn: () => api<{ acesso: boolean; trocarSenha?: "pendente" | "expirada"; admin?: true }>("/api/acesso"),
   });
 
   const redeem = useMutation({
@@ -35,6 +35,8 @@ export const useAccess = () => {
     hasAccess: acessoQuery.data?.acesso ?? false,
     // A marca de senha temporária fica só no servidor: a tela recebe apenas o sim ou não.
     trocarSenha: acessoQuery.data?.trocarSenha,
+    // Só para mostrar o menu de Treinamento; quem bloqueia é admin() no servidor.
+    isAdmin: acessoQuery.data?.admin === true,
     senhaDefinida: () => queryClient.invalidateQueries({ queryKey: acessoKey }),
     isLoading: acessoQuery.isLoading,
     redeem,

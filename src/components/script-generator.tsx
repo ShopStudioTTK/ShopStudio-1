@@ -1,18 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink, Loader2, Plus, RefreshCw, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { Check, Copy, Loader2, Plus, RefreshCw, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { CartaoTiktok } from "@/components/video-embed";
+import { CartaoDaExpert } from "@/components/fichas-da-expert";
 import { FORMATOS, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
-import { parseVideoUrl } from "@/lib/video";
 import { cn } from "@/lib/utils";
+import type { FichasDoRoteiro } from "@/lib/fichas-tipos";
+
+/** undefined some no JSON: o campo não chega ao servidor. */
+const semFichas = (r: ScriptResult | null): ScriptResult | null => r && { ...r, fichas: undefined };
 
 export type ScriptResult = {
   ganchos?: string[];
@@ -22,7 +25,9 @@ export type ScriptResult = {
   roteiro?: { gancho?: string; problema?: string; solucao?: string; cta?: string };
   hashtags?: string[];
   formatoSugerido?: string;
-  videos?: { url: string; titulo: string; outraLingua: boolean }[];
+  gatilho?: string;
+  /** Cartões das fichas da Ana: só na resposta do gerador, nunca no roteiro salvo. */
+  fichas?: FichasDoRoteiro;
 };
 
 export type RoteiroSalvo = {
@@ -41,46 +46,6 @@ export const useRoteirosSalvos = () => {
     enabled: Boolean(user?.id),
     queryFn: async () => (await api<{ roteiros: RoteiroSalvo[] }>("/api/roteiros-salvos")).roteiros,
   });
-};
-
-/** Amostra de vídeos do TikTok sobre o produto. Roteiro salvo volta do navegador: só aceita URL do TikTok. */
-const VideosRelacionados = ({ produto, videos }: { produto: string; videos?: ScriptResult["videos"] }) => {
-  const lista = (videos ?? []).filter((v) => parseVideoUrl(String(v?.url ?? "")).provider === "tiktok");
-  const busca = `https://www.tiktok.com/search?q=${encodeURIComponent(produto.trim())}`;
-  return (
-    <div className="rounded-[28px] border border-border bg-card p-5 shadow-soft sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="eyebrow">Pra se inspirar</p>
-          <p className="mt-1.5 font-display text-xl font-semibold tracking-tight">Vídeos sobre esse produto</p>
-        </div>
-        <a
-          href={busca}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-rose hover:underline"
-        >
-          Ver os mais recentes no TikTok
-          <ExternalLink className="h-3.5 w-3.5" />
-        </a>
-      </div>
-      {lista.length ? (
-        <>
-          <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
-            Uma amostra de vídeos do TikTok sobre “{produto}”, achados por um buscador. Não são necessariamente
-            os mais recentes, e alguns podem estar em outro idioma.
-          </p>
-          <ul className="mt-5 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-            {lista.map((v) => (
-              <CartaoTiktok key={v.url} {...v} />
-            ))}
-          </ul>
-        </>
-      ) : (
-        <p className="mt-2 text-[12.5px] text-muted-foreground">Não achei vídeos sobre esse produto agora.</p>
-      )}
-    </div>
-  );
 };
 
 const fields: { key: "ganchos" | "problemas" | "solucoes" | "ctas"; label: string; sub: string; tom: string }[] = [
@@ -187,7 +152,8 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
       if (!user?.id || !result) throw new Error("Gere um roteiro antes de salvar.");
       await api("/api/roteiros-salvos", {
         method: "POST",
-        body: { produto: savedProduto || produto, formato, conteudo: result },
+        // Os cartões dependem das fichas do momento: não vão para o roteiro salvo.
+        body: { produto: savedProduto || produto, formato, conteudo: semFichas(result) },
       });
     },
     onSuccess: () => {
@@ -429,6 +395,17 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
             </div>
           </div>
 
+          <CartaoDaExpert
+            titulo="A Ana já fez roteiro de produtos parecidos"
+            subtitulo="Veja como ela pensou."
+            fichas={result.fichas?.parecidas ?? []}
+          />
+          <CartaoDaExpert
+            titulo="A Ana já fez alguns roteiros desse jeito"
+            subtitulo="Mesmo formato e mesmo gatilho. Ela estruturou assim."
+            fichas={result.fichas?.mesmoJeito ?? []}
+          />
+
           <div className="glass sticky bottom-24 z-20 flex flex-wrap items-center gap-2 rounded-[22px] border border-border p-2.5 shadow-editorial lg:bottom-4">
             <Input
               value={savedProduto}
@@ -446,8 +423,6 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
               Outra versão
             </Button>
           </div>
-
-          <VideosRelacionados produto={savedProduto || produto} videos={result.videos} />
         </section>
       ) : null}
 

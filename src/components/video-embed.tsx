@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ExternalLink, Play } from "lucide-react";
 import { parseVideoUrl, providerLabel } from "@/lib/video";
 import { cn } from "@/lib/utils";
@@ -112,8 +112,8 @@ export const VideoEmbed = ({ url, titulo, className, previa = false }: VideoEmbe
   );
 };
 
-/** Vídeo do TikTok com o título como link e a marca "outro idioma". Usado no roteiro e nos campeões. */
-export const CartaoTiktok = ({ url, titulo, outraLingua }: { url: string; titulo: string; outraLingua: boolean }) => (
+/** Vídeo do TikTok com o título como link. Usado nos campeões; `children` fica embaixo (ações da admin). */
+export const CartaoTiktok = ({ url, titulo, children }: { url: string; titulo: string; children?: ReactNode }) => (
   <li className="space-y-2">
     <VideoEmbed url={url} titulo={titulo} previa />
     <a
@@ -122,12 +122,8 @@ export const CartaoTiktok = ({ url, titulo, outraLingua }: { url: string; titulo
       rel="noreferrer"
       className="line-clamp-2 text-[12px] leading-snug text-foreground/75 underline-offset-2 hover:text-foreground hover:underline"
     >
-      {outraLingua ? (
-        <span className="mr-1.5 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-          outro idioma
-        </span>
-      ) : null}
       {titulo || "Ver no TikTok"}
     </a>
+    {children}
   </li>
 );

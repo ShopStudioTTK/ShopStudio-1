@@ -6,6 +6,14 @@ vi.mock("@/lib/conhecimento/material", () => ({ DOSSIE: "DOSSIE-TESTE", TRANSCRI
 import { buildAssistantSystemPrompt, BASE_PROMPT, sanitizeMessages } from "@/lib/assistente";
 
 describe("buildAssistantSystemPrompt", () => {
+  it("o bloco da expert vai no fim, sem mexer no prefixo do cache", () => {
+    const com = buildAssistantSystemPrompt(null, [], "Capítulo X", "BLOCO-EXPERT");
+    expect(com.startsWith(BASE_PROMPT)).toBe(true);
+    expect(com.endsWith("BLOCO-EXPERT")).toBe(true);
+    expect(com.indexOf("Capítulo X")).toBeLessThan(com.indexOf("BLOCO-EXPERT"));
+    expect(buildAssistantSystemPrompt(null, [], "Capítulo X", "")).toBe(buildAssistantSystemPrompt(null, [], "Capítulo X"));
+  });
+
   it("começa pelo prompt fixo com guia, transcrição e dossiê (prefixo estável para cache)", () => {
     const p = buildAssistantSystemPrompt(null, []);
     expect(p).toBe(BASE_PROMPT);
@@ -13,6 +21,13 @@ describe("buildAssistantSystemPrompt", () => {
     expect(BASE_PROMPT).toContain("DOSSIE-TESTE");
     expect(BASE_PROMPT).toContain("Shop Studio");
     expect(BASE_PROMPT).not.toMatch(/club/i);
+  });
+
+  it("fora do material, responde mesmo assim e diz de onde vem a informação, sem abrir com 'não cobre'", () => {
+    expect(BASE_PROMPT).not.toContain("o material não cobre isso");
+    expect(BASE_PROMPT).toContain("responda mesmo assim");
+    expect(BASE_PROMPT).toContain("não está nas aulas");
+    expect(BASE_PROMPT).toContain("Nunca comece a resposta dizendo que o material não cobre");
   });
 
   it("proíbe copiar o material pago palavra por palavra", () => {

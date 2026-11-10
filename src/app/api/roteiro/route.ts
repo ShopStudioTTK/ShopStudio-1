@@ -1,7 +1,8 @@
 import { autorizar, chamarOpenRouter, configDaIA, erro, liberarChamada, registrarCusto, reservarChamada } from "@/lib/api-auth";
 import { LIMITE_ROTEIROS, MSG_LIMITE_ROTEIROS } from "@/lib/limite";
+import { blocoDasFichas, buscarDoMesmoJeito, buscarParecidas, gatilhoDaIa, listarGatilhos } from "@/lib/fichas";
+import type { Gatilho } from "@/lib/fichas-tipos";
 import { buildSystemPrompt, buildUserPrompt, extractScriptJson } from "@/lib/roteiro";
-import { buscarVideos } from "@/lib/videos-tiktok";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -26,18 +27,23 @@ export async function POST(req: Request) {
   );
   if (reserva instanceof Response) return reserva;
   const descontar = () => liberarChamada(reserva.id);
-  // Em paralelo com a IA; nunca lança (falha = lista vazia).
-  const videos = buscarVideos(input.produto);
 
-  // treino e base de conhecimento são opcionais
-  const { config, knowledge } = await configDaIA();
+  // Opcionais: config, base, fichas da expert e gatilhos. Falha em qualquer um = roteiro como antes.
+  const [{ config, knowledge }, parecidas, gatilhos] = await Promise.all([
+    configDaIA(),
+    buscarParecidas(input.produto),
+    listarGatilhos().catch((e): Gatilho[] => {
+      console.error("roteiro: falha ao ler os gatilhos", e);
+      return [];
+    }),
+  ]);
 
   let response: Response;
   try {
     response = await chamarOpenRouter(apiKey, {
       model,
       messages: [
-        { role: "system", content: buildSystemPrompt(config, knowledge) },
+        { role: "system", content: buildSystemPrompt(config, knowledge, blocoDasFichas(parecidas, gatilhos)) },
         { role: "user", content: buildUserPrompt(input) },
       ],
       stream: false,
@@ -64,7 +70,12 @@ export async function POST(req: Request) {
     return erro("A resposta da IA veio cortada. Tente de novo.", 502);
   try {
     const roteiro = extractScriptJson(payload?.choices?.[0]?.message?.content ?? "");
-    return Response.json({ ...roteiro, videos: await videos });
+    const gatilho = gatilhoDaIa(roteiro.gatilho, gatilhos);
+    const mesmoJeito = await buscarDoMesmoJeito(input.formato, gatilho, parecidas.map((f) => f.id)).catch((e) => {
+      console.error("roteiro: falha ao buscar fichas do mesmo jeito", e);
+      return [];
+    });
+    return Response.json({ ...roteiro, gatilho, fichas: { parecidas, mesmoJeito } });
   } catch (e) {
     console.error("roteiro: JSON inválido na resposta da IA", e);
     return erro((e as Error).message, 502);

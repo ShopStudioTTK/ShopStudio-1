@@ -17,6 +17,7 @@ Histórico de decisões: [`DEVLOG.md`](DEVLOG.md). Instruções para agentes de 
 5. [Estrutura do projeto](#estrutura-do-projeto)
 6. [Como o app funciona](#como-o-app-funciona)
 7. [IA: assistente, roteiros e custos](#ia-assistente-roteiros-e-custos)
+   - [Treinamento da IA](#treinamento-da-ia-só-admin)
 8. [Banco de dados](#banco-de-dados)
 9. [Login e criação de contas](#login-e-criação-de-contas)
 10. [Acesso e códigos](#acesso-e-códigos)
@@ -61,8 +62,8 @@ Preencha também no `.env.local`:
 | `DATABASE_URL` | só servidor (`src/lib/db.ts`). Local: o `DB_URL` do `pnpm supabase status`. Produção: a connection string do **pooler em modo Transaction** (porta 6543), em Project Settings → Database | **sim** |
 | `VIDEO_URL_VALIDADE_SEGUNDOS` | só servidor. Validade do link assinado dos vídeos do bucket (padrão 3600 = 1 h) | não |
 | `OPENROUTER_API_KEY` | só servidor (rotas `/api/*`) | **sim** |
-| `BRAVE_API_KEY` | só servidor (`src/lib/videos-tiktok.ts`). Vídeos do TikTok embaixo do roteiro. Vazia = o roteiro sai sem vídeos | **sim** |
 | `OPENROUTER_MODEL` | só servidor. Hoje: `deepseek/deepseek-v4.1-flash-1017` | não |
+| `OPENROUTER_EMBEDDING_MODEL` | só servidor. Modelo de embedding do treinamento da IA. Padrão `openai/text-embedding-3-small` (1536 dimensões, acoplado à coluna `treinamento.embedding`) | não |
 | `OPENROUTER_PRESET` | só servidor, só o assistente. Slug do preset da OpenRouter com a voz da especialista (hoje: `ana-shop-studio-leads-behavior`). Com ele, a persona do `ai_config` sai do prompt do assistente. Vazio = sem preset | não |
 | `WEBHOOK_CONTA_SEGREDO` | só servidor (`/api/webhook/conta`). A plataforma de venda manda no `Authorization: Bearer`. Sem ele, o webhook responde 500 | **sim** |
 | `WEBHOOK_CONTA_ORIGENS` | só servidor. Origens liberadas no CORS do webhook, separadas por vírgula. Vazio = nenhuma | não |
@@ -98,22 +99,31 @@ src/
       page.tsx                painel
       capitulos/[slug]/       leitor do capítulo ("Perguntar à assistente" ao selecionar texto)
       assistente/             chat com a IA
-      roteiros/               gerador 5×5 + banco de ganchos
-      checklist/  resultados/  campeoes/
+      roteiros/               banco de ganchos (com notas e comunidade) + gerador 5×5
+      checklist/  resultados/
+      campeoes/               vídeos campeões por nicho (admin adiciona e remove ali mesmo)
+      treinamento/            treinamento da IA (só admin): fila de perguntas e fichas de roteiro
+      conta/                  minha conta: nome, e-mail e senha
     api/
       assistente/route.ts     chat com streaming, limite diário, registro de custo
       roteiro/route.ts        gerador de roteiros (JSON)
+      treinamento/route.ts    fila de treinamento da IA (só admin, admin() em api-auth.ts)
+      fichas/route.ts         fichas de roteiro da expert (só admin)
+      gatilhos/route.ts       gatilhos do gancho das fichas; o "+" cria (só admin)
       senha/route.ts          troca da senha temporária (primeiro acesso)
+      conta/route.ts          muda nome, e-mail e senha (e-mail e senha pedem a senha atual)
       webhook/conta/route.ts  cria a conta da aluna (chamado pela plataforma de venda)
       webhook/applyfy/route.ts compra paga na Applyfy → cria a conta e manda o e-mail de acesso
     icon.tsx  apple-icon.tsx  manifest.ts    identidade "ss" gerada no build
   components/                 telas e peças (ui/ = shadcn)
-  content/                    texto dos capítulos, ganchos, checklist, desafio
+  content/                    texto dos capítulos, checklist, desafio (os ganchos ficam no banco)
   hooks/                      use-auth, use-access, use-ai-chat, use-perguntas-hoje…
   lib/
     access.ts                 modo revisão + regra de acesso (cliente e servidor)
     api-auth.ts               checagens das rotas de IA + chamada à OpenRouter (provedores fixos)
     assistente.ts             prompt do assistente
+    embedding.ts              embedding pela OpenRouter (só servidor)
+    treinamento.ts            limiares, busca das respostas da expert e fila das conversas (só servidor)
     contas.ts                 criarConta: usuário + senha temporária + acesso (só servidor)
     email.ts                  e-mail de acesso (link, e-mail e senha temporária) pela Resend
     roteiro.ts                prompt do gerador de roteiros
@@ -138,16 +148,28 @@ docs/superpowers/             design e plano da migração do Enter
 
 ### Assistente (`/api/assistente`)
 - Cada pergunta envia ao modelo as regras, o **resumo dos 12 capítulos**, a **transcrição das aulas** e o **dossiê da especialista** (~78 mil tokens). Junto vão a persona e a base de conhecimento do banco (`ai_config`, `ai_knowledge`) e as últimas 12 mensagens da conversa.
-- A IA responde só com base no material, cita a aula e o minuto ("Aula 7, 3:12") e diz quando não sabe. A resposta chega aos poucos (SSE).
+- A IA usa primeiro o material e cita a aula e o minuto ("Aula 7, 3:12"). Quando o material não cobre o assunto, ela responde mesmo assim com o que se sabe em geral e diz que aquela parte não está nas aulas. Não abre com "o material não cobre", não atribui à Ana o que não é dela e não dá número, prazo ou regra inventados como certos. A resposta chega aos poucos (SSE).
 - **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. Nesse caso, a persona do `ai_config` não vai, para as duas não brigarem. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
 - **Limite de 15 perguntas por dia** por aluna, contadas a partir da meia-noite de Brasília. O aviso "Você ainda pode fazer N perguntas hoje" aparece a partir da 12ª. Pergunta que a IA não conseguiu responder não conta.
 
+### Ganchos (`/api/ganchos`)
+A tela de Roteiros abre nos **ganchos** (a aba "Criar roteiro" vem depois, em `?aba=gerador`). São duas listas, com o mesmo filtro por tipo, busca e "Mais bem avaliados":
+- **Banco do Studio:** os 60 ganchos de antes, agora na tabela `ganchos`.
+- **Ganchos da comunidade:** pelo botão **"Registrar meu gancho"**, no topo da aba, abre a caixa: a aluna escreve o gancho, escolhe o tipo (quebra de padrão, problema ou curiosidade) e publica. Aparece para todas, sem o nome dela, os mais novos primeiro. Até 10 por dia por aluna (429 depois disso).
+
+Toda aluna dá nota de 1 a 5 a qualquer gancho (`POST /api/ganchos/nota`; dar de novo troca a nota), e cada cartão mostra a média e quantas notas tem. Quem está em `admins` vê o lápis (muda o texto e o tipo) e a lixeira (pede confirmação) em todos os ganchos, do banco e da comunidade; `PATCH` e `DELETE` passam por `admin()`, e a aluna recebe 403. Apagar leva as notas junto.
+
 ### Gerador de roteiros (`/api/roteiro`)
-Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags e formato.
+Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags, formato e o **gatilho** do gancho escolhido (um dos slugs de `gatilhos`).
 
-**Vídeos sobre o produto:** em paralelo com a IA, a rota faz 3 buscas na **Brave Search API** (`site:tiktok.com <produto>` com 3 grupos de termos em `OR`, Brasil, português, goggle que deixa só páginas de vídeo) e devolve até 6 vídeos em `videos` (`src/lib/videos-tiktok.ts`). Só entram vídeos que citam o produto, e os mais engajados (curtidas + 3 × comentários, lidos do texto que o TikTok publica na página) vêm primeiro: português primeiro e no máximo 2 em outra língua. A tela mostra com o player oficial do TikTok, avisa que é uma amostra (pode ter vídeo antigo ou em outro idioma) e tem o link "Ver os mais recentes no TikTok". Sem `BRAVE_API_KEY` ou com a Brave fora do ar, o roteiro sai sem vídeos. A busca conta no mesmo limite de 10 roteiros/dia (3 buscas da Brave por roteiro). **Cache:** o resultado fica 3 dias em `videos_cache` e serve para qualquer aluna que pedir um termo parecido (similaridade `pg_trgm` ≥ 0,7 sobre o termo sem acento, sem plural e com as palavras em ordem), sem chamar a Brave. Por que não scraping nem API do TikTok: ver o DEVLOG.
+**Fichas da expert (treinamento de roteiros):** em `/app/treinamento`, aba **Roteiros**, a expert registra como pensaria o roteiro de um produto, campo por campo: produto, tipo, formato e, para gancho, problema, solução e CTA, o texto, o porquê e a entonação (porquê e entonação obrigatórios no gancho). O gatilho do gancho vem da tabela `gatilhos` (curiosidade, fofoca, choque, problema, transformação, prova social), e o "+" ao lado cria outro. O embedding da ficha é só de `"<produto> — <tipo>"`. No gerador:
+- o produto da aluna vira embedding, e as fichas com semelhança **≥ 0,55** entram no prompt como modelo de raciocínio, **depois** do dossiê (o cache continua valendo), com a ordem de não explicar as escolhas no roteiro;
+- embaixo do roteiro, o cartão **"A Ana já fez roteiro de produtos parecidos"** mostra até 3 fichas com semelhança **≥ 0,45**, e o cartão **"A Ana já fez alguns roteiros desse jeito"** mostra até 3 com o mesmo formato e o mesmo gatilho do roteiro gerado, sem repetir as do primeiro. Os dois cartões são dropdowns: vêm abertos e a aluna fecha pelo título;
+- os cartões não vão para o roteiro salvo (o servidor descarta). Sem nenhuma ficha cadastrada, o gerador nem chama o embedding. Se o embedding ou o banco falharem, o roteiro sai igual, sem cartões.
 
-**Vídeos campeões:** a tela tem uma aba por nicho (`src/content/nichos.ts`: moda fitness, beleza, maternidade, casa e cozinha, moda feminina). Cada aba chama `GET /api/campeoes?nicho=<slug>`, que devolve até 10 vídeos de produto do TikTok, os mais engajados, iguais para todas as alunas. Eles saem da mesma busca do roteiro (3 buscas na Brave por nicho, com termos de venda), filtrados por `doNicho`: o texto precisa citar uma palavra do nicho, ter sinal de venda (achadinho, comprei, Shopee, provador…) e não ser de moda masculina. O resultado fica 1 dia em `campeoes_cache`; quem abre a aba depois disso espera a busca nova. Se a Brave falhar, fica o que estava salvo. Custo máximo: 15 buscas por dia. A galeria antiga, cadastrada pela administração (`chapter_videos`, coleção `campeao`), continua só no bloco da tela inicial.
+Medido com `text-embedding-3-small` (2026-11-10): "sérum facial" × "Sérum facial Principia — skincare" = 0,73; "sérum de vitamina C" × a mesma ficha = 0,47; produtos sem relação ficam em 0,1–0,25. Com nomes curtos, 0,6 pegava só o mesmo produto; por isso os limiares (`src/lib/fichas.ts`) foram para 0,45 (cartão) e 0,55 (prompt).
+
+**Vídeos campeões:** a tela tem uma aba por nicho, e as abas ficam na tabela `nichos` (começou com moda fitness, beleza, maternidade, casa e cozinha e moda feminina). Quem está em `admins` vê o botão **"Nova aba"** depois das abas: o nome vira o slug (`Casa & Cozinha` → `casa-cozinha`), e nome repetido dá 409. Uma aba vazia mostra "Apagar a aba"; aba com vídeo não é apagada (o banco também recusa). `GET /api/nichos` vale para todas as alunas; `POST` e `DELETE` passam por `admin()` antes de ler qualquer coisa do pedido. Os vídeos também são **escolhidos pela administração**: quem está em `admins` vê, na própria aba, um campo para colar o link do TikTok (com título opcional) e um botão "Remover" em cada vídeo. `GET /api/campeoes?nicho=<slug>` devolve os vídeos do nicho, os mais novos primeiro (até 60), iguais para todas as alunas; `POST` e `DELETE` passam por `admin()` e a aluna recebe 403. Só entra link completo de vídeo (`https://www.tiktok.com/@perfil/video/…`); a query (`?is_from_webapp=…`) é tirada, link curto (`vm.tiktok.com`) é recusado, e o mesmo vídeo não entra duas vezes no mesmo nicho. A galeria antiga (`chapter_videos`, coleção `campeao`) continua só no bloco da tela inicial.
 
 ### Custos e provedor
 - O modelo **DeepSeek v4.1 Flash** é oferecido por dezenas de provedores, com preços muito diferentes. As chamadas vão fixas para o **Morph (fp8)**, com a **DeepInfra (fp8)** de reserva (`PROVEDORES` em `src/lib/api-auth.ts`).
@@ -163,6 +185,27 @@ where created_at >= date_trunc('month', now())
 group by user_id order by custo_usd desc;
 ```
 
+### Treinamento da IA (só admin)
+
+A expert responde perguntas do jeito dela em `/app/treinamento`, e o assistente usa essas respostas para falar com o mesmo tom, as mesmas frases e as mesmas gírias.
+
+- **Fila:** são três origens de pergunta. As **mapeadas** são 25, gravadas pela migration a partir das aulas e do dossiê. As **de alunas** vêm das conversas do assistente: cada conversa é um item só, com as perguntas em ordem e o que a IA respondeu. As **criadas** saem do botão "Nova pergunta". Para cada pergunta, a expert pode responder, descartar ou editar. "Responder" abre o editor já com a resposta da IA dentro, e ela só muda o que quiser. A tela nunca mostra quem perguntou. Como a pergunta e a resposta salvas viram exemplo no prompt de outras alunas, numa pergunta de aluna o editor avisa para reescrever a pergunta de forma genérica e tirar o que for pessoal. Não há aprovação direta, sem passar pelo editor.
+- **Assistente:** antes de chamar a IA, a pergunta da aluna (com as 2 anteriores da conversa) vira embedding, e o servidor busca as 4 respondidas mais parecidas. O resultado depende da semelhança:
+
+  | Semelhança | O que acontece |
+  |---|---|
+  | **≥ 0,9** | a IA repete a resposta da expert quase palavra por palavra |
+  | **≥ 0,7** | as respostas entram como modelo |
+  | **≥ 0,6** | não vão para o prompt; só ligam as perguntas parecidas na tela de treinamento |
+
+  O bloco da expert vai no **fim** do prompt, então o cache continua valendo. Os limiares ficam em `src/lib/treinamento.ts`. Se o embedding falhar, o assistente responde como antes.
+- **Quem é admin:** a tabela `admins`, editada só no painel do Supabase. A guarda `admin()` confere a tabela no banco a cada chamada, e a aluna recebe 403.
+
+```sql
+insert into public.admins (user_id) select id from auth.users where email = 'expert@exemplo.com';
+delete from public.admins where user_id = '…';
+```
+
 ### Material da IA (`src/lib/conhecimento/`)
 - `transcricao.md`: transcrição das aulas, uma seção `## Aula N - título` por aula, com as marcações `[m:ss – m:ss]` do vídeo.
 - `dossie.md`: dossiê da especialista.
@@ -175,7 +218,7 @@ Migrations em `supabase/migrations/`:
 
 | Tabela | Para quê | Quem escreve |
 |---|---|---|
-| `profiles` | nome e e-mail da aluna | a própria aluna |
+| `profiles` | nome e e-mail da aluna (espelho do login) | servidor (`/api/perfil` no primeiro login, `/api/conta`) |
 | `compras_applyfy` | transações da Applyfy já processadas (o aviso repetido não gera outra senha) | servidor (`/api/webhook/applyfy`) |
 | `senhas_temporarias` | contas que ainda não trocaram a senha temporária | servidor (webhook e `/api/senha`) |
 | `chapter_progress`, `checklist_progress` | progresso | a própria aluna |
@@ -185,11 +228,18 @@ Migrations em `supabase/migrations/`:
 | `access_codes` | códigos de compra | só service role (painel do Supabase) |
 | `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
 | `chapter_videos` + bucket `studio-videos` | vídeos dos capítulos | só service role |
-| `videos_cache` | vídeos do TikTok por termo normalizado, reaproveitados por 3 dias (compartilhado, sem `user_id`) | servidor (`/api/roteiro`) |
-| `campeoes_cache` | os 10 vídeos campeões de cada nicho, renovados a cada 1 dia (compartilhado, sem `user_id`) | servidor (`/api/campeoes`) |
+| `nichos` | abas da tela de Campeões (compartilhado, sem `user_id`) | servidor (`/api/nichos`, só admin) |
+| `campeoes` | vídeos campeões do TikTok por aba (compartilhado, sem `user_id`) | servidor (`/api/campeoes`, só admin) |
+| `ganchos` | banco de ganchos e os da comunidade (`comunidade = true`). O `user_id` de quem registrou só serve ao limite diário e nunca sai nas rotas | servidor (`/api/ganchos`: aluna cria, admin edita e apaga) |
+| `gancho_notas` | nota de 1 a 5 de cada aluna em cada gancho | servidor (`/api/ganchos/nota`) |
 | `ai_perguntas` | perguntas ao assistente, tokens e custo | servidor (`/api/assistente`) |
+| `admins` | quem acessa o treinamento da IA e cadastra as abas e os vídeos campeões | só service role (painel do Supabase) |
+| `treinamento` | perguntas e respostas da expert, com embedding (pgvector, 1536). Sem `user_id` de aluna | servidor (`/api/treinamento`, só admin; `/api/assistente` grava as conversas) |
+| `gatilhos` | gatilhos do gancho das fichas (slug + rótulo) | servidor (`/api/gatilhos`, só admin) |
+| `fichas_roteiro` | fichas de roteiro da expert, com embedding (pgvector, 1536) só de produto + tipo. Sem `user_id` de aluna | servidor (`/api/fichas`, só admin) |
+| `treinamento_conversas` | uma conversa do assistente = um item na fila. O `user_id` só serve para o servidor achar a conversa certa e nunca sai nas rotas | servidor (`/api/assistente`) |
 
-Ainda não existe página de administração. Códigos, vídeos, persona e base de conhecimento são editados no painel do Supabase.
+No app, a administração tem a página de treinamento da IA, o cadastro na aba de Campeões e a edição dos ganchos. Admins, códigos, vídeos dos capítulos, persona e base de conhecimento continuam sendo editados no painel do Supabase.
 
 Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql`, rode `pnpm supabase migration up` e depois `pnpm db:types`.
 
@@ -201,7 +251,8 @@ Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql
 3. A resposta é `201 { email, senhaTemporaria }`. **O envio da senha à aluna ainda não existe:** quando houver um serviço de e-mail, ele entra nessa rota.
 4. A aluna entra em `/entrar` com o e-mail e a senha temporária, e o app pede a senha nova (mínimo de 6 caracteres). Até ela trocar, toda rota de conteúdo responde 403.
 5. **A senha temporária vale 24 horas** (`VALIDADE_SENHA_TEMPORARIA_MIN`, contados pelo relógio do banco). Depois disso, o app mostra "Sua senha temporária expirou" e não deixa trocar. Para gerar outra, chame o webhook de novo com o mesmo e-mail: ele cria uma senha nova, com mais 24 horas, e a antiga para de valer.
-6. A troca (`POST /api/senha`) apaga a linha da aluna em `senhas_temporarias` e derruba as sessões abertas. A tela entra de novo sozinha com a senha nova. Daí em diante, `GET /api/acesso` responde só `{ "acesso": true }`, sem campo de senha, e o JWT nunca carrega nada sobre isso.
+6. Depois, a aluna muda nome, e-mail e senha em **Minha conta** (`/app/conta`, pelo cartão no rodapé do menu). E-mail e senha pedem a senha atual; o e-mail novo entra já confirmado.
+7. A troca (`POST /api/senha`) apaga a linha da aluna em `senhas_temporarias` e derruba as sessões abertas. A tela entra de novo sozinha com a senha nova. Daí em diante, `GET /api/acesso` responde só `{ "acesso": true }`, sem campo de senha, e o JWT nunca carrega nada sobre isso.
 
 Respostas do webhook: `201` conta criada (ou senha temporária renovada) · `400` e-mail inválido · `401` segredo ausente ou errado · `403` `Origin` fora da lista · `409` a aluna já definiu a própria senha · `500` segredo não configurado ou falha.
 
@@ -246,8 +297,10 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 |---|---|
 | Criar conta sem ter comprado | Cadastro público desligado (`enable_signup = false`). Só o webhook, com o segredo, cria conta. |
 | Marca de senha temporária visível ou alterável pela aluna | Fica em `senhas_temporarias`, sem privilégio para `anon`/`authenticated`; nunca nos metadados do JWT. |
-| Token roubado trocando a senha de outra pessoa | `POST /api/senha` só funciona com a senha temporária pendente. |
+| Token roubado trocando a senha de outra pessoa | `POST /api/senha` só funciona com a senha temporária pendente. Em "Minha conta" (`PATCH /api/conta`), e-mail e senha só mudam com a senha atual, conferida no servidor. |
 | Conta logada ver o banco (tabelas, estrutura, dados de outras) | Data API desligada; o navegador só fala com as rotas do app. `anon` e `authenticated` sem privilégio nenhum no banco. Toda consulta filtra pelo `user_id` do token; testado com duas contas e em `tests/app/api/{protecao,isolamento}.test.ts`. |
+| Aluna ler ou mudar o treinamento da IA (vai no prompt de todas) | Toda rota de `/api/treinamento` passa por `admin()`, que confere `admins` no banco a cada chamada; a tela só esconde o menu. Testado em `protecao.test.ts` (aluna com acesso → 403). |
+| Aluna escrever na conversa de outra na fila de treinamento | A conversa é sempre o par (`user_id` do token, id do navegador). A linha do treinamento não tem `user_id`, e a expert não vê quem perguntou. |
 | Aluna liberar o próprio acesso, criar código ou mexer na IA | Essas tabelas não têm política de escrita: só a service role escreve. |
 | Chutar códigos de acesso | `resgatar_codigo` (só o servidor executa) bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
 | Gastar IA sem limite | 15 perguntas e 10 roteiros por dia por aluna, contados no servidor (`ai_perguntas.rota`). |

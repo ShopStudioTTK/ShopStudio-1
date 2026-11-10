@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { erro } from "@/lib/api-auth";
 import { criarConta } from "@/lib/contas";
+import { EMAIL } from "@/lib/entrada";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,6 @@ export const runtime = "nodejs";
  * qualquer `Origin` fora dela, mas chamadas de servidor costumam não mandar `Origin` e um cliente
  * fora do navegador escreve o que quiser nesse cabeçalho.
  */
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const origensPermitidas = () =>
   (process.env.WEBHOOK_CONTA_ORIGENS ?? "").split(",").map((o) => o.trim()).filter(Boolean);

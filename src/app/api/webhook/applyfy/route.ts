@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { erro } from "@/lib/api-auth";
 import { criarConta } from "@/lib/contas";
 import { db } from "@/lib/db";
+import { EMAIL } from "@/lib/entrada";
 import { enviarEmailDeAcesso } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -19,7 +20,6 @@ export const runtime = "nodejs";
  *   Se a conta ou o e-mail falharem, libera a transação e responde 500 para a Applyfy reenviar.
  * - Dado inválido (sem e-mail, sem transação) responde 200 com erro no log: reenviar não resolve.
  */
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Corpo = {
   event?: unknown;

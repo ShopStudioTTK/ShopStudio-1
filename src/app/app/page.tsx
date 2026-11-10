@@ -20,12 +20,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useRoteirosSalvos } from "@/components/script-generator";
 import { useAuth } from "@/hooks/use-auth";
-import { useConteudo } from "@/hooks/use-conteudo";
+import { useGanchos } from "@/hooks/use-ganchos";
+import { useNichos } from "@/hooks/use-nichos";
 import { useChapterProgress } from "@/hooks/use-progress";
 import { chapters, chapterPath } from "@/content/chapters";
 import { FORMATOS, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
 import { hookCategorias } from "@/content/hooks";
-import { NICHOS } from "@/content/nichos";
 import { primeiroNome } from "@/lib/nome";
 import { cn } from "@/lib/utils";
 
@@ -134,7 +134,7 @@ const Compositor = () => {
 };
 
 const GanchoDoDia = () => {
-  const { data: ganchos } = useConteudo("ganchos");
+  const { data: ganchos } = useGanchos();
   const [indice, setIndice] = useState(diaDoAno);
   const lista = ganchos ?? [];
   const gancho = lista.length ? lista[indice % lista.length] : null;
@@ -217,7 +217,7 @@ const UltimosRoteiros = () => {
     <article className="flex flex-col rounded-[28px] border border-border bg-card p-5 shadow-soft sm:p-6">
       <div className="flex items-center justify-between">
         <p className="font-display text-lg font-semibold tracking-tight">Seus roteiros</p>
-        <Link href="/app/roteiros#biblioteca" className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-rose hover:underline">
+        <Link href="/app/roteiros?aba=gerador#biblioteca" className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-rose hover:underline">
           Biblioteca <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
       </div>
@@ -232,7 +232,7 @@ const UltimosRoteiros = () => {
           {roteiros.slice(0, 3).map((r) => (
             <li key={r.id}>
               <Link
-                href="/app/roteiros#biblioteca"
+                href="/app/roteiros?aba=gerador#biblioteca"
                 className="flex items-center gap-3 rounded-2xl px-2 py-2.5 transition-colors hover:bg-secondary"
               >
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-soft text-base" aria-hidden="true">
@@ -260,7 +260,8 @@ const UltimosRoteiros = () => {
 };
 
 const Ferramentas = () => {
-  const { data: ganchos } = useConteudo("ganchos");
+  const { data: ganchos } = useGanchos();
+  const { data: nichos = [] } = useNichos();
   const tiles = [
     {
       to: "/app/roteiros?aba=ganchos",
@@ -297,12 +298,12 @@ const Ferramentas = () => {
               <Clapperboard className="h-4 w-4 text-rose" /> O que tá vendendo agora
             </p>
             <p className="mt-1 text-[13px] text-muted-foreground">
-              Os vídeos de produto mais engajados por nicho, atualizados todo dia.
+              Vídeos de produto que estão vendendo, escolhidos pela equipe em cada nicho.
             </p>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {NICHOS.map((n, i) => (
+          {nichos.map((n, i) => (
             <Link
               key={n.slug}
               href={`/app/campeoes?nicho=${n.slug}`}

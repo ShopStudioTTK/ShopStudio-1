@@ -8,8 +8,11 @@ vi.mock("@/lib/db", async () => {
 vi.mock("@/lib/supabase/admin", async () => (await import("../../apoio/db-falso")).adminFalso);
 vi.mock("@/lib/access", () => ({ temAcesso: () => true }));
 
-import { createSignedUrls, getUser, naTabela, reiniciarDb, responderCom, updateUserById } from "../../apoio/db-falso";
+import { conferirSenha, createSignedUrls, getUser, naTabela, reiniciarDb, responderCom, updateUserById } from "../../apoio/db-falso";
 import * as acesso from "@/app/api/acesso/route";
+import * as conta from "@/app/api/conta/route";
+import * as ganchos from "@/app/api/ganchos/route";
+import * as notaDoGancho from "@/app/api/ganchos/nota/route";
 import * as perfil from "@/app/api/perfil/route";
 import * as progresso from "@/app/api/progresso/route";
 import * as resultados from "@/app/api/resultados/route";
@@ -122,6 +125,23 @@ describe("cada conta só vê e mexe no que é dela", () => {
     expect(await (await acesso.GET(req("/api/acesso"))).json()).toEqual({ acesso: true });
   });
 
+  it("acesso: admin só aparece para quem está em admins, olhando a conta logada", async () => {
+    responderCom([["from public.admins", [{}]]]);
+    expect(await (await acesso.GET(req("/api/acesso?user_id=u2"))).json()).toEqual({ acesso: true, admin: true });
+    expect(naTabela("admins")[0].valores).toEqual(["u1"]);
+    reiniciarDb();
+    expect(await (await acesso.GET(req("/api/acesso"))).json()).not.toHaveProperty("admin");
+  });
+
+  it("conta: muda a conta logada e confere a senha dela, nunca a do id mandado no corpo", async () => {
+    conferirSenha.mockResolvedValue("ok");
+    updateUserById.mockResolvedValue({ data: {}, error: null });
+    await conta.PATCH(req("/api/conta", "PATCH", { nome: "Hack", senha: "nova123", senhaAtual: "x", user_id: OUTRA, id: OUTRA }));
+    expect(conferirSenha).toHaveBeenCalledWith("u1@x.com", "x");
+    expect(updateUserById).toHaveBeenCalledWith("u1", expect.anything());
+    expect(naTabela("profiles")[0].valores[0]).toBe("u1");
+  });
+
   it("senha: troca a da conta logada, nunca a do id mandado no corpo", async () => {
     responderCom([["from public.senhas_temporarias", [{ valida: true }]]]);
     updateUserById.mockResolvedValue({ data: {}, error: null });
@@ -139,6 +159,19 @@ describe("cada conta só vê e mexe no que é dela", () => {
     const res = await acesso.POST(req("/api/acesso", "POST", { codigo: "ABC" }));
     expect(res.status).toBe(429);
     expect((await res.json()).error.message).toBe("Muitas tentativas erradas.");
+  });
+
+  it("ganchos: a nota que volta é a da aluna logada; o autor nunca sai; registra e dá nota em nome dela", async () => {
+    await ganchos.GET(req("/api/ganchos?user_id=u2"));
+    expect(naTabela("ganchos")[0].valores).toEqual(["u1"]);
+    expect(naTabela("ganchos")[0].sql).not.toMatch(/select[^]*g\.user_id[^]*from/);
+
+    await ganchos.POST(req("/api/ganchos", "POST", { categoria: "quebra", texto: "Um gancho meu", user_id: OUTRA }));
+    expect(naTabela("ganchos")[1].valores.filter((v) => v === "u1")).toHaveLength(2); // grava e conta o dia dela
+    expect(naTabela("ganchos")[1].valores).not.toContain(OUTRA);
+
+    await notaDoGancho.POST(req("/api/ganchos/nota", "POST", { id: ID, nota: 5, user_id: OUTRA }));
+    expect(naTabela("gancho_notas").at(-1)?.valores).toEqual([ID, "u1", 5]);
   });
 
   it("vídeos: arquivo do bucket sai assinado com a validade do .env; link externo passa direto", async () => {

@@ -1,5 +1,5 @@
 import { temAcesso } from "@/lib/access";
-import { erro, logada, possuiEntitlement } from "@/lib/api-auth";
+import { ehAdmin, erro, logada, possuiEntitlement } from "@/lib/api-auth";
 import { estadoDaSenhaTemporaria } from "@/lib/contas";
 import { db } from "@/lib/db";
 import { texto } from "@/lib/entrada";
@@ -10,9 +10,17 @@ export const runtime = "nodejs";
 export async function GET(req: Request) {
   const auth = await logada(req, "acesso", "Faça login.");
   if (auth instanceof Response) return auth;
-  const [possui, senha] = await Promise.all([possuiEntitlement(auth.userId), estadoDaSenhaTemporaria(auth.userId)]);
-  // Depois da troca, a resposta nem menciona senha.
-  return Response.json({ acesso: temAcesso(possui), ...(senha ? { trocarSenha: senha } : {}) });
+  const [possui, senha, eAdmin] = await Promise.all([
+    possuiEntitlement(auth.userId),
+    estadoDaSenhaTemporaria(auth.userId),
+    ehAdmin(auth.userId),
+  ]);
+  // Depois da troca, a resposta nem menciona senha. `admin` só serve para o menu: quem bloqueia é admin().
+  return Response.json({
+    acesso: temAcesso(possui),
+    ...(senha ? { trocarSenha: senha } : {}),
+    ...(eAdmin ? { admin: true } : {}),
+  });
 }
 
 export async function POST(req: Request) {

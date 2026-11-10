@@ -51,6 +51,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"admins": {
+                  Row: {
+                    "criado_em": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"user_id": string
+                  }
+                  Update: {
+                    "criado_em"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"ai_config": {
                   Row: {
                     "evitar": string | null,"exemplos": NonNullable<Json>,"id": string,"nome": string,"persona": string | null,"tom": string,"updated_at": string
@@ -93,19 +107,25 @@ export type Database = {
                   Relationships: [
                     
                   ]
-                },"campeoes_cache": {
+                },"campeoes": {
                   Row: {
-                    "criado_em": string,"nicho": string,"videos": NonNullable<Json>
+                    "criado_em": string,"id": string,"nicho": string,"titulo": string,"url": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "criado_em"?: string,"nicho": string,"videos": NonNullable<Json>
+                    "criado_em"?: string,"id"?: string,"nicho": string,"titulo"?: string,"url": string
                   }
                   Update: {
-                    "criado_em"?: string,"nicho"?: string,"videos"?: NonNullable<Json>
+                    "criado_em"?: string,"id"?: string,"nicho"?: string,"titulo"?: string,"url"?: string
                   }
                   Relationships: [
-                    
+                    {
+      foreignKeyName: "campeoes_nicho_fkey"
+      columns: ["nicho"]
+isOneToOne: false
+      referencedRelation: "nichos"
+      referencedColumns: ["slug"]
+    }
                   ]
                 },"chapter_progress": {
                   Row: {
@@ -177,6 +197,88 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"fichas_roteiro": {
+                  Row: {
+                    "atualizado_em": string,"criado_em": string,"criado_por": string | null,"cta": string,"cta_entonacao": string | null,"cta_porque": string | null,"embedding": string | null,"formato": string,"gancho": string,"gancho_entonacao": string,"gancho_gatilho": string,"gancho_porque": string,"id": string,"problema": string,"problema_entonacao": string | null,"problema_porque": string | null,"produto": string,"solucao": string,"solucao_entonacao": string | null,"solucao_porque": string | null,"tipo": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "atualizado_em"?: string,"criado_em"?: string,"criado_por"?: string | null,"cta": string,"cta_entonacao"?: string | null,"cta_porque"?: string | null,"embedding"?: string | null,"formato": string,"gancho": string,"gancho_entonacao": string,"gancho_gatilho": string,"gancho_porque": string,"id"?: string,"problema": string,"problema_entonacao"?: string | null,"problema_porque"?: string | null,"produto": string,"solucao": string,"solucao_entonacao"?: string | null,"solucao_porque"?: string | null,"tipo": string
+                  }
+                  Update: {
+                    "atualizado_em"?: string,"criado_em"?: string,"criado_por"?: string | null,"cta"?: string,"cta_entonacao"?: string | null,"cta_porque"?: string | null,"embedding"?: string | null,"formato"?: string,"gancho"?: string,"gancho_entonacao"?: string,"gancho_gatilho"?: string,"gancho_porque"?: string,"id"?: string,"problema"?: string,"problema_entonacao"?: string | null,"problema_porque"?: string | null,"produto"?: string,"solucao"?: string,"solucao_entonacao"?: string | null,"solucao_porque"?: string | null,"tipo"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "fichas_roteiro_gancho_gatilho_fkey"
+      columns: ["gancho_gatilho"]
+isOneToOne: false
+      referencedRelation: "gatilhos"
+      referencedColumns: ["slug"]
+    }
+                  ]
+                },"gancho_notas": {
+                  Row: {
+                    "atualizado_em": string,"gancho_id": string,"nota": number,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "atualizado_em"?: string,"gancho_id": string,"nota": number,"user_id": string
+                  }
+                  Update: {
+                    "atualizado_em"?: string,"gancho_id"?: string,"nota"?: number,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "gancho_notas_gancho_id_fkey"
+      columns: ["gancho_id"]
+isOneToOne: false
+      referencedRelation: "ganchos"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"ganchos": {
+                  Row: {
+                    "categoria": string,"comunidade": boolean,"criado_em": string,"id": string,"texto": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "categoria": string,"comunidade"?: boolean,"criado_em"?: string,"id"?: string,"texto": string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "categoria"?: string,"comunidade"?: boolean,"criado_em"?: string,"id"?: string,"texto"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"gatilhos": {
+                  Row: {
+                    "criado_em": string,"rotulo": string,"slug": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"rotulo": string,"slug": string
+                  }
+                  Update: {
+                    "criado_em"?: string,"rotulo"?: string,"slug"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"nichos": {
+                  Row: {
+                    "criado_em": string,"rotulo": string,"slug": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"rotulo": string,"slug": string
+                  }
+                  Update: {
+                    "criado_em"?: string,"rotulo"?: string,"slug"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"profiles": {
                   Row: {
                     "created_at": string,"email": string | null,"id": string,"nome": string | null
@@ -233,16 +335,36 @@ export type Database = {
                   Relationships: [
                     
                   ]
-                },"videos_cache": {
+                },"treinamento": {
                   Row: {
-                    "criado_em": string,"termo": string,"videos": NonNullable<Json>
+                    "contexto": string | null,"conversa_id": string | null,"criado_em": string,"embedding": string | null,"id": string,"ordem": number | null,"origem": string,"pergunta": string,"respondido_em": string | null,"respondido_por": string | null,"resposta": string | null,"resposta_ia": string | null,"status": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "criado_em"?: string,"termo": string,"videos": NonNullable<Json>
+                    "contexto"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"embedding"?: string | null,"id"?: string,"ordem"?: number | null,"origem": string,"pergunta": string,"respondido_em"?: string | null,"respondido_por"?: string | null,"resposta"?: string | null,"resposta_ia"?: string | null,"status"?: string
                   }
                   Update: {
-                    "criado_em"?: string,"termo"?: string,"videos"?: NonNullable<Json>
+                    "contexto"?: string | null,"conversa_id"?: string | null,"criado_em"?: string,"embedding"?: string | null,"id"?: string,"ordem"?: number | null,"origem"?: string,"pergunta"?: string,"respondido_em"?: string | null,"respondido_por"?: string | null,"resposta"?: string | null,"resposta_ia"?: string | null,"status"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "treinamento_conversa_id_fkey"
+      columns: ["conversa_id"]
+isOneToOne: false
+      referencedRelation: "treinamento_conversas"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"treinamento_conversas": {
+                  Row: {
+                    "conversa_cliente": string,"criado_em": string,"id": string,"user_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "conversa_cliente": string,"criado_em"?: string,"id"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "conversa_cliente"?: string,"criado_em"?: string,"id"?: string,"user_id"?: string | null
                   }
                   Relationships: [
                     

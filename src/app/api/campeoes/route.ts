@@ -1,14 +1,50 @@
-import { autenticar, erro } from "@/lib/api-auth";
-import { NICHOS } from "@/content/nichos";
-import { buscarCampeoes } from "@/lib/videos-tiktok";
+import { admin, autenticar, erro } from "@/lib/api-auth";
+import { db } from "@/lib/db";
+import { idDaUrl, SLUG, texto } from "@/lib/entrada";
+import { urlDoTiktok } from "@/lib/video";
 
 export const runtime = "nodejs";
 
-/** Vídeos campeões de um nicho (?nicho=<slug>), do cache geral de 1 dia ou buscados na hora. */
+const ehSlug = (v: unknown): v is string => typeof v === "string" && SLUG.test(v);
+// ponytail: sem paginação; paginar se algum nicho passar disso.
+const LIMITE = 60;
+
+/** Vídeos campeões de um nicho (?nicho=<slug>), cadastrados pela administração, os mais novos primeiro. */
 export async function GET(req: Request) {
   const auth = await autenticar(req, "campeoes", "Faça login.");
   if (auth instanceof Response) return auth;
   const nicho = new URL(req.url).searchParams.get("nicho");
-  if (!NICHOS.some((n) => n.slug === nicho)) return erro("Nicho inválido.", 400);
-  return Response.json({ videos: await buscarCampeoes(nicho!) });
+  if (!ehSlug(nicho)) return erro("Nicho inválido.", 400);
+  const videos = await db()`
+    select id, url, titulo from public.campeoes where nicho = ${nicho} order by criado_em desc limit ${LIMITE}`;
+  return Response.json({ videos });
+}
+
+/** Só admin: cadastra um vídeo do TikTok num nicho. */
+export async function POST(req: Request) {
+  const auth = await admin(req, "campeoes");
+  if (auth instanceof Response) return auth;
+  const body = await req.json().catch(() => null);
+  if (!ehSlug(body?.nicho)) return erro("Nicho inválido.", 400);
+  const url = urlDoTiktok(String(body?.url ?? ""));
+  if (!url) return erro("Cole o link completo do vídeo: https://www.tiktok.com/@perfil/video/…", 400);
+  const titulo = texto(body?.titulo, 120) ?? "";
+  const [existe] = await db()`select 1 from public.nichos where slug = ${body.nicho}`;
+  if (!existe) return erro("Essa aba não existe mais.", 400);
+  const [video] = await db()`
+    insert into public.campeoes (nicho, url, titulo) values (${body.nicho}, ${url}, ${titulo})
+    on conflict (nicho, url) do nothing
+    returning id, url, titulo`;
+  if (!video) return erro("Esse vídeo já está nesse nicho.", 409);
+  return Response.json({ video }, { status: 201 });
+}
+
+/** Só admin: tira um vídeo (?id=). */
+export async function DELETE(req: Request) {
+  const auth = await admin(req, "campeoes");
+  if (auth instanceof Response) return auth;
+  const id = idDaUrl(req);
+  if (!id) return erro("Vídeo inválido.", 400);
+  await db()`delete from public.campeoes where id = ${id}`;
+  return new Response(null, { status: 204 });
 }

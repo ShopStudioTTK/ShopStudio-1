@@ -79,3 +79,14 @@ export const validadeDaUrlAssinada = (valor: string | undefined): number => {
   const n = Number(valor);
   return Number.isInteger(n) && n > 0 ? n : 3600;
 };
+
+/** Link de vídeo do TikTok no formato completo, sem query: `https://www.tiktok.com/@perfil/video/123`. Outro formato vira null. */
+export const urlDoTiktok = (url: string): string | null => {
+  try {
+    const u = new URL(url.trim());
+    if (u.protocol !== "https:" || !["www.tiktok.com", "tiktok.com"].includes(u.hostname)) return null;
+    return /^\/@[\w.-]+\/video\/\d+$/.test(u.pathname) ? `https://www.tiktok.com${u.pathname}` : null;
+  } catch {
+    return null;
+  }
+};

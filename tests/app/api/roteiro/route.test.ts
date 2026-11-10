@@ -14,7 +14,28 @@ const gravou = (inicio: string) => naTabela("ai_perguntas").find((c) => c.sql.st
 const temAcesso = vi.fn();
 vi.mock("@/lib/access", () => ({ temAcesso: (v: boolean) => temAcesso(v) }));
 
+const buscarParecidas = vi.fn();
+const buscarDoMesmoJeito = vi.fn();
+const listarGatilhos = vi.fn();
+vi.mock("@/lib/fichas", async (original) => ({
+  ...(await original<typeof import("@/lib/fichas")>()),
+  buscarParecidas: (p: string) => buscarParecidas(p),
+  buscarDoMesmoJeito: (f: string, g: string, e: string[]) => buscarDoMesmoJeito(f, g, e),
+  listarGatilhos: () => listarGatilhos(),
+}));
+
 import { POST } from "@/app/api/roteiro/route";
+import type { FichaCartao } from "@/lib/fichas-tipos";
+
+const ficha = (o: Partial<FichaCartao> = {}): FichaCartao => ({
+  id: "f1", produto: "Sérum Principia", tipo: "skincare", formato: "Unboxing",
+  gatilho: { slug: "fofoca", rotulo: "Fofoca" },
+  gancho: { texto: "g", porque: "PORQUE-DA-ANA", entonacao: "baixinho" },
+  problema: { texto: "p", porque: null, entonacao: null },
+  solucao: { texto: "s", porque: null, entonacao: null },
+  cta: { texto: "c", porque: null, entonacao: null },
+  ...o,
+});
 
 const req = (body: unknown = { produto: "Sérum" }, auth: string | null = "Bearer tok") =>
   new Request("http://x/api/roteiro", {
@@ -52,6 +73,9 @@ beforeEach(() => {
   responderCom(regras());
   vi.spyOn(console, "error").mockImplementation(() => {});
   global.fetch = vi.fn().mockResolvedValue(ia('{"ganchos":["a"]}')) as typeof fetch;
+  buscarParecidas.mockReset().mockResolvedValue([]);
+  buscarDoMesmoJeito.mockReset().mockResolvedValue([]);
+  listarGatilhos.mockReset().mockResolvedValue([{ slug: "fofoca", rotulo: "Fofoca" }, { slug: "choque", rotulo: "Choque (quebra de padrão)" }]);
 });
 
 describe("POST /api/roteiro", () => {
@@ -143,8 +167,8 @@ describe("POST /api/roteiro", () => {
   it("200 chama a OpenRouter uma vez e devolve o JSON", async () => {
     const res = await POST(req());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ganchos: ["a"], videos: [] });
-    expect(fetch).toHaveBeenCalledTimes(1); // sem BRAVE_API_KEY, não busca vídeos
+    expect(await res.json()).toEqual({ ganchos: ["a"], gatilho: "", fichas: { parecidas: [], mesmoJeito: [] } });
+    expect(fetch).toHaveBeenCalledTimes(1);
     const [url, init] = vi.mocked(fetch).mock.calls[0];
     expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
     const i = init as RequestInit;
@@ -201,35 +225,50 @@ describe("POST /api/roteiro", () => {
     expect(gravou("update")?.valores).toEqual([12000, 900, 11000, 0.0007, "r1"]);
   });
 
-  it("com BRAVE_API_KEY, devolve junto os vídeos do TikTok sobre o produto", async () => {
-    vi.stubEnv("BRAVE_API_KEY", "k");
-    const video = "https://www.tiktok.com/@c/video/7368550087632375046";
-    vi.mocked(fetch).mockImplementation(async (url) =>
-      String(url).startsWith("https://api.search.brave.com")
-        ? new Response(JSON.stringify({ web: { results: [{ url: video, title: "Resenha do sérum" }] } }))
-        : ia('{"ganchos":["a"]}'),
-    );
-    const res = await POST(req());
-    expect(await res.json()).toEqual({
-      ganchos: ["a"],
-      videos: [{ url: video, titulo: "Resenha do sérum", outraLingua: false }],
-    });
-  });
-
-  it("falha na busca de vídeos não derruba o roteiro", async () => {
-    vi.stubEnv("BRAVE_API_KEY", "k");
-    vi.mocked(fetch).mockImplementation(async (url) => {
-      if (String(url).startsWith("https://api.search.brave.com")) throw new Error("net");
-      return ia('{"ganchos":["a"]}');
-    });
-    const res = await POST(req());
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ganchos: ["a"], videos: [] });
-  });
-
   it("geração que falhou não conta no limite", async () => {
     vi.mocked(fetch).mockRejectedValue(new Error("net"));
     await POST(req());
     expect(gravou("delete")?.valores).toEqual(["r1"]);
+  });
+
+  describe("fichas da expert", () => {
+    it("normaliza o gatilho e monta os dois cartões sem repetir fichas", async () => {
+      buscarParecidas.mockResolvedValue([ficha({ id: "f1", similaridade: 0.8 })]);
+      buscarDoMesmoJeito.mockResolvedValue([ficha({ id: "f2" })]);
+      vi.mocked(fetch).mockResolvedValue(ia('{"ganchos":["a"],"gatilho":"Fofoca"}'));
+      const json = await (await POST(req({ produto: "Sérum", formato: "Unboxing" }))).json();
+      expect(json.gatilho).toBe("fofoca");
+      expect(buscarParecidas).toHaveBeenCalledWith("Sérum");
+      expect(buscarDoMesmoJeito).toHaveBeenCalledWith("Unboxing", "fofoca", ["f1"]);
+      expect(json.fichas).toEqual({
+        parecidas: [expect.objectContaining({ id: "f1" })],
+        mesmoJeito: [expect.objectContaining({ id: "f2" })],
+      });
+    });
+
+    it("as fichas ≥ 0,7 e a lista de gatilhos vão no prompt de sistema, depois do dossiê", async () => {
+      buscarParecidas.mockResolvedValue([ficha({ similaridade: 0.8 })]);
+      await POST(req());
+      const system = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).messages[0].content as string;
+      expect(system).toContain("PORQUE-DA-ANA");
+      expect(system).toContain("choque");
+      expect(system.indexOf("PORQUE-DA-ANA")).toBeGreaterThan(system.indexOf("DOSSIÊ DA ESPECIALISTA"));
+    });
+
+    it("gatilho fora da lista → vazio, sem cartão 2", async () => {
+      vi.mocked(fetch).mockResolvedValue(ia('{"ganchos":["a"],"gatilho":"drama"}'));
+      const json = await (await POST(req({ produto: "Sérum", formato: "Unboxing" }))).json();
+      expect(json.gatilho).toBe("");
+      expect(buscarDoMesmoJeito).toHaveBeenCalledWith("Unboxing", "", []);
+    });
+
+    it("busca de gatilhos e do cartão 2 falhando → roteiro sai igual, com cartões vazios", async () => {
+      listarGatilhos.mockRejectedValue(new Error("db"));
+      buscarDoMesmoJeito.mockRejectedValue(new Error("db"));
+      vi.mocked(fetch).mockResolvedValue(ia('{"ganchos":["a"],"gatilho":"fofoca"}'));
+      const res = await POST(req({ produto: "Sérum", formato: "Unboxing" }));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ganchos: ["a"], gatilho: "", fichas: { parecidas: [], mesmoJeito: [] } });
+    });
   });
 });

@@ -4,6 +4,166 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-10: Teste de ponta a ponta com admin e aluna (e dois bugs corrigidos)
+
+**Pedido:** um último teste no navegador com duas contas, uma admin e uma aluna: a admin treina pela tela (e pelo terminal) e a aluna usa o Pergunte pra IA e o gerador de roteiros.
+
+**Bugs achados e corrigidos (ambos em `src/lib/api-cliente.ts`, com teste em `tests/lib/api-cliente.test.ts`):**
+- **Sessão recusada travava no carregamento** (já existia). Com a conta apagada ou a senha trocada em outro aparelho, o token ainda parece válido no navegador (até 15 min). `/api/acesso` respondia 401 e a guarda ficava presa no loader, sem mandar para `/entrar`. Agora um 401 encerra a sessão local (`signOut({ scope: "local" })`), e a guarda manda para `/entrar?de=<página>`. Isso só acontece se o token recusado ainda for o atual, porque logo depois de trocar a senha a tela já entrou de novo com outro.
+- **Resposta 201 com corpo virava `null`** (apareceu com as fichas). `api()` descartava o corpo de todo 201, e criar gatilho ou ficha pela tela quebrava ("Cannot destructure property 'gatilho' of null"). No teste anterior as fichas foram criadas pelo terminal, por isso não apareceu. Agora só o 204 vem sem corpo.
+
+**Verificado no navegador** (build em `localhost:3005`, OpenRouter de verdade; contas, fichas, gatilho, respostas e conversas de teste apagados no fim, e a pergunta mapeada devolvida para pendente):
+- **Admin, pela tela:**
+  - "Nova pergunta" e "Responder" numa mapeada: as duas respostas salvas e indexadas;
+  - ficha nova com o gatilho "Antes e depois" criado pelo "+";
+  - editar só o CTA mantém a ficha indexada.
+- **Admin, pelo terminal:** mais 2 respostas e 3 fichas.
+- **Aluna:**
+  - sem o menu Admin, e "Esta página é só da administração" em `/app/treinamento`;
+  - 403 em todas as rotas de fichas, gatilhos e treinamento, sem gravar nada.
+- **Pergunte pra IA:**
+  - "Em quanto tempo eu consigo fazer minha primeira venda…" deu 0,963 contra a resposta da admin. A IA repetiu a resposta quase palavra por palavra (até a "girafa") e acrescentou a citação da Aula 2;
+  - "dá pra colocar aquela música que tá bombando…" deu 0,743 e entrou como modelo: mesmo conteúdo e tom, nas palavras da IA (Aula 15);
+  - a conversa entrou na fila de treinamento.
+- **Roteiro:**
+  - "sérum de vitamina C" trouxe o cartão 1 (Sérum, 47%), aberto e fechável;
+  - "organizador de gaveta" (Unboxing) trouxe a ficha feita pela tela (0,78), com o gatilho novo vindo do banco. Com uma segunda ficha Unboxing + antes-e-depois, o cartão 2 trouxe a escova sem repetir o organizador;
+  - quando a IA escolhe outro gatilho, o cartão 2 não aparece (certo).
+
+**Observado:** com a ficha no prompt (≥ 0,55), o gancho do organizador saiu igual ao da Ana ("Olha o estado dessa gaveta antes... e agora olha depois."). É o mesmo achado de antes: se a ideia é o raciocínio e não a frase, falta pedir no bloco que não repita as frases dela.
+
+## 2026-11-10: Limiares das fichas e cartões em dropdown
+
+**Pedido:** depois do achado da calibragem, a dona baixou os limiares para **0,45** (cartão "produtos parecidos") e **0,55** (prompt do gerador), e pediu os cartões como dropdown: a aluna vê e, se quiser, fecha.
+
+**O que mudou:** `LIMIAR_CARTAO` e `LIMIAR_MODELO` em `src/lib/fichas.ts`. Os cartões viraram `<details open>` nativos, com o título como `summary` e a seta girando: vêm abertos, e o clique no título fecha e abre.
+
+**Depois, também a pedido da dona:** sem nenhuma ficha indexada, o gerador não chama o embedding (o cartão é um extra e não vale a espera); e `/api/roteiros-salvos` descarta `fichas` no servidor, além da tela. O risco do gatilho novo com nome quase igual a um antigo ficou como está: os gatilhos são poucos e bem diferentes entre si.
+
+**Verificado:** testes, lint e build. No build em `localhost:3005` (conta e ficha de teste apagadas no fim), "sérum de vitamina C" agora traz o Sérum Principia no cartão 1 (47%), que antes não aparecia. A 0,47 a ficha fica fora do prompt (< 0,55), então ela aparece para a aluna sem moldar o roteiro. O cartão fecha e abre pelo título, sem erro no console.
+
+## 2026-11-10: Treinamento de roteiros (fichas da expert)
+
+**Pedido:** o treinamento só valia para o Pergunte pra IA. A dona quer que a expert ensine o jeito dela de pensar um roteiro: para um produto, qual gatilho no gancho e por quê, com que entonação, em que formato, e como estrutura problema, solução e CTA. Design: `docs/superpowers/specs/2026-11-10-treinamento-roteiros-design.md`; plano: `docs/superpowers/plans/2026-11-10-treinamento-roteiros.md`.
+
+**Decisões da dona:**
+- ficha campo por campo, com porquê e entonação em todas as partes (obrigatórios no gancho);
+- embedding só do produto e do tipo, não do raciocínio;
+- o roteiro da aluna não explica nada: é a inteligência por baixo dos panos. Embaixo dele, na ordem: 5×5 como hoje, cartão 1 ("produtos parecidos", ≥ 0,6, a mais parecida aberta e as outras numa lista) e cartão 2 ("desse jeito": mesmo formato e mesmo gatilho);
+- uma lista só de gatilhos, juntando as que existiam (curiosidade, fofoca, choque, problema, transformação, prova social), numa tabela; a expert acrescenta pelo "+".
+
+**Como ficou:** tabelas `gatilhos` e `fichas_roteiro` (migration `20261110030000`), `src/lib/fichas.ts`, rotas `/api/fichas` e `/api/gatilhos` com `admin()`, aba Roteiros no treinamento e os cartões no gerador. Fichas ≥ 0,7 entram no prompt do gerador depois do dossiê (o prefixo cacheado não muda; o campo `gatilho` no esquema do JSON zera o cache uma vez). Os cartões não vão para o roteiro salvo (dependem das fichas do momento). Não mexi nas categorias do banco de ganchos (`quebra | problema | curiosidade`), que continuam separadas.
+
+**Verificado:** testes, lint e build. No build em `localhost:3005` com a OpenRouter de verdade (conta, fichas e gatilho de teste apagados no fim): aluna fora de `admins` → 403 em `/api/fichas`; gatilho novo 201 e "Fofóca" → 409; fichas salvas e indexadas; "sérum facial" em "Conselho de amiga" trouxe o cartão 1 com o Sérum Principia (73%) e o cartão 2 com a garrafa (fofoca + conselho de amiga), sem repetir o sérum; roteiro salvo sem `fichas` e reaberto sem cartões; console sem erro. **Não conferido:** a largura de celular (a janela não aceitou o redimensionamento).
+
+**Achados para a dona:**
+- **Limiar alto para nomes curtos.** "sérum de vitamina C" × "Sérum facial Principia — skincare" = **0,47**, e não apareceu em nenhum cartão. "sérum facial" = 0,73; "garrafa térmica" × a garrafa = 0,75; sem relação, 0,1–0,25. Com 0,6, só o mesmo produto, quase com o mesmo nome, aparece. Caminhos: baixar para ~0,45 (cartão) / ~0,55 (prompt), ou a aluna também dizer o tipo do produto.
+- **A IA copia o gancho da ficha.** Com a ficha do sérum no prompt (0,73), o gancho gerado foi "Ninguém te conta isso sobre sérum facial…", quase o da Ana. Se a ideia é o raciocínio e não a frase, dá para pedir no bloco que não repita as frases dela.
+
+ (nome, e-mail e senha)
+
+**Pedido:** uma tela de configurações para a aluna trocar o nome, o e-mail e a senha.
+
+**Como ficou:**
+- `/app/conta`, aberta pelo cartão da conta no rodapé do menu (que agora mostra o nome). Três cartões, cada um com o seu "Salvar".
+- `PATCH /api/conta` com `autenticar()`, sempre na conta do token. O nome vai para o `user_metadata.full_name` (o mesmo que `nomeDoPerfil` lê) e para `profiles`.
+- **E-mail e senha só mudam com a senha atual.** São o login: sem isso, um token roubado tomava a conta. A senha é conferida pelo próprio login do Supabase (`conferirSenha` em `src/lib/supabase/admin.ts`), que encerra na hora a sessão que abriu. Errada → 403; limite de logins → 429.
+- O e-mail novo entra **já confirmado** (`email_confirm: true`): os modelos de e-mail do Supabase não têm link (blindagem de 2026-11-05), então não há como confirmar por e-mail. Por isso a tela pede para conferir bem. E-mail de outra conta → 409. **Decisão da dona:** por enquanto vale na hora; a confirmação do e-mail novo pela Resend vem depois.
+- Trocar a senha derruba as sessões; a tela entra de novo sozinha com os dados novos (no e-mail também, porque o token antigo ainda leva o e-mail velho). Nome só renova o token.
+- `EMAIL`, `SENHA_MIN/MAX` e `senhaValida` foram para `src/lib/entrada.ts` (eram cópias nos webhooks e em `/api/senha`).
+
+**Limite conhecido:** o Supabase limita os logins por IP (10 a cada 5 min), e a conferência sai do IP do servidor, que é o mesmo para todas as alunas. Para uma tela usada raramente, serve. Se começar a dar 429, a saída é conferir pelo hash em `auth.users`, com um limite próprio.
+
+**Verificado:** testes, lint e build. No Supabase local (build em `localhost:3005`, contas de teste apagadas no fim): com a senha temporária pendente → 403; nome → 204; senha sem a atual ou errada → 403; com a atual → 204, o token antigo passa a dar 401 e a senha velha não entra mais; e-mail → 204, o novo entra e o velho não. `profiles` e `user_metadata` ficaram iguais, e a sessão aberta pela conferência foi encerrada. No navegador, salvar o nome mostrou o aviso e atualizou o menu na hora, sem erro no console. **Não conferido:** a largura de celular.
+
+## 2026-11-10: Ganchos primeiro, com notas e comunidade
+
+**Pedido:** na página de roteiros e ganchos, os ganchos vêm antes e com mais destaque. As alunas dão nota de 1 a 5 aos ganchos e registram os delas, com o tipo que escolherem, numa lista "Ganchos da comunidade". A admin edita e apaga os ganchos.
+
+**O que mudou:**
+- **Os ganchos foram para o banco.** Para a admin editar e apagar os 60 do banco do Studio (e não só os da comunidade), eles saíram de `src/content/hooks-textos.ts` para a tabela `ganchos`, na mesma ordem (migration `20261110020000_ganchos`). Deixaram de ser conteúdo de `/api/conteudo` e saem por `GET /api/ganchos`, com `autenticar()`: continuam fora do JavaScript público.
+- `gancho_notas`: uma nota por aluna por gancho (pk composta, upsert). O `GET` devolve a média, o número de notas e a `minhaNota` (do `userId` do token). O autor de um gancho da comunidade nunca sai na rota.
+- `POST /api/ganchos`: a aluna registra o dela. O tipo é uma das 3 categorias de antes, e o banco também confere tipo e tamanho (5 a 200). Limite de 10 por dia contra spam, contado no próprio insert (`insert … select … where count < 10`).
+- `PATCH`/`DELETE /api/ganchos` começam por `admin()` e entraram no `ADMIN` do `protecao.test.ts`. Na tela, lápis e lixeira só com `isAdmin`; a lixeira pede confirmação.
+- **Tela:** "Ganchos" virou a primeira aba e a padrão, com cabeçalho próprio ("Comece pelo gancho, o resto vem.") e a aba ativa com o gradiente do botão principal. A aba agora fica na URL: com ela só no estado, o "Novo roteiro" do menu não trocava de aba quando a página já estava aberta. Links para o gerador levam `?aba=gerador`. A criação do gancho fica no topo, como um botão "Registrar meu gancho" que abre a caixa (pedido da dona depois de ver a tela); ao publicar, a caixa fecha e a tela rola até a comunidade. O menu diz "Ganchos e roteiros". O Studio (gancho do dia e atalhos) lê o mesmo `useGanchos()`.
+- O texto das alunas não entra em prompt nenhum, então a regra "nada de texto livre do navegador no prompt" continua intacta.
+
+**Não mudou:** o `BASE_PROMPT` do assistente ainda fala em "60 ganchos prontos" (mudá-lo zera o cache uma vez; fica para quando houver outra mudança no prompt).
+
+**Verificado:** testes, lint e build. No banco local, com rollback: 60 ganchos na ordem antiga, tipo e tamanho recusados pelo banco, nota trocada pelo upsert, nota em gancho apagado → FK (vira 404), notas apagadas junto com o gancho, `authenticated` sem permissão. No navegador (build em `localhost:3005`, conta admin de teste apagada no fim): nota, publicar, editar o tipo, apagar com confirmação e o "Novo roteiro" trocando de aba; console sem erro. **Falta conferir** a largura de 390 px (o redimensionamento da janela não funcionou).
+
+## 2026-11-10: Abas dos Campeões criadas pela admin
+
+**Pedido:** as abas não ficam mais só nas 5 categorias fixas. A admin cria as abas por um botão na tela, numa tabela nova, e toda inserção confere antes se o pedido é mesmo de admin.
+
+**O que mudou:**
+- Tabela `nichos` (`slug` pk, `rotulo`, `criado_em`), já com as 5 abas antigas na mesma ordem. `campeoes.nicho` virou FK para `nichos.slug`, sem cascade: aba com vídeo não pode ser apagada, nem por engano.
+- `/api/nichos`: `GET` com `autenticar()`; `POST` e `DELETE` começam por `admin()` (token, acesso e a tabela `admins` no banco), antes de ler o corpo ou a URL. As duas entraram no `ADMIN` do `protecao.test.ts`, e o teste da rota confere que a última consulta da aluna é a checagem de admin.
+- O slug sai do nome (`slugDe`, sem acento e com hífen); o banco confere o formato. Nome repetido = 409. Apagar só funciona com a aba vazia (`delete … where not exists`), senão 409.
+- `POST /api/campeoes` confere se a aba existe antes de gravar (a FK também segura). `src/content/nichos.ts` saiu, e as telas (Campeões e início) leem as abas por `useNichos()`.
+- Na tela, "Nova aba" e "Apagar a aba" só aparecem com `isAdmin`; quem bloqueia é o servidor.
+
+**Verificado:** testes, lint e build. No banco local: as 5 abas na ordem antiga, slug fora do formato recusado, vídeo em aba inexistente recusado pela FK, aba com vídeo não apagada e aba vazia apagada.
+
+## 2026-11-10: Campeões cadastrados pela admin; roteiro sem vídeos
+
+**Pedido:** os vídeos da aba de Campeões passam a ser escolhidos pelas admins, sem busca automática, com a checagem de admin no servidor. O roteiro deixa de mostrar os vídeos sobre o produto: fica só o roteiro.
+
+**O que mudou:**
+- Tabela `campeoes` (`nicho`, `url`, `titulo`, único por nicho + URL). O banco só aceita `https://www.tiktok.com/@perfil/video/<id>`, então nem um insert errado no servidor grava outro tipo de link.
+- `/api/campeoes`: `GET` com `autenticar()` (toda aluna com acesso), `POST` e `DELETE` com `admin()`, que confere `admins` no banco a cada chamada. As duas entraram no conjunto `ADMIN` do `protecao.test.ts`.
+- `urlDoTiktok` (`src/lib/video.ts`) limpa a query e recusa link curto (`vm.tiktok.com/…`): resolver o link curto exigiria o servidor chamar o TikTok. A admin cola o link do navegador.
+- Na tela, o formulário e o "Remover" só aparecem com `isAdmin`; quem bloqueia é o servidor.
+- Saíram `src/lib/videos-tiktok.ts`, a `BRAVE_API_KEY`, `videos_cache` e `campeoes_cache` (migration `20261110000000_campeoes`), e a seção de vídeos do gerador. Roteiros salvos antes ainda têm `videos` no JSON, que a tela ignora.
+
+**Verificado:** testes, lint e build. No banco local: link `javascript:` recusado pela restrição, o mesmo vídeo duas vezes no nicho não entra, e os dois caches não existem mais.
+
+## 2026-11-09: Treinamento da IA — RAG com as respostas da expert
+
+**Pedido (dona do produto):** as respostas do assistente ainda não soam como a especialista. A ideia veio do `../whatsappBot` (FAQ semântico + fila de Treinamento): a expert responde perguntas do jeito dela, e as perguntas novas saem com o mesmo tom, as mesmas frases e as mesmas gírias. Só admin acessa a página, e o servidor confere isso de um jeito que não dá para burlar. Design: `docs/superpowers/specs/2026-11-09-treinamento-ia-design.md`; plano: `docs/superpowers/plans/2026-11-09-treinamento-ia.md`.
+
+**Como ficou:**
+- **Admin:** tabela `admins` (só pelo painel do Supabase) e guarda `admin()`, que roda o `autenticar()` e confere a tabela no banco a cada chamada, sem cache e sem nada do navegador ou do JWT. O `GET /api/acesso` devolve `admin: true` só para o menu.
+- **Fila** (`treinamento`, pgvector 1536):
+  - perguntas **mapeadas** (25, gravadas pela migration);
+  - **conversas de alunas**: cada conversa do assistente é um item só, com as perguntas em ordem e o que a IA respondeu;
+  - **criadas** pelo botão "Nova pergunta".
+
+  A expert responde uma por uma (o editor já vem com a resposta da IA) ou descarta. Cada pergunta mostra a respondida mais parecida (≥ 0,6), que dá para editar ali mesmo. A linha não tem `user_id` de aluna. A conversa (`treinamento_conversas`) é sempre o par (`user_id` do token, id gerado pelo navegador), então uma aluna não pendura pergunta na conversa de outra.
+- **Contexto no embedding:** a pergunta é indexada junto com as 2 anteriores da conversa, e a busca usa o mesmo formato. Assim uma pergunta solta ("e quanto tempo?") sabe do que fala.
+- **Assistente:** busca as 4 respondidas mais parecidas.
+  - **≥ 0,9:** a IA recebe a ordem de repetir a resposta da expert quase palavra por palavra, só ligando com a conversa ou acrescentando um detalhe.
+  - **≥ 0,7:** as respostas entram como modelo de tom.
+
+  A resposta sempre passa pela IA, então o stream, o limite, o custo e a citação não mudam. O bloco vai no fim do prompt, e o cache continua valendo. Se o embedding falhar, o assistente responde como antes.
+- **Modelo de embedding:** `openai/text-embedding-3-small`, o do whatsappBot, que a conta já aceitava.
+
+**Verificado:**
+- Testes, lint e build.
+- As consultas SQL foram rodadas no Postgres local, com rollback: ligação de parecidas sem apontar para si, busca, e conversa com `ordem` 1 e 2.
+- No navegador, com o build em `localhost:3005` e uma conta de teste (apagada no fim, junto com os dados):
+  - as 25 mapeadas aparecem;
+  - a resposta foi salva e indexada com a OpenRouter de verdade;
+  - no assistente, "como eu ativo a conta de afiliada no tiktok shop?" deu **0,966** contra a mapeada respondida. A IA repetiu a resposta da expert e acrescentou requisitos e citações (Aula 5);
+  - a conversa virou um item com as 2 perguntas em ordem e a ligação "Parecida com… (97%)";
+  - sem a linha em `admins`, o menu some e a página só mostra o aviso;
+  - 390 px sem rolagem lateral; console sem erro.
+
+**Achado para a calibragem:** a pergunta solta "e se eu tiver menos de 2 mil?", indexada junto com a anterior ("como eu ativo a conta…"), deu **0,781** contra a resposta sobre ativar a conta. Passou do 0,7 e entrou como modelo. O assunto é próximo (2 mil é requisito), mas o contexto pesa bastante no vetor. Se isso puxar respostas erradas, há três caminhos: usar só 1 pergunta anterior; buscar com e sem contexto e ficar com a melhor; ou a expert reescrever a pergunta deixando-a completa (o embedding é refeito ao editar). Os limiares 0,9 / 0,7 / 0,6 são os de partida e devem ser medidos com uso real.
+
+**Texto de aluna no prompt (decisão da dona do produto):** aprovar uma pergunta de aluna põe o texto dela, e a resposta da IA se aprovada, no prompt de outras alunas. Os riscos são dado pessoal (@, cidade, valores, detalhes da conversa) e instrução escondida ("ignore as regras…"). A expert continua sendo o filtro, agora com aviso: numa pergunta de aluna, o editor pede uma pergunta genérica e nada pessoal, e não há mais aprovação direta: depois do teste da dona, o botão "Aprovar a da IA" saiu, e "Responder" abre o editor já com a resposta da IA dentro, para a expert mudar só o que quiser. Isso também resolve o corte silencioso de respostas com mais de 4.000 caracteres: o contador fica vermelho e bloqueia o salvamento. A exceção à regra "nada de texto livre do navegador no prompt" está registrada no CLAUDE.md. Descartado: tirar a pergunta do prompt, porque o modelo perderia a referência de qual dúvida a resposta atende.
+
+**Efeito no cache** (estimativa com os números de 2026-11-04):
+- o preset, o material e a base continuam no cache;
+- o bloco da expert e a conversa depois dele saem do cache: ~US$ 0,00002 por pergunta num bloco típico e ~US$ 0,0001 no pior caso;
+- editar respostas da expert não zera o cache.
+
+**Fora do material, responder mesmo assim (pedido da dona após teste):** a aluna perguntou "Quantos seguidores preciso para ativar a conta?" (resposta certa, Aula 5) e depois "mas e se levar mais de 48horas?". A segunda resposta abriu com "Aí o material não cobre, tá?", porque a regra do `BASE_PROMPT` mandava dizer isso. O conteúdo que veio depois era útil (conferir o status no app e falar com o suporte). Agora a regra é: usar primeiro o material e, fora dele, responder com o que se sabe em geral, dizendo com naturalidade que aquela parte não está nas aulas. A resposta nunca abre com "não cobre", não atribui à Ana o que não está nas aulas, não cita aula nessa parte e não dá número, prazo ou regra inventados como certos. A regra de assunto passou de "fora do TikTok Shop e do material" para "fora do TikTok Shop e da vida de criadora". Isso não é busca na internet: é o conhecimento geral do modelo. Mudar o `BASE_PROMPT` zera o cache uma vez.
+
+**Achado fora do escopo:** no ambiente local, o assistente falhou com `Preset "ana-shop-studio-leads-behaviorAPPLYFY_WEBHOOK_TOKEN=" not found`. Pelo nome, falta a quebra de linha depois de `OPENROUTER_PRESET` no `.env.local`, o que também deixa o `APPLYFY_WEBHOOK_TOKEN` sem valor. O teste rodou com o preset passado na linha de comando.
+
+---
+
 ## 2026-11-09: Redesign 2.0 — roteiros no centro
 
 **Pedido (dona do produto):** a oferta é o gerador de roteiros, mas a primeira tela abria em "Mentalidade de Shop Girl" e "Semana 1". Funciona para quem está começando, não para quem já vende e veio pela ferramenta. A interface precisa servir aos dois públicos e conduzir a aluna para dentro da plataforma.

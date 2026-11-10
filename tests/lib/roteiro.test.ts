@@ -41,6 +41,15 @@ describe("prompts", () => {
     expect(p).toContain("DOSSIE-TESTE");
     expect(p.indexOf("DOSSIE-TESTE")).toBeLessThan(p.lastIndexOf("APENAS com o objeto JSON"));
   });
+  it("o bloco das fichas vem depois do dossiê e antes do lembrete final", () => {
+    const p = buildSystemPrompt(null, [], "BLOCO-FICHAS");
+    expect(p.indexOf("BLOCO-FICHAS")).toBeGreaterThan(p.indexOf("DOSSIE-TESTE"));
+    expect(p.indexOf("BLOCO-FICHAS")).toBeLessThan(p.lastIndexOf("Lembrete:"));
+    expect(p.startsWith(SYSTEM_PROMPT)).toBe(true);
+  });
+  it("o JSON pede o campo gatilho", () => {
+    expect(SYSTEM_PROMPT).toContain('"gatilho"');
+  });
   it("limita a 20 itens e 600 caracteres", () => {
     const k = Array.from({ length: 25 }, (_, i) => ({ titulo: "t" + i, conteudo: "x".repeat(700) }));
     const p = buildSystemPrompt(null, k);

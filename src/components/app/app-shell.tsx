@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   BookOpen,
   Clapperboard,
+  GraduationCap,
   Home,
   ListChecks,
   LogOut,
@@ -19,10 +20,12 @@ import {
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/brand";
+import { useAccess } from "@/hooks/use-access";
 import { useAuth } from "@/hooks/use-auth";
 import { useChapterProgress } from "@/hooks/use-progress";
 import { chapters } from "@/content/chapters";
 import type { ReactNode } from "react";
+import { nomeDoPerfil } from "@/lib/nome";
 import { cn } from "@/lib/utils";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
@@ -30,7 +33,7 @@ type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
 /** Ferramentas primeiro: é o que a aluna veio buscar. A trilha fica logo abaixo, para quem está começando. */
 const criar: NavItem[] = [
   { to: "/app", label: "Studio", icon: Home, end: true },
-  { to: "/app/roteiros", label: "Roteiros e ganchos", icon: Wand2 },
+  { to: "/app/roteiros", label: "Ganchos e roteiros", icon: Wand2 },
   { to: "/app/campeoes", label: "Vídeos campeões", icon: Clapperboard },
   { to: "/app/assistente", label: "Pergunte pra IA", icon: Sparkles },
 ];
@@ -40,6 +43,9 @@ const aprender: NavItem[] = [
   { to: "/app/checklist", label: "Checklist", icon: ListChecks },
   { to: "/app/resultados", label: "Mural das alunas", icon: Trophy },
 ];
+
+/** Só aparece para admin; quem bloqueia de verdade é admin() nas rotas de /api/treinamento. */
+const administracao: NavItem[] = [{ to: "/app/treinamento", label: "Treinamento da IA", icon: GraduationCap }];
 
 const ativo = (pathname: string, item: NavItem) =>
   item.end ? pathname === item.to : pathname.startsWith(item.to);
@@ -100,7 +106,7 @@ const BarraInferior = () => {
   const itens: (NavItem & { criar?: boolean })[] = [
     { to: "/app", label: "Studio", icon: Home, end: true },
     { to: "/app/campeoes", label: "Campeões", icon: Clapperboard },
-    { to: "/app/roteiros", label: "Criar", icon: Plus, criar: true },
+    { to: "/app/roteiros?aba=gerador", label: "Criar", icon: Plus, criar: true },
     { to: "/app/assistente", label: "IA", icon: Sparkles },
     { to: "/app/capitulos", label: "Trilha", icon: BookOpen },
   ];
@@ -149,9 +155,11 @@ const BarraInferior = () => {
 const AppShell = ({ children }: { children: ReactNode }) => {
   const { user, signOut } = useAuth();
   const { completed } = useChapterProgress();
+  const { isAdmin } = useAccess();
   const router = useRouter();
   const [menuAberto, setMenuAberto] = useState(false);
   const fecharMenu = () => setMenuAberto(false);
+  const nome = nomeDoPerfil(user?.user_metadata);
 
   const handleSignOut = async () => {
     await signOut();
@@ -167,7 +175,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
   const navegacao = (onNavigate?: () => void) => (
     <div className="space-y-6">
       <Button asChild variant="pop" className="w-full">
-        <Link href="/app/roteiros" onClick={onNavigate}>
+        <Link href="/app/roteiros?aba=gerador" onClick={onNavigate}>
           <Wand2 className="h-4 w-4" />
           Novo roteiro
         </Link>
@@ -179,18 +187,21 @@ const AppShell = ({ children }: { children: ReactNode }) => {
         onNavigate={onNavigate}
         extra={{ "/app/capitulos": progressoTrilha }}
       />
+      {isAdmin && <Grupo titulo="Admin" itens={administracao} onNavigate={onNavigate} />}
     </div>
   );
 
   const account = (
     <div className="flex items-center gap-3 rounded-2xl border border-border bg-card/80 p-2.5">
-      <span className="bg-gradient-pop flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold text-primary-foreground">
-        {(user?.email ?? "s").slice(0, 1).toUpperCase()}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[12.5px] font-medium text-foreground/85">{user?.email}</p>
-        <p className="text-[11px] text-muted-foreground">Shop Girl ✦</p>
-      </div>
+      <Link href="/app/conta" onClick={fecharMenu} title="Minha conta" className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="bg-gradient-pop flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold text-primary-foreground">
+          {(nome ?? user?.email ?? "s").slice(0, 1).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[12.5px] font-medium text-foreground/85">{nome ?? user?.email}</p>
+          <p className="text-[11px] text-muted-foreground">Minha conta ✦</p>
+        </div>
+      </Link>
       <button
         type="button"
         onClick={handleSignOut}

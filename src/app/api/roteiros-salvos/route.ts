@@ -20,7 +20,9 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   const produto = texto(body?.produto, 500);
   // Vai como texto e o banco converte (::text::jsonb): passado direto, o driver codificaria o JSON duas vezes.
-  const conteudo = body?.conteudo && typeof body.conteudo === "object" ? JSON.stringify(body.conteudo) : null;
+  // Os cartões das fichas da expert nunca são gravados (dependem das fichas do momento).
+  const conteudo =
+    body?.conteudo && typeof body.conteudo === "object" ? JSON.stringify({ ...body.conteudo, fichas: undefined }) : null;
   if (!produto || !conteudo) return erro("Gere um roteiro antes de salvar.", 400);
   if (conteudo.length > 50_000) return erro("Roteiro grande demais para salvar.", 400);
   await db()`
