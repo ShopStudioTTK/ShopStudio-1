@@ -4,6 +4,34 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-10: Teste de ponta a ponta com admin e aluna (e dois bugs corrigidos)
+
+**Pedido:** um último teste no navegador com duas contas, uma admin e uma aluna: a admin treina pela tela (e pelo terminal) e a aluna usa o Pergunte pra IA e o gerador de roteiros.
+
+**Bugs achados e corrigidos (ambos em `src/lib/api-cliente.ts`, com teste em `tests/lib/api-cliente.test.ts`):**
+- **Sessão recusada travava no carregamento** (já existia). Com a conta apagada ou a senha trocada em outro aparelho, o token ainda parece válido no navegador (até 15 min). `/api/acesso` respondia 401 e a guarda ficava presa no loader, sem mandar para `/entrar`. Agora um 401 encerra a sessão local (`signOut({ scope: "local" })`), e a guarda manda para `/entrar?de=<página>`. Isso só acontece se o token recusado ainda for o atual, porque logo depois de trocar a senha a tela já entrou de novo com outro.
+- **Resposta 201 com corpo virava `null`** (apareceu com as fichas). `api()` descartava o corpo de todo 201, e criar gatilho ou ficha pela tela quebrava ("Cannot destructure property 'gatilho' of null"). No teste anterior as fichas foram criadas pelo terminal, por isso não apareceu. Agora só o 204 vem sem corpo.
+
+**Verificado no navegador** (build em `localhost:3005`, OpenRouter de verdade; contas, fichas, gatilho, respostas e conversas de teste apagados no fim, e a pergunta mapeada devolvida para pendente):
+- **Admin, pela tela:**
+  - "Nova pergunta" e "Responder" numa mapeada: as duas respostas salvas e indexadas;
+  - ficha nova com o gatilho "Antes e depois" criado pelo "+";
+  - editar só o CTA mantém a ficha indexada.
+- **Admin, pelo terminal:** mais 2 respostas e 3 fichas.
+- **Aluna:**
+  - sem o menu Admin, e "Esta página é só da administração" em `/app/treinamento`;
+  - 403 em todas as rotas de fichas, gatilhos e treinamento, sem gravar nada.
+- **Pergunte pra IA:**
+  - "Em quanto tempo eu consigo fazer minha primeira venda…" deu 0,963 contra a resposta da admin. A IA repetiu a resposta quase palavra por palavra (até a "girafa") e acrescentou a citação da Aula 2;
+  - "dá pra colocar aquela música que tá bombando…" deu 0,743 e entrou como modelo: mesmo conteúdo e tom, nas palavras da IA (Aula 15);
+  - a conversa entrou na fila de treinamento.
+- **Roteiro:**
+  - "sérum de vitamina C" trouxe o cartão 1 (Sérum, 47%), aberto e fechável;
+  - "organizador de gaveta" (Unboxing) trouxe a ficha feita pela tela (0,78), com o gatilho novo vindo do banco. Com uma segunda ficha Unboxing + antes-e-depois, o cartão 2 trouxe a escova sem repetir o organizador;
+  - quando a IA escolhe outro gatilho, o cartão 2 não aparece (certo).
+
+**Observado:** com a ficha no prompt (≥ 0,55), o gancho do organizador saiu igual ao da Ana ("Olha o estado dessa gaveta antes... e agora olha depois."). É o mesmo achado de antes: se a ideia é o raciocínio e não a frase, falta pedir no bloco que não repita as frases dela.
+
 ## 2026-11-10: Limiares das fichas e cartões em dropdown
 
 **Pedido:** depois do achado da calibragem, a dona baixou os limiares para **0,45** (cartão "produtos parecidos") e **0,55** (prompt do gerador), e pediu os cartões como dropdown: a aluna vê e, se quiser, fecha.
