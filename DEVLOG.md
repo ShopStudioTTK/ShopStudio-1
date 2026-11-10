@@ -4,7 +4,25 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
-## 2026-11-10: Minha conta (nome, e-mail e senha)
+## 2026-11-10: Treinamento de roteiros (fichas da expert)
+
+**Pedido:** o treinamento só valia para o Pergunte pra IA. A dona quer que a expert ensine o jeito dela de pensar um roteiro: para um produto, qual gatilho no gancho e por quê, com que entonação, em que formato, e como estrutura problema, solução e CTA. Design: `docs/superpowers/specs/2026-11-10-treinamento-roteiros-design.md`; plano: `docs/superpowers/plans/2026-11-10-treinamento-roteiros.md`.
+
+**Decisões da dona:**
+- ficha campo por campo, com porquê e entonação em todas as partes (obrigatórios no gancho);
+- embedding só do produto e do tipo, não do raciocínio;
+- o roteiro da aluna não explica nada: é a inteligência por baixo dos panos. Embaixo dele, na ordem: 5×5 como hoje, cartão 1 ("produtos parecidos", ≥ 0,6, a mais parecida aberta e as outras numa lista) e cartão 2 ("desse jeito": mesmo formato e mesmo gatilho);
+- uma lista só de gatilhos, juntando as que existiam (curiosidade, fofoca, choque, problema, transformação, prova social), numa tabela; a expert acrescenta pelo "+".
+
+**Como ficou:** tabelas `gatilhos` e `fichas_roteiro` (migration `20261110030000`), `src/lib/fichas.ts`, rotas `/api/fichas` e `/api/gatilhos` com `admin()`, aba Roteiros no treinamento e os cartões no gerador. Fichas ≥ 0,7 entram no prompt do gerador depois do dossiê (o prefixo cacheado não muda; o campo `gatilho` no esquema do JSON zera o cache uma vez). Os cartões não vão para o roteiro salvo (dependem das fichas do momento). Não mexi nas categorias do banco de ganchos (`quebra | problema | curiosidade`), que continuam separadas.
+
+**Verificado:** testes, lint e build. No build em `localhost:3005` com a OpenRouter de verdade (conta, fichas e gatilho de teste apagados no fim): aluna fora de `admins` → 403 em `/api/fichas`; gatilho novo 201 e "Fofóca" → 409; fichas salvas e indexadas; "sérum facial" em "Conselho de amiga" trouxe o cartão 1 com o Sérum Principia (73%) e o cartão 2 com a garrafa (fofoca + conselho de amiga), sem repetir o sérum; roteiro salvo sem `fichas` e reaberto sem cartões; console sem erro. **Não conferido:** a largura de celular (a janela não aceitou o redimensionamento).
+
+**Achados para a dona:**
+- **Limiar alto para nomes curtos.** "sérum de vitamina C" × "Sérum facial Principia — skincare" = **0,47**, e não apareceu em nenhum cartão. "sérum facial" = 0,73; "garrafa térmica" × a garrafa = 0,75; sem relação, 0,1–0,25. Com 0,6, só o mesmo produto, quase com o mesmo nome, aparece. Caminhos: baixar para ~0,45 (cartão) / ~0,55 (prompt), ou a aluna também dizer o tipo do produto.
+- **A IA copia o gancho da ficha.** Com a ficha do sérum no prompt (0,73), o gancho gerado foi "Ninguém te conta isso sobre sérum facial…", quase o da Ana. Se a ideia é o raciocínio e não a frase, dá para pedir no bloco que não repita as frases dela.
+
+ (nome, e-mail e senha)
 
 **Pedido:** uma tela de configurações para a aluna trocar o nome, o e-mail e a senha.
 

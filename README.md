@@ -102,12 +102,14 @@ src/
       roteiros/               banco de ganchos (com notas e comunidade) + gerador 5×5
       checklist/  resultados/
       campeoes/               vídeos campeões por nicho (admin adiciona e remove ali mesmo)
-      treinamento/            fila de treinamento da IA (só admin)
+      treinamento/            treinamento da IA (só admin): fila de perguntas e fichas de roteiro
       conta/                  minha conta: nome, e-mail e senha
     api/
       assistente/route.ts     chat com streaming, limite diário, registro de custo
       roteiro/route.ts        gerador de roteiros (JSON)
       treinamento/route.ts    fila de treinamento da IA (só admin, admin() em api-auth.ts)
+      fichas/route.ts         fichas de roteiro da expert (só admin)
+      gatilhos/route.ts       gatilhos do gancho das fichas; o "+" cria (só admin)
       senha/route.ts          troca da senha temporária (primeiro acesso)
       conta/route.ts          muda nome, e-mail e senha (e-mail e senha pedem a senha atual)
       webhook/conta/route.ts  cria a conta da aluna (chamado pela plataforma de venda)
@@ -158,7 +160,14 @@ A tela de Roteiros abre nos **ganchos** (a aba "Criar roteiro" vem depois, em `?
 Toda aluna dá nota de 1 a 5 a qualquer gancho (`POST /api/ganchos/nota`; dar de novo troca a nota), e cada cartão mostra a média e quantas notas tem. Quem está em `admins` vê o lápis (muda o texto e o tipo) e a lixeira (pede confirmação) em todos os ganchos, do banco e da comunidade; `PATCH` e `DELETE` passam por `admin()`, e a aluna recebe 403. Apagar leva as notas junto.
 
 ### Gerador de roteiros (`/api/roteiro`)
-Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags e formato.
+Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags, formato e o **gatilho** do gancho escolhido (um dos slugs de `gatilhos`).
+
+**Fichas da expert (treinamento de roteiros):** em `/app/treinamento`, aba **Roteiros**, a expert registra como pensaria o roteiro de um produto, campo por campo: produto, tipo, formato e, para gancho, problema, solução e CTA, o texto, o porquê e a entonação (porquê e entonação obrigatórios no gancho). O gatilho do gancho vem da tabela `gatilhos` (curiosidade, fofoca, choque, problema, transformação, prova social), e o "+" ao lado cria outro. O embedding da ficha é só de `"<produto> — <tipo>"`. No gerador:
+- o produto da aluna vira embedding, e as fichas com semelhança **≥ 0,7** entram no prompt como modelo de raciocínio, **depois** do dossiê (o cache continua valendo), com a ordem de não explicar as escolhas no roteiro;
+- embaixo do roteiro, o cartão **"A Ana já fez roteiro de produtos parecidos"** mostra até 3 fichas com semelhança **≥ 0,6**, e o cartão **"A Ana já fez alguns roteiros desse jeito"** mostra até 3 com o mesmo formato e o mesmo gatilho do roteiro gerado, sem repetir as do primeiro;
+- os cartões não vão para o roteiro salvo. Se o embedding ou o banco falharem, o roteiro sai igual, sem cartões.
+
+Medido com `text-embedding-3-small` (2026-11-10): "sérum facial" × "Sérum facial Principia — skincare" = 0,73; "sérum de vitamina C" × a mesma ficha = 0,47; produtos sem relação ficam em 0,1–0,25. Com nomes curtos, 0,6 pega só o mesmo produto; os limiares (`src/lib/fichas.ts`) precisam de calibragem.
 
 **Vídeos campeões:** a tela tem uma aba por nicho, e as abas ficam na tabela `nichos` (começou com moda fitness, beleza, maternidade, casa e cozinha e moda feminina). Quem está em `admins` vê o botão **"Nova aba"** depois das abas: o nome vira o slug (`Casa & Cozinha` → `casa-cozinha`), e nome repetido dá 409. Uma aba vazia mostra "Apagar a aba"; aba com vídeo não é apagada (o banco também recusa). `GET /api/nichos` vale para todas as alunas; `POST` e `DELETE` passam por `admin()` antes de ler qualquer coisa do pedido. Os vídeos também são **escolhidos pela administração**: quem está em `admins` vê, na própria aba, um campo para colar o link do TikTok (com título opcional) e um botão "Remover" em cada vídeo. `GET /api/campeoes?nicho=<slug>` devolve os vídeos do nicho, os mais novos primeiro (até 60), iguais para todas as alunas; `POST` e `DELETE` passam por `admin()` e a aluna recebe 403. Só entra link completo de vídeo (`https://www.tiktok.com/@perfil/video/…`); a query (`?is_from_webapp=…`) é tirada, link curto (`vm.tiktok.com`) é recusado, e o mesmo vídeo não entra duas vezes no mesmo nicho. A galeria antiga (`chapter_videos`, coleção `campeao`) continua só no bloco da tela inicial.
 
@@ -226,6 +235,8 @@ Migrations em `supabase/migrations/`:
 | `ai_perguntas` | perguntas ao assistente, tokens e custo | servidor (`/api/assistente`) |
 | `admins` | quem acessa o treinamento da IA e cadastra as abas e os vídeos campeões | só service role (painel do Supabase) |
 | `treinamento` | perguntas e respostas da expert, com embedding (pgvector, 1536). Sem `user_id` de aluna | servidor (`/api/treinamento`, só admin; `/api/assistente` grava as conversas) |
+| `gatilhos` | gatilhos do gancho das fichas (slug + rótulo) | servidor (`/api/gatilhos`, só admin) |
+| `fichas_roteiro` | fichas de roteiro da expert, com embedding (pgvector, 1536) só de produto + tipo. Sem `user_id` de aluna | servidor (`/api/fichas`, só admin) |
 | `treinamento_conversas` | uma conversa do assistente = um item na fila. O `user_id` só serve para o servidor achar a conversa certa e nunca sai nas rotas | servidor (`/api/assistente`) |
 
 No app, a administração tem a página de treinamento da IA, o cadastro na aba de Campeões e a edição dos ganchos. Admins, códigos, vídeos dos capítulos, persona e base de conhecimento continuam sendo editados no painel do Supabase.
