@@ -4,6 +4,17 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-10: Fichas no prompt: copiar a intenção, não a frase
+
+**Pedido:** depois do teste do rascunho, a dona pediu que a IA copie a intenção da ficha, e não o texto.
+
+**O que mudou:** só o texto do `blocoDasFichas` (`src/lib/fichas.ts`). Ele manda usar o mesmo gatilho e o mesmo raciocínio (porquê, entonação, estrutura) no produto da aluna, sem repetir as frases da especialista: nenhuma abertura igual, nenhum trecho de 3 palavras seguidas igual, nenhuma expressão marcante, e frases novas com detalhes do produto. A primeira versão ("não repita as frases nem as expressões marcantes") não bastou: em 3 roteiros, 2 ainda abriam com "Para tudo". A segunda dá o exemplo e a regra das 3 palavras.
+
+**Verificado com a OpenRouter de verdade** (mesma ficha do teste anterior, gancho "PARA TUDO. Olha o que acontece com esse cabelo armado em uma passada só.", gatilho choque; aluna, "escova secadora de cabelo", 0,70; contas e ficha apagadas no fim). Em 3 roteiros:
+- **nenhum gancho abriu com "Para tudo"** (antes: 2 em 2);
+- 2 seguiram o gatilho dela (choque), com a mesma intenção de mostrar o resultado logo de cara ("Não acreditei que uma escova só seca e alisa. Testei na frente da câmera."), e 1 foi para transformação;
+- **ainda aparecem ecos** no problema ("secador numa mão e escova na outra", "saía com o cabelo preso") e o CTA dela se repetiu em 2. O CTA é quase o padrão do método ("confere o preço no carrinho"), então não pesa. Se os ecos do problema incomodarem, o próximo passo é mandar só o gancho e os porquês das outras partes, sem o texto delas.
+
 ## 2026-11-10: Ficha de roteiro começa por um rascunho da IA
 
 **Pedido:** a expert montava a ficha do zero. Agora ela põe o produto, a IA gera o roteiro como faz para as alunas, já com o porquê e a entonação, e ela corrige o que quiser. "Escrever do zero" continua como opção, num botão ao lado do "Nova ficha". Admin não tem limite de roteiros.
