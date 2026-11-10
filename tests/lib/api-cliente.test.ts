@@ -31,6 +31,15 @@ describe("api()", () => {
     expect(signOut).not.toHaveBeenCalled();
   });
 
+  it("201 com corpo devolve o corpo; 201 e 204 vazios devolvem null", async () => {
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ gatilho: { slug: "a" } }), { status: 201 })) as typeof fetch;
+    expect(await api("/api/gatilhos", { method: "POST", body: {} })).toEqual({ gatilho: { slug: "a" } });
+    global.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 201 })) as typeof fetch;
+    expect(await api("/api/roteiros-salvos", { method: "POST", body: {} })).toBeNull();
+    global.fetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 })) as typeof fetch;
+    expect(await api("/api/conta", { method: "PATCH", body: {} })).toBeNull();
+  });
+
   it("403 e outros erros não mexem na sessão", async () => {
     global.fetch = vi.fn().mockResolvedValue(resposta(403, { error: { message: "Sua senha atual não confere." } })) as typeof fetch;
     await expect(api("/api/conta", { method: "PATCH", body: {} })).rejects.toThrow("Sua senha atual não confere.");

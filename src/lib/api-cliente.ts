@@ -23,7 +23,8 @@ export async function api<T = void>(caminho: string, opcoes: { method?: string; 
     if (atual === token) await supabase.auth.signOut({ scope: "local" });
     throw new Error("Sua sessão expirou. Entre de novo.");
   }
-  const json = res.status === 204 || res.status === 201 ? null : await res.json().catch(() => null);
+  // 201 pode vir com corpo (o que foi criado) ou vazio; sem corpo, json() falha e vira null.
+  const json = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) throw new Error(json?.error?.message ?? "Não consegui falar com o servidor. Tente de novo.");
   return json as T;
 }
