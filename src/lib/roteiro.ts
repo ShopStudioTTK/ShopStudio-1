@@ -1,5 +1,6 @@
 import "server-only";
 import { DOSSIE } from "@/lib/conhecimento/material";
+import type { FichasDoRoteiro } from "@/lib/fichas-tipos";
 
 export type ScriptInput = { produto: string; publico: string; beneficio: string; formato: string };
 
@@ -11,6 +12,10 @@ export type ScriptResult = {
   roteiro?: { gancho?: string; problema?: string; solucao?: string; cta?: string };
   hashtags?: string[];
   formatoSugerido?: string;
+  /** Slug do gatilho do gancho escolhido (lista em `gatilhos`); fora dela, "". */
+  gatilho?: string;
+  /** Cartões das fichas da expert (só na resposta da rota; não vão para o roteiro salvo). */
+  fichas?: FichasDoRoteiro;
 };
 
 export const METHOD = `Método do guia Shop Studio (capítulo 10):
@@ -41,7 +46,8 @@ Responda APENAS com um objeto JSON válido, sem markdown, sem comentários, com 
     "cta": "1 frase final"
   },
   "hashtags": ["5 hashtags em português, sem acento, com #"],
-  "formatoSugerido": "um dos formatos do guia, explicando em 1 frase como gravar"
+  "formatoSugerido": "um dos formatos do guia, explicando em 1 frase como gravar",
+  "gatilho": "o gatilho do gancho escolhido, um dos slugs da lista GATILHOS"
 }
 
 Escreva em português do Brasil, no tom de uma amiga falando com outra.`;
@@ -58,6 +64,8 @@ const FORMATO_FINAL = "\n\nLembrete: responda APENAS com o objeto JSON no format
 export const buildSystemPrompt = (
   config: { tom?: string | null; persona?: string | null; evitar?: string | null } | null,
   knowledge: { titulo: string; conteudo: string }[],
+  /** blocoDasFichas (src/lib/fichas.ts): sempre depois do dossiê, para não quebrar o cache. */
+  fichas = "",
 ): string => {
   const trainingBlock = config
     ? `\n\nTOM DE VOZ DEFINIDO PELA ADMINISTRAÇÃO (aplique nos textos gerados):\n- Estilo: ${config.tom}\n- Como ela fala: ${config.persona || "não informado"}\n- Nunca faça: ${config.evitar || "não informado"}`
@@ -69,7 +77,7 @@ export const buildSystemPrompt = (
         .map((row) => `- ${row.titulo}: ${String(row.conteudo).slice(0, 600)}`)
         .join("\n")
     : "";
-  return SYSTEM_PROMPT + DOSSIE_BLOCK + trainingBlock + knowledgeBlock + FORMATO_FINAL;
+  return SYSTEM_PROMPT + DOSSIE_BLOCK + trainingBlock + knowledgeBlock + fichas + FORMATO_FINAL;
 };
 
 export const buildUserPrompt = ({ produto, publico, beneficio, formato }: ScriptInput): string =>
