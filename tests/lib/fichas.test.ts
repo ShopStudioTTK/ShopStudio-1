@@ -85,12 +85,12 @@ describe("listarGatilhos", () => {
 });
 
 describe("buscarParecidas", () => {
-  it("só ≥ 0,6, no máximo 3, embedding do produto da aluna", async () => {
+  it("só ≥ 0,45, embedding do produto da aluna", async () => {
     responderCom([[
       "from public.fichas_roteiro",
-      [0.95, 0.8, 0.61, 0.59].map((s, i) => linha({ id: `f${i}`, similaridade: s })),
+      [0.8, 0.47, 0.44].map((s, i) => linha({ id: `f${i}`, similaridade: s })),
     ]]);
-    expect((await buscarParecidas("sérum")).map((f) => f.similaridade)).toEqual([0.95, 0.8, 0.61]);
+    expect((await buscarParecidas("sérum")).map((f) => f.similaridade)).toEqual([0.8, 0.47]);
     expect(gerarEmbedding).toHaveBeenCalledWith("sérum");
     expect(naTabela("fichas_roteiro")[0].sql).toMatch(/embedding is not null/);
   });
@@ -124,9 +124,9 @@ describe("buscarDoMesmoJeito", () => {
 });
 
 describe("blocoDasFichas", () => {
-  it("lista os slugs dos gatilhos, só fichas ≥ 0,7, e manda não explicar", () => {
+  it("lista os slugs dos gatilhos, só fichas ≥ 0,55, e manda não explicar", () => {
     const b = blocoDasFichas(
-      [ficha({ similaridade: 0.9 }), ficha({ id: "f2", produto: "Garrafa", similaridade: 0.65 })],
+      [ficha({ similaridade: 0.56 }), ficha({ id: "f2", produto: "Garrafa", similaridade: 0.54 })],
       GATILHOS,
     );
     expect(b).toContain("prova-social");
@@ -136,8 +136,8 @@ describe("blocoDasFichas", () => {
     expect(b).toMatch(/não explique/i);
   });
 
-  it("sem fichas ≥ 0,7, só a lista de gatilhos", () => {
-    const b = blocoDasFichas([ficha({ similaridade: 0.65 })], GATILHOS);
+  it("sem fichas ≥ 0,55, só a lista de gatilhos", () => {
+    const b = blocoDasFichas([ficha({ similaridade: 0.5 })], GATILHOS);
     expect(b).toContain("fofoca");
     expect(b).not.toContain("Sérum");
   });

@@ -8,10 +8,10 @@ import { vetorSql } from "@/lib/treinamento";
 
 /**
  * Fichas de roteiro da expert. Semelhança (1 - distância de cosseno) do produto da aluna com o
- * "produto — tipo" da ficha. Valores de partida; calibrar com uso real.
+ * "produto — tipo" da ficha. Baixados de 0,6 / 0,7 em 2026-11-10: com nomes curtos, só o mesmo produto passava.
  */
-export const LIMIAR_CARTAO = 0.6; // aparece no cartão "produtos parecidos"
-export const LIMIAR_MODELO = 0.7; // entra no prompt do gerador como modelo
+export const LIMIAR_CARTAO = 0.45; // aparece no cartão "produtos parecidos" (mesma categoria ≈ 0,47)
+export const LIMIAR_MODELO = 0.55; // entra no prompt do gerador como modelo
 export const MAX_CARTAO = 3;
 
 /** O embedding da ficha leva só o produto e o tipo, não o raciocínio. */
