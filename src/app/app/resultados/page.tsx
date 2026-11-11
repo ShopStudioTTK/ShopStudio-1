@@ -32,11 +32,11 @@ type Case = {
 
 const emptyForm = { resultado: "", texto: "", midiaUrl: "" };
 const labelClass = "text-[12px] uppercase tracking-[0.14em] text-muted-foreground";
-/** O mesmo tamanho do player do TikTok: todos os cartões ficam com a mesma altura. */
-const QUADRO = "mx-auto w-full max-w-[320px] aspect-[9/16]";
+/** O mesmo tamanho do player do TikTok: todos os cartões ficam com a mesma altura. No celular, até 280 px. */
+const QUADRO = "mx-auto w-full max-w-[280px] aspect-[9/16]";
 // ponytail: "ler mais" por contagem de caracteres, não pela altura renderizada; medir se errar muito.
 const CORTE_QUADRO = 240;
-const CORTE_LEGENDA = 140;
+const CORTE_LEGENDA = 110;
 
 /** Depoimento cortado, com "Ler mais" quando passa do tamanho. */
 const Depoimento = ({ texto, corte, className }: { texto: string; corte: number; className: string }) => {
@@ -46,7 +46,7 @@ const Depoimento = ({ texto, corte, className }: { texto: string; corte: number;
     <div>
       <p className={cn("whitespace-pre-line", className)}>{longo && !aberto ? `${texto.slice(0, corte).replace(/\s+\S*$/, "")}…` : texto}</p>
       {longo ? (
-        <button type="button" onClick={() => setAberto((a) => !a)} className="mt-1.5 text-[12.5px] font-semibold text-rose hover:underline">
+        <button type="button" onClick={() => setAberto((a) => !a)} className="mt-1 text-[12px] font-semibold text-rose hover:underline">
           {aberto ? "Ler menos" : "Ler mais"}
         </button>
       ) : null}
@@ -182,8 +182,8 @@ const Results = () => {
       ) : null}
 
       {casesQuery.isLoading ? (
-        <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2].map((item) => (
+        <div className="grid grid-cols-1 gap-x-5 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((item) => (
             <div key={item} className={cn(QUADRO, "animate-pulse rounded-2xl border border-border bg-secondary/40")} />
           ))}
         </div>
@@ -199,18 +199,18 @@ const Results = () => {
           </p>
         </div>
       ) : (
-        <ul className="grid grid-cols-1 items-start gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-1 items-start gap-x-5 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {cases.map((item) => {
             // Só vídeo do TikTok aparece; prints antigos ficam só com o texto.
             const video = item.midia_url ? urlDoTiktok(item.midia_url) : null;
             return (
-              <li key={item.id} className="space-y-3">
+              <li key={item.id} className="mx-auto w-full max-w-[280px] space-y-2.5">
                 {video ? (
-                  <VideoEmbed url={video} titulo={`Resultado de ${item.aluna}`} previa />
+                  <VideoEmbed url={video} titulo={`Resultado de ${item.aluna}`} previa className="max-w-[280px]" />
                 ) : (
-                  <div className={cn(QUADRO, "hero-surface relative flex flex-col overflow-hidden rounded-2xl p-6 text-cream")}>
+                  <div className={cn(QUADRO, "hero-surface relative flex flex-col overflow-hidden rounded-2xl p-5 text-cream")}>
                     <span className="grain absolute inset-0 opacity-30" aria-hidden="true" />
-                    <Quote className="relative h-7 w-7 shrink-0 text-rose" aria-hidden="true" />
+                    <Quote className="relative h-5 w-5 shrink-0 text-rose" aria-hidden="true" />
                     {/* texto curto: maior e no meio do quadro, para não sobrar um vazio escuro */}
                     <div className="relative mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto">
                       {/* my-auto e não justify-center: aberto pelo "Ler mais", o texto não é cortado no topo */}
@@ -221,58 +221,59 @@ const Results = () => {
                           corte={CORTE_QUADRO}
                           className={cn(
                             "font-display leading-snug text-cream/95",
-                            item.texto.length < 90 ? "text-[26px]" : item.texto.length < 180 ? "text-[21px]" : "text-[18px]",
+                            item.texto.length < 90 ? "text-[21px]" : item.texto.length < 180 ? "text-[17px]" : "text-[15px]",
                           )}
                         />
                       ) : (
-                        <p className="font-display text-[22px] leading-snug text-cream/95">{item.resultado}</p>
+                        <p className="font-display text-[19px] leading-snug text-cream/95">{item.resultado}</p>
                       )}
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="flex items-start justify-between gap-3 px-1">
-                  <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2 font-display text-[17px] font-semibold leading-snug">
-                      {item.aluna}
-                      {item.destaque ? <span className="chip" data-ativo="true">Fixado</span> : null}
+                {/* o resultado é o título; embaixo, o depoimento (dos cartões com vídeo) e quem publicou */}
+                <div className="space-y-1 px-0.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 font-display text-[15px] font-semibold leading-snug">
+                      {item.resultado ?? item.aluna}
+                      {item.destaque ? (
+                        <span className="chip ml-1.5 px-2 py-0.5 align-middle text-[10.5px]" data-ativo="true">
+                          Fixado
+                        </span>
+                      ) : null}
                     </p>
-                    {item.resultado ? (
-                      <p className="mt-0.5 text-[13.5px] font-semibold leading-snug text-rose">{item.resultado}</p>
-                    ) : null}
+                    <div className="-mr-1 -mt-0.5 flex shrink-0 items-center">
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => fixar.mutate(item)}
+                          disabled={fixar.isPending}
+                          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                          aria-label={item.destaque ? `Desafixar resultado de ${item.aluna}` : `Fixar no topo o resultado de ${item.aluna}`}
+                          title={item.destaque ? "Desafixar" : "Fixar no topo"}
+                        >
+                          {item.destaque ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+                        </button>
+                      ) : null}
+                      {item.minha ? (
+                        <button
+                          type="button"
+                          onClick={() => setApagando(item)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive"
+                          aria-label={`Excluir resultado de ${item.aluna}`}
+                          title="Apagar"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {isAdmin ? (
-                      <button
-                        type="button"
-                        onClick={() => fixar.mutate(item)}
-                        disabled={fixar.isPending}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                        aria-label={item.destaque ? `Desafixar resultado de ${item.aluna}` : `Fixar no topo o resultado de ${item.aluna}`}
-                        title={item.destaque ? "Desafixar" : "Fixar no topo"}
-                      >
-                        {item.destaque ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-                      </button>
-                    ) : null}
-                    {item.minha ? (
-                      <button
-                        type="button"
-                        onClick={() => setApagando(item)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-destructive"
-                        aria-label={`Excluir resultado de ${item.aluna}`}
-                        title="Apagar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                  </div>
+                  {video && item.texto ? (
+                    <Depoimento texto={item.texto} corte={CORTE_LEGENDA} className="text-[13px] leading-relaxed text-foreground/75" />
+                  ) : null}
+                  {item.resultado ? <p className="text-[12px] text-muted-foreground">{item.aluna}</p> : null}
                 </div>
-                {video && item.texto ? (
-                  <div className="px-1">
-                    <Depoimento texto={item.texto} corte={CORTE_LEGENDA} className="text-[13.5px] leading-relaxed text-foreground/75" />
-                  </div>
-                ) : null}
               </li>
             );
           })}
