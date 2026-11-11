@@ -55,6 +55,13 @@ Depois, também a pedido da dona:
   - o link da air fryer abre o pop-up dela com 4 e rola até ela com 2;
   - celular sem o seletor e sem rolagem lateral; console sem erro.
 
+**Até 6 por linha** (pedido da dona): a escolha vai de 1 a 6. `colunasNaTela` diz quantos cartões cabem de verdade, pelos mesmos sm/lg/xl das classes: celular 1; a partir de 640 px, até 2; a partir de 1024 px, até 3 (4 com a escolha 6); a partir de 1280 px, a escolha. O pop-up vale quando passam de 3. No modo resumido, o cartão tem menos espaço interno e um título menor.
+- No navegador, a 1440 px: de 1 a 6 por linha, com o roteiro inteiro até 3 e o pop-up de 4 a 6.
+- A escolha 6 a 1100 px dá 4 com pop-up; a 5 a 1100 px dá 3 sem pop-up; a 800 px, 2.
+- O link com 6 abre o pop-up da ficha, e recarregar mantém a escolha.
+- Celular: 1 por linha; console sem erro.
+- No fim, as 50 fichas, as contas e os 22 roteiros de teste foram apagados.
+
 Medido com as 50 fichas: "garrafa térmica", "escova alisadora" e "air fryer 4 litros" trazem 2 fichas no cartão. **Nomes curtos ficam abaixo de 0,70 mesmo havendo ficha do mesmo produto:** "air fryer" (a ficha é "Air fryer 4 litros"), "legging de academia", "copo térmico", "protetor solar", "chapinha", "potes de vidro". Com o nome um pouco mais completo eles aparecem ("copo térmico com tampa" = 0,81). Se a dona quiser pegar os curtos, o caminho é baixar o cartão para perto de 0,65.
 
 **Verificado:**
