@@ -15,6 +15,8 @@ export type FichaCartao = {
   cta: Parte;
   /** Só nas fichas achadas pelo produto (cartão 1). */
   similaridade?: number;
+  /** Só na lista da admin: a ficha entra em todo roteiro como exemplo de voz. */
+  exemploFixo?: boolean;
 };
 
 /** Os dois cartões embaixo do roteiro. */

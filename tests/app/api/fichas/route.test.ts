@@ -50,7 +50,7 @@ describe("POST /api/fichas", () => {
     const res = await POST(req("POST", { ...FICHA, criado_por: "u2" }));
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ id: ID, indexada: true });
-    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).input).toBe("Sérum — skincare");
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).input).toBe("sérum — skincare");
     expect(gravou()?.valores).toContain("u1");
     expect(gravou()?.valores).not.toContain("u2");
     expect(gravou()?.valores).toEqual(expect.arrayContaining(["baixinho", null, "prova visual"]));
@@ -97,7 +97,7 @@ describe("PATCH /api/fichas", () => {
     const res = await PATCH(req("PATCH", { ...FICHA, id: ID, produto: "Hidratante" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ id: ID, indexada: true });
-    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).input).toBe("Hidratante — skincare");
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).input).toBe("hidratante — skincare");
     expect(update()?.valores).toContain(ID);
   });
 
@@ -126,6 +126,31 @@ describe("PATCH /api/fichas", () => {
     expect((await PATCH(req("PATCH", { ...FICHA, id: ID }))).status).toBe(404);
     expect(fetch).not.toHaveBeenCalled();
     expect((await PATCH(req("PATCH", { ...FICHA, id: "x" }))).status).toBe(400);
+  });
+});
+
+describe("exemplo fixo de voz", () => {
+  it("POST e PATCH gravam a marca; sem ela, false", async () => {
+    comoAdmin([["insert into public.fichas_roteiro", [{ id: ID }]]]);
+    await POST(req("POST", { ...FICHA, exemploFixo: true }));
+    expect(gravou()?.sql).toContain("exemplo_fixo");
+    expect(gravou()?.valores).toContain(true);
+    reiniciarDb();
+    comoAdmin([
+      ["select produto, tipo", [{ produto: "Sérum", tipo: "skincare", indexada: true }]],
+      ["update public.fichas_roteiro", [{ id: ID }]],
+    ]);
+    await PATCH(req("PATCH", { ...FICHA, id: ID }));
+    expect(gravou()?.sql).toContain("exemplo_fixo = ?");
+    expect(gravou()?.valores).toContain(false);
+  });
+
+  it("GET devolve exemploFixo", async () => {
+    comoAdmin([["from public.fichas_roteiro", [{
+      id: ID, produto: "Sérum", tipo: "skincare", formato: "Unboxing", gancho_gatilho: "fofoca", gatilho_rotulo: "Fofoca",
+      gancho: "g", problema: "x", solucao: "y", cta: "z", indexada: true, exemplo_fixo: true,
+    }]]]);
+    expect((await (await GET(req("GET"))).json()).fichas[0]).toMatchObject({ exemploFixo: true });
   });
 });
 

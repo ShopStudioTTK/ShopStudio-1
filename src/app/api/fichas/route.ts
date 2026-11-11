@@ -18,7 +18,18 @@ const MAX_PARTE = 500;
 const LIMITE = 200;
 
 type Parte = { texto: string; porque: string | null; entonacao: string | null };
-type Ficha = { produto: string; tipo: string; formato: string; gatilho: string; gancho: Parte; problema: Parte; solucao: Parte; cta: Parte };
+type Ficha = {
+  produto: string;
+  tipo: string;
+  formato: string;
+  gatilho: string;
+  gancho: Parte;
+  problema: Parte;
+  solucao: Parte;
+  cta: Parte;
+  /** Entra em todo roteiro como exemplo de voz. */
+  exemploFixo: boolean;
+};
 
 const parteDe = (v: unknown, obrigatorios: boolean): Parte | null => {
   const p = (v ?? {}) as Record<string, unknown>;
@@ -39,7 +50,7 @@ function fichaDe(body: Record<string, unknown> | null): Ficha | null {
   const cta = parteDe(body?.cta, false);
   if (!produto || !tipo || typeof formato !== "string" || !ehFormato(formato)) return null;
   if (typeof gatilho !== "string" || !SLUG.test(gatilho) || !gancho || !problema || !solucao || !cta) return null;
-  return { produto, tipo, formato, gatilho, gancho, problema, solucao, cta };
+  return { produto, tipo, formato, gatilho, gancho, problema, solucao, cta, exemploFixo: body?.exemploFixo === true };
 }
 
 /** Vetor ou null: embedding fora do ar nunca impede de salvar (a tela avisa "não indexada"). */
@@ -59,7 +70,7 @@ export async function GET(req: Request) {
     select f.id, f.produto, f.tipo, f.formato, f.gancho_gatilho, g.rotulo as gatilho_rotulo,
       f.gancho, f.gancho_porque, f.gancho_entonacao, f.problema, f.problema_porque, f.problema_entonacao,
       f.solucao, f.solucao_porque, f.solucao_entonacao, f.cta, f.cta_porque, f.cta_entonacao,
-      f.embedding is not null as indexada
+      f.embedding is not null as indexada, f.exemplo_fixo
     from public.fichas_roteiro f join public.gatilhos g on g.slug = f.gancho_gatilho
     order by f.criado_em desc
     limit ${LIMITE}`;
@@ -77,11 +88,11 @@ export async function POST(req: Request) {
       insert into public.fichas_roteiro (
         produto, tipo, formato, gancho, gancho_gatilho, gancho_porque, gancho_entonacao,
         problema, problema_porque, problema_entonacao, solucao, solucao_porque, solucao_entonacao,
-        cta, cta_porque, cta_entonacao, embedding, criado_por)
+        cta, cta_porque, cta_entonacao, exemplo_fixo, embedding, criado_por)
       values (
         ${f.produto}, ${f.tipo}, ${f.formato}, ${f.gancho.texto}, ${f.gatilho}, ${f.gancho.porque}, ${f.gancho.entonacao},
         ${f.problema.texto}, ${f.problema.porque}, ${f.problema.entonacao}, ${f.solucao.texto}, ${f.solucao.porque}, ${f.solucao.entonacao},
-        ${f.cta.texto}, ${f.cta.porque}, ${f.cta.entonacao}, ${v}::extensions.vector, ${auth.userId})
+        ${f.cta.texto}, ${f.cta.porque}, ${f.cta.entonacao}, ${f.exemploFixo}, ${v}::extensions.vector, ${auth.userId})
       returning id`;
     return Response.json({ id, indexada: v !== null }, { status: 201 });
   } catch (e) {
@@ -118,6 +129,7 @@ export async function PATCH(req: Request) {
         problema = ${f.problema.texto}, problema_porque = ${f.problema.porque}, problema_entonacao = ${f.problema.entonacao},
         solucao = ${f.solucao.texto}, solucao_porque = ${f.solucao.porque}, solucao_entonacao = ${f.solucao.entonacao},
         cta = ${f.cta.texto}, cta_porque = ${f.cta.porque}, cta_entonacao = ${f.cta.entonacao},
+        exemplo_fixo = ${f.exemploFixo},
         embedding = case when ${manter} then embedding else ${v}::extensions.vector end, atualizado_em = now()
       where id = ${id}
       returning id`;

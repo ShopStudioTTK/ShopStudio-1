@@ -24,7 +24,7 @@ const WEBHOOK = new Set(["webhook/conta POST", "webhook/applyfy POST"]);
 const ADMIN = new Set([
   "treinamento GET", "treinamento POST", "treinamento PATCH", "treinamento DELETE",
   "campeoes POST", "campeoes DELETE", "nichos POST", "nichos DELETE", "ganchos PATCH", "ganchos DELETE",
-  "fichas GET", "fichas POST", "fichas PATCH", "fichas DELETE", "gatilhos GET", "gatilhos POST", "resultados PATCH",
+  "fichas GET", "fichas POST", "fichas PATCH", "fichas DELETE", "gatilhos GET", "gatilhos POST", "resultados PATCH", "fichas/reindexar POST",
 ]);
 const DE_ALUNA_COM_ACESSO = (h: { nome: string }) => !SO_LOGIN.has(h.nome) && !WEBHOOK.has(h.nome);
 const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE"];

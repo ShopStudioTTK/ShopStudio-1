@@ -15,6 +15,7 @@ import {
   buscarParecidas,
   gatilhoDaIa,
   linhaParaCartao,
+  listarExemplosFixos,
   listarGatilhos,
   textoDaFicha,
 } from "@/lib/fichas";
@@ -45,8 +46,9 @@ beforeEach(() => {
 });
 
 describe("textoDaFicha", () => {
-  it("usa só produto e tipo", () => {
-    expect(textoDaFicha("Sérum Principia", "skincare")).toBe("Sérum Principia — skincare");
+  it("usa só produto e tipo, em minúsculas (CAIXA ALTA mudava o vetor e derrubava a semelhança)", () => {
+    expect(textoDaFicha("Sérum Principia", "skincare")).toBe("sérum principia — skincare");
+    expect(textoDaFicha("KIT DE 3 BLUSINHAS", "Moda Feminina")).toBe("kit de 3 blusinhas — moda feminina");
   });
 });
 
@@ -152,5 +154,39 @@ describe("blocoDasFichas", () => {
     const b = blocoDasFichas([ficha({ similaridade: 0.75 })], GATILHOS);
     expect(b).toContain("fofoca");
     expect(b).not.toContain("Sérum");
+  });
+});
+
+describe("busca em minúsculas", () => {
+  it("o produto da aluna vai em minúsculas para o embedding", async () => {
+    responderCom([["as tem", [{ tem: true }]], ["from public.fichas_roteiro", []]]);
+    await buscarParecidas("KIT DE Regatas");
+    expect(gerarEmbedding).toHaveBeenCalledWith("kit de regatas");
+  });
+});
+
+describe("exemplos fixos de voz", () => {
+  it("lista só as marcadas, as mais antigas primeiro, até 6", async () => {
+    responderCom([["from public.fichas_roteiro", [linha({ id: "fx", exemplo_fixo: true })]]]);
+    const fixas = await listarExemplosFixos();
+    expect(fixas.map((x) => x.id)).toEqual(["fx"]);
+    const { sql, valores } = naTabela("fichas_roteiro")[0];
+    expect(sql).toContain("where f.exemplo_fixo");
+    expect(sql).toContain("order by f.criado_em");
+    expect(valores).toContain(6);
+  });
+
+  it("entram no prompt como exemplo de voz, antes das parecidas, sem repetir uma que já é modelo", () => {
+    const fixa = ficha({ id: "fx", produto: "Papete de brilho" });
+    const parecida = ficha({ id: "f1", produto: "Sérum Principia", similaridade: 0.9 });
+    const b = blocoDasFichas([parecida], GATILHOS, [fixa, { ...parecida }]);
+    expect(b).toContain("EXEMPLOS DE VOZ DA ANA");
+    expect(b.indexOf("Papete de brilho")).toBeLessThan(b.indexOf("ROTEIROS DA ESPECIALISTA PARA PRODUTOS PARECIDOS"));
+    expect(b.split("Produto: Sérum Principia").length - 1).toBe(1);
+    expect(b).toMatch(/as regras do método têm prioridade/i);
+  });
+
+  it("sem fixas, o bloco fica como antes", () => {
+    expect(blocoDasFichas([], GATILHOS, [])).not.toContain("EXEMPLOS DE VOZ");
   });
 });

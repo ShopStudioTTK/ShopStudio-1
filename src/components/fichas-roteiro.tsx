@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Pencil, Plus, Trash2, Wand2, X } from "lucide-react";
+import { Loader2, Pencil, Plus, RefreshCw, Trash2, Wand2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +15,7 @@ import { PARTES, type FichaCartao, type Gatilho, type Parte } from "@/lib/fichas
 
 type FichaAdmin = FichaCartao & { indexada: boolean };
 type ChaveParte = (typeof PARTES)[number]["chave"];
-type Rascunho = { id?: string; produto: string; tipo: string; formato: string; gatilho: string } & Record<ChaveParte, Parte>;
+type Rascunho = { id?: string; produto: string; tipo: string; formato: string; gatilho: string; exemploFixo: boolean } & Record<ChaveParte, Parte>;
 
 const MAX_PARTE = 500;
 const parteVazia = (): Parte => ({ texto: "", porque: "", entonacao: "" });
@@ -24,6 +24,7 @@ const novo = (): Rascunho => ({
   tipo: "",
   formato: FORMATOS[0].id,
   gatilho: "",
+  exemploFixo: false,
   gancho: parteVazia(),
   problema: parteVazia(),
   solucao: parteVazia(),
@@ -35,6 +36,7 @@ const deFicha = (f: FichaAdmin): Rascunho => ({
   tipo: f.tipo,
   formato: f.formato,
   gatilho: f.gatilho.slug,
+  exemploFixo: f.exemploFixo ?? false,
   ...Object.fromEntries(
     PARTES.map(({ chave }) => [chave, { texto: f[chave].texto, porque: f[chave].porque ?? "", entonacao: f[chave].entonacao ?? "" }]),
   ),
@@ -49,6 +51,7 @@ const deRascunho = (p: Pedido, res: ScriptResult): Rascunho =>
     tipo: (res.tipo ?? "").slice(0, 120),
     formato: p.formato,
     gatilho: res.gatilho ?? "",
+    exemploFixo: false,
     ...Object.fromEntries(
       PARTES.map(({ chave }) => [
         chave,
@@ -243,6 +246,21 @@ const Formulario = ({
           </fieldset>
         ))}
 
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-2xl border border-border bg-secondary/40 p-3 text-[13px]">
+          <input
+            type="checkbox"
+            checked={r.exemploFixo}
+            onChange={(e) => setR({ ...r, exemploFixo: e.target.checked })}
+            className="mt-0.5 h-4 w-4 accent-[hsl(var(--rose))]"
+          />
+          <span>
+            <b className="font-semibold">Exemplo fixo de voz</b>
+            <span className="block text-muted-foreground">
+              Entra em todo roteiro gerado como modelo do jeito da Ana falar (até 6 fichas), além das parecidas com o produto.
+            </span>
+          </span>
+        </label>
+
         <div className="flex gap-2">
           <Button type="submit" variant="pop" disabled={salvar.isPending || longo || !r.gatilho}>
             {salvar.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -259,7 +277,7 @@ const Formulario = ({
             <p className="eyebrow">Prévia</p>
             <p className="mt-1.5 font-display text-xl font-semibold tracking-tight">Como a aluna vê</p>
           </div>
-          <PreviaDoRoteiro titulo={r.produto} result={comEdicoes(previa, r)} />
+          <PreviaDoRoteiro titulo={r.produto} result={comEdicoes(previa, r)} formato={r.formato} />
         </section>
       )}
     </div>
@@ -372,6 +390,7 @@ const CartaoFicha = ({ f, onEditar }: { f: FichaAdmin; onEditar: () => void }) =
           </p>
         </div>
         <div className="flex items-center gap-1.5">
+          {f.exemploFixo && <span className="chip border-rose/40 text-rose">Exemplo fixo</span>}
           <span className="chip" data-ativo="true">
             {f.gatilho.rotulo}
           </span>
@@ -420,6 +439,16 @@ export const FichasRoteiro = () => {
     queryFn: () => api<{ fichas: FichaAdmin[] }>("/api/fichas"),
     retry: false,
   });
+  const queryClient = useQueryClient();
+  const reindexar = useMutation({
+    mutationFn: () => api<{ total: number; indexadas: number }>("/api/fichas/reindexar", { method: "POST" }),
+    onSuccess: ({ total, indexadas }) => {
+      void queryClient.invalidateQueries({ queryKey: ["fichas"] });
+      if (indexadas === total) toast.success(`${total} fichas reindexadas.`);
+      else toast.warning(`${indexadas} de ${total} fichas reindexadas. Tente de novo para as que faltaram.`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
   const gatilhos = useQuery({
     queryKey: ["gatilhos", user?.id],
     enabled: Boolean(user?.id),
@@ -461,6 +490,15 @@ export const FichasRoteiro = () => {
             </Button>
             <Button variant="outline" onClick={() => abrir(novo())}>
               <Pencil className="h-4 w-4" /> Escrever do zero
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={reindexar.isPending}
+              onClick={() => reindexar.mutate()}
+              title="Refaz a busca de produtos parecidos de todas as fichas (necessário uma vez depois da mudança para minúsculas)"
+            >
+              {reindexar.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Reindexar fichas
             </Button>
           </div>
         )

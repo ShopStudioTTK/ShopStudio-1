@@ -18,8 +18,14 @@ export const MAX_CARTAO = 3;
 // ponytail: sem paginação; paginar quando a expert passar de algumas centenas de fichas.
 const MAX_LISTA = 300;
 
-/** O embedding da ficha leva só o produto e o tipo, não o raciocínio. */
-export const textoDaFicha = (produto: string, tipo: string) => `${produto} — ${tipo}`;
+/**
+ * O embedding da ficha leva só o produto e o tipo, não o raciocínio, em minúsculas: o mesmo nome em
+ * CAIXA ALTA gera outro vetor e derruba a semelhança. Mudou em 2026-11-11: reindexar as antigas
+ * (POST /api/fichas/reindexar).
+ */
+export const textoDaFicha = (produto: string, tipo: string) => `${produto} — ${tipo}`.toLowerCase();
+/** Até quantas fichas marcadas como exemplo fixo entram em todo roteiro. */
+const MAX_FIXOS = 6;
 
 const opcional = (v: unknown) => (typeof v === "string" && v ? v : null);
 
@@ -42,6 +48,7 @@ export function linhaParaCartao(l: Record<string, unknown>): FichaCartao {
     solucao,
     cta,
     ...(l.similaridade != null && { similaridade: Number(l.similaridade) }),
+    ...(l.exemplo_fixo != null && { exemploFixo: Boolean(l.exemplo_fixo) }),
   };
 }
 
@@ -67,7 +74,7 @@ export async function buscarParecidas(produto: string): Promise<FichaCartao[]> {
     const [{ tem }] = await db()`
       select exists (select 1 from public.fichas_roteiro where embedding is not null) as tem`;
     if (!tem) return [];
-    const v = vetorSql(await gerarEmbedding(produto));
+    const v = vetorSql(await gerarEmbedding(produto.toLowerCase()));
     const linhas = await db()`
       select f.id, f.produto, f.tipo, f.formato, f.gancho_gatilho, g.rotulo as gatilho_rotulo,
         f.gancho, f.gancho_porque, f.gancho_entonacao, f.problema, f.problema_porque, f.problema_entonacao,
@@ -93,6 +100,19 @@ export async function listarFichas(): Promise<FichaCartao[]> {
     from public.fichas_roteiro f join public.gatilhos g on g.slug = f.gancho_gatilho
     order by f.criado_em desc
     limit ${MAX_LISTA}`;
+  return linhas.map(linhaParaCartao);
+}
+
+/** Fichas marcadas pela admin como exemplo fixo de voz: entram em todo roteiro (as mais antigas primeiro). */
+export async function listarExemplosFixos(): Promise<FichaCartao[]> {
+  const linhas = await db()`
+    select f.id, f.produto, f.tipo, f.formato, f.gancho_gatilho, g.rotulo as gatilho_rotulo,
+      f.gancho, f.gancho_porque, f.gancho_entonacao, f.problema, f.problema_porque, f.problema_entonacao,
+      f.solucao, f.solucao_porque, f.solucao_entonacao, f.cta, f.cta_porque, f.cta_entonacao
+    from public.fichas_roteiro f join public.gatilhos g on g.slug = f.gancho_gatilho
+    where f.exemplo_fixo
+    order by f.criado_em
+    limit ${MAX_FIXOS}`;
   return linhas.map(linhaParaCartao);
 }
 
@@ -123,13 +143,18 @@ const textoDoModelo = (f: FichaCartao) =>
 
 /**
  * Bloco que vai DEPOIS do dossiê no prompt do gerador (o prefixo cacheado não muda): a lista de
- * gatilhos (sempre) e as fichas ≥ LIMIAR_MODELO como modelo de raciocínio.
+ * gatilhos (sempre), os exemplos fixos de voz (iguais para todas, então seguem no cache) e as fichas
+ * ≥ LIMIAR_MODELO como modelo de raciocínio. Uma ficha que já é modelo não se repete nos fixos.
  */
-export function blocoDasFichas(fichas: FichaCartao[], gatilhos: Gatilho[]): string {
+export function blocoDasFichas(fichas: FichaCartao[], gatilhos: Gatilho[], fixas: FichaCartao[] = []): string {
   const lista = gatilhos.length
     ? `\n\nGATILHOS (use no campo "gatilho" exatamente um destes slugs): ${gatilhos.map((g) => g.slug).join(", ")}`
     : "";
   const modelos = fichas.filter((f) => (f.similaridade ?? 0) >= LIMIAR_MODELO);
-  if (!modelos.length) return lista;
-  return `${lista}\n\nROTEIROS DA ESPECIALISTA PARA PRODUTOS PARECIDOS — copie a intenção, não o texto. Use o mesmo gatilho e o mesmo raciocínio dela (o porquê de cada escolha, a entonação e a estrutura), aplicados ao produto da aluna. Não repita as frases dela: nenhuma abertura igual (se ela abriu com \"para tudo\", abra de outro jeito), nenhum trecho de 3 palavras seguidas igual, nenhuma expressão marcante dela. Escreva frases novas, com detalhes do produto da aluna. Não explique as escolhas no roteiro.\n\n${modelos.map(textoDoModelo).join("\n\n")}`;
+  const exemplos = fixas.filter((f) => !modelos.some((m) => m.id === f.id));
+  const voz = exemplos.length
+    ? `\n\nEXEMPLOS DE VOZ DA ANA (roteiros validados por ela, de outros produtos): use como modelo de tom, ritmo e escolha de palavras. Não copie: adapte a lógica para o produto pedido, sem repetir as frases dela. As regras do método têm prioridade sobre estes exemplos (preço, estoque e detalhes do produto só se a aluna informou).\n\n${exemplos.map(textoDoModelo).join("\n\n")}`
+    : "";
+  if (!modelos.length) return lista + voz;
+  return `${lista}${voz}\n\nROTEIROS DA ESPECIALISTA PARA PRODUTOS PARECIDOS — copie a intenção, não o texto. Use o mesmo gatilho e o mesmo raciocínio dela (o porquê de cada escolha, a entonação e a estrutura), aplicados ao produto da aluna. Não repita as frases dela: nenhuma abertura igual (se ela abriu com \"para tudo\", abra de outro jeito), nenhum trecho de 3 palavras seguidas igual, nenhuma expressão marcante dela. Escreva frases novas, com detalhes do produto da aluna. Não explique as escolhas no roteiro.\n\n${modelos.map(textoDoModelo).join("\n\n")}`;
 }
