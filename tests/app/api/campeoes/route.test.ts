@@ -62,8 +62,35 @@ describe("POST /api/campeoes (só admin)", () => {
 
   it("link que não é de vídeo do TikTok → 400", async () => {
     comoAdmin();
-    for (const url of ["https://vm.tiktok.com/ZMabc/", "https://youtube.com/shorts/abc", "http://www.tiktok.com/@a/video/1", "x", undefined])
+    for (const url of ["https://vt.tiktok.com/ZS/x/y", "https://youtube.com/shorts/abc", "http://www.tiktok.com/@a/video/1", "x", undefined])
       expect((await post({ nicho: "beleza", url })).status).toBe(400);
+    expect(naTabela("campeoes")).toHaveLength(0);
+  });
+
+  it("link curto do celular (vt/vm.tiktok.com) vira o link completo pelo redirecionamento", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 301, headers: { Location: `${VIDEO}?_r=1&_t=ZS-9B` } }));
+    vi.stubGlobal("fetch", fetchMock);
+    for (const url of ["https://vt.tiktok.com/ZSpmQHBdV/", "vt.tiktok.com/ZSpmQHBdV/"]) {
+      fetchMock.mockClear();
+      comoAdmin([["from public.nichos", [{}]], ["insert into public.campeoes", [{ id: ID, url: VIDEO, titulo: "" }]]]);
+      expect((await post({ nicho: "beleza", url })).status).toBe(201);
+      expect(fetchMock).toHaveBeenCalledWith("https://vt.tiktok.com/ZSpmQHBdV/", expect.objectContaining({ redirect: "manual" }));
+      expect(naTabela("campeoes").at(-1)?.valores).toEqual(["beleza", VIDEO, ""]);
+    }
+    vi.unstubAllGlobals();
+  });
+
+  it("link curto que não leva a um vídeo (ou o TikTok fora do ar) → 400, sem gravar", async () => {
+    comoAdmin();
+    for (const resposta of [
+      async () => new Response(null, { status: 301, headers: { Location: "https://www.tiktok.com/@a" } }),
+      async () => new Response("ok", { status: 200 }),
+      async () => { throw new Error("rede"); },
+    ]) {
+      vi.stubGlobal("fetch", vi.fn(resposta));
+      expect((await post({ nicho: "beleza", url: "https://vm.tiktok.com/ZMabc/" })).status).toBe(400);
+    }
+    vi.unstubAllGlobals();
     expect(naTabela("campeoes")).toHaveLength(0);
   });
 
