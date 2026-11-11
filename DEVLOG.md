@@ -4,6 +4,46 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-11: Campeões aceitam o link curto do celular
+
+**Pedido:** no celular, "copiar link" do TikTok dá `vt.tiktok.com/ZS…/`; no PC, `https://www.tiktok.com/@perfil/video/<id>?_r=1&_t=…`. Os dois precisam entrar.
+
+**O que mudou:**
+- `linkCurtoDoTiktok` (`src/lib/video.ts`) reconhece `vt.tiktok.com`/`vm.tiktok.com` com um código só no caminho. As duas funções aceitam o link sem `https://`.
+- `POST /api/campeoes` resolve o link curto com `fetch(…, { redirect: "manual" })` e lê só o `Location` (um 301 direto para o link completo), com 5 s de limite. Isso não é scraping, porque a página não é aberta. O destino passa de novo por `urlDoTiktok`, e o banco continua guardando só o formato completo. Se o destino não for um vídeo ou o TikTok não responder, a rota devolve 400. Só a admin chega nesse código (`admin()` vem antes), e o host é fixo, então não abre SSRF.
+- Na tela, a checagem aceita os dois formatos.
+
+**Verificado:** testes, lint e build. Com o link real, `vt.tiktok.com/ZSpmQHBdV/` e o link do PC dão o mesmo `https://www.tiktok.com/@kevelybr/video/7661082129920527636`.
+
+## 2026-11-11: Créditos semanais no lugar dos limites diários
+
+**Pedido:** 40 créditos por semana, sem acumular, renovando no domingo. Uma pergunta ou um roteiro custa 1, e os que exigem mais custam meio crédito a mais. Admin tem créditos ilimitados.
+
+**Decisões da dona:**
+- os limites diários (15 perguntas e 10 roteiros) saem, e ficam só os 40 créditos;
+- preço pelos tokens de saída, como proposto: pergunta 1 até 600, +0,5 a cada 600; roteiro 1 até 2.000, +0,5 a cada 1.000; teto de 2;
+- o saldo não aparece na tela; só o aviso quando restam 10 ou menos;
+- uma tabela nova para os créditos.
+
+**Por que tokens de saída:** o material (~80 mil tokens no assistente, ~12 mil no roteiro) é igual para todas e fica em cache. O que varia é o que a IA escreve e pensa. Cobrar pelo custo em US$ puniria a aluna por um cache vazio, que não depende dela. Amostra do banco local: pergunta com ~280 tokens típicos (90% abaixo de ~480, máximo de 721); roteiro com ~1.500 (90% abaixo de ~2.000, máximo de 2.410). Quase tudo custa 1.
+
+**Como ficou:**
+- Tabela `creditos_semana` (`user_id`, `semana` = o domingo, `gastos`). Cada semana é uma linha nova, então o reset é sozinho, sem cron. O banco recusa uma `semana` que não seja domingo.
+- `reservarChamada` reserva 1 crédito numa consulta só (`insert … on conflict do update … where gastos + 1 <= 40`). Isso resolve a ressalva antiga das duas abas, que podiam passar 1 do limite. No fim, `cobrarCreditos` soma o que passou de 1, com teto de 40. A reserva guarda a semana, então uma chamada que cruza a meia-noite de domingo acerta a semana em que começou.
+- Falha da IA = `liberarChamada`, que devolve o crédito antes de apagar a linha. **Mudança:** o roteiro cortado ou sem JSON antes contava no limite; agora devolve o crédito (o custo continua em `ai_perguntas`), porque a aluna não recebeu nada.
+- O assistente agora confere `ehAdmin`, como o roteiro: a admin não grava nada em `creditos_semana`.
+- `GET /api/creditos` (com `autenticar()`) devolve `{ restantes }`, ou `{ ilimitado: true }` para a admin. Ele substitui o `GET /api/assistente`, que contava as perguntas do dia. O cabeçalho `X-Perguntas-Restantes` saiu.
+- Tela: `useCreditos`. Assistente e gerador mostram o aviso com 10 ou menos e travam abaixo de 1.
+- Perguntas e roteiros de antes da mudança não contam: a semana em que isso entrar começa com 40.
+
+**Verificado:**
+- Testes, lint e build.
+- SQL no Postgres local, com rollback: com 39,5 gastos, a reserva não volta linha; a semana nova começa em 1; o teto segura em 40; uma quarta-feira como `semana` é recusada; `authenticated` sem permissão.
+- No build em `localhost:3005`, com a OpenRouter de verdade (conta de teste apagada no fim): 40 → 39 depois de uma pergunta → 38 depois de um roteiro (1.416 tokens). Com 39,5 gastos, `restantes: 0.5`, e a pergunta deu 429 sem gastar. Como admin, `ilimitado: true`, e a pergunta não mexeu no saldo.
+- **Não conferido no navegador:** o aviso e o travamento nas duas telas.
+
+**Limite conhecido:** se a aluna fecha a aba no meio do stream, o fim não roda e fica só o 1 crédito reservado (o custo também não é registrado, como antes).
+
 ## 2026-11-10: Fichas no prompt: copiar a intenção, não a frase
 
 **Pedido:** depois do teste do rascunho, a dona pediu que a IA copie a intenção da ficha, e não o texto.
