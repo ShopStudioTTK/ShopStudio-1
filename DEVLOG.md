@@ -4,6 +4,38 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-11: Roteiro não salvo pergunta antes de sair; apagar pede confirmação
+
+**Pedido:** na tela de roteiros, ao sair com um roteiro gerado, um pop-up pergunta se ela quer salvar antes; ao apagar um roteiro, outro pergunta se é isso mesmo. E limpar os estados ao sair de cada página.
+
+**Limpar estados:** não foi feito, de propósito. No React 18/19, a página desmonta ao navegar e o estado vai junto (o aviso de "update em componente desmontado" saiu no React 18). O Next só preserva páginas escondidas (`<Activity>`) com `cacheComponents`, que está desligado desde a migração. O que precisa de cleanup são recursos externos (listeners, timers, a inscrição do login), e todos já tinham. O stream do assistente continua até o fim se a aluna sai no meio, de propósito: cortar faria o servidor não registrar o custo.
+
+**Decisões da dona:** o pop-up de saída só aparece com um roteiro gerado e não salvo, e oferece salvar antes. **Decisões minhas:** depois de salvar não pergunta; enquanto o roteiro está sendo escrito também não; "Outra versão" continua sem perguntar; abrir outro roteiro da biblioteca pergunta (o não salvo sairia da tela); o mural fica como está.
+
+**Como ficou:**
+- `useGuardaDeSaida(ativa)`: enquanto ativa, liga a guarda de `src/lib/saida.ts` e escuta três coisas:
+  - **cliques em links:** em captura no `document`, só com `preventDefault`. O `onClick` do `Link` ainda roda (o menu do celular fecha) e ele não navega porque vê o `defaultPrevented`;
+  - **voltar:** uma entrada extra no histórico com a mesma URL. O voltar cai nela, a tela continua e pergunta. Na saída, `history.go(-2)`. O `pushState` passa pelo do Next 16, que copia o estado interno dele, então o Next não recarrega a página;
+  - **`beforeunload`:** recarregar ou fechar a aba.
+- Saindo por link, o destino entra com `router.replace` no lugar da entrada extra. Se ela salva e fica, a entrada extra sai (`history.back()`), senão o voltar "não faria nada" uma vez. Um contador segura o StrictMode do dev, que monta duas vezes.
+- "Salvar e sair" espera o salvamento. Se ele falhar, o erro aparece e o pop-up continua aberto.
+- `Confirmacao`: Radix Dialog (já instalado), que prende o foco e fecha com Esc. No celular os botões ficam empilhados, com o principal embaixo.
+- Teste da lógica em `tests/lib/saida.test.ts` (qual clique é saída e a guarda).
+
+**Verificado no navegador** (Chrome headless pelo Playwright, build em `localhost:3005`, conta de teste apagada no fim; a resposta da `/api/roteiro` veio de um roteiro real gravado antes, para não chamar a IA a cada cenário). 26 cenários, todos certos e sem erro no console:
+- sem roteiro, o menu sai direto;
+- com roteiro: menu, Esc e "Continuar aqui" (fica, com o roteiro), "Sair sem salvar" (vai, e o voltar volta ao gerador vazio);
+- botão voltar: pergunta sem sair, pergunta de novo e sai para a página anterior;
+- aba "Ganchos" com "Salvar e sair": salva e troca de aba;
+- depois de salvar, um voltar só já sai;
+- recarregar mostra o aviso do navegador;
+- abrir outro roteiro da biblioteca pergunta, e o aberto de lá sai sem perguntar;
+- apagar: "Cancelar" mantém e "Apagar" tira;
+- "Sair da conta" pergunta;
+- a 375 px, a barra de baixo e o menu lateral perguntam, e o menu fecha.
+
+**Visto e deixado:** com o pop-up aberto, o Radix trava a rolagem do `body`, e o menu lateral `sticky` aparece deslocado atrás do fundo escurecido (a mesma armadilha do `overflow: hidden` do CLAUDE.md). Só acontece com o pop-up aberto, coberto pelo desfoque.
+
 ## 2026-11-10: Fichas no prompt: copiar a intenção, não a frase
 
 **Pedido:** depois do teste do rascunho, a dona pediu que a IA copie a intenção da ficha, e não o texto.
