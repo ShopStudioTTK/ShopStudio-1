@@ -4,6 +4,90 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-11: Ordem fixa das abas dos Campeões
+
+**Pedido:** a ordem das abas é fixa: Moda fitness, Moda feminina, Beleza e autocuidado, Casa e cozinha e Suplementos. As outras abas que a admin criar vêm depois. "Beleza" passa a se chamar "Beleza e autocuidado", e a dona pediu que eu lembrasse que isso precisa mudar no banco de produção.
+
+**Como ficou:**
+- `GET /api/nichos` ordena por `array_position(ORDEM, slug) nulls last, criado_em`. `ORDEM` fica em código, pelo slug: `moda-fitness`, `moda-feminina`, `beleza`, `casa-e-cozinha`, `suplementos`. Uma aba fora da lista vai para o fim, na ordem de criação.
+- Migration `20261111030000_nicho_beleza_autocuidado`: muda só o rótulo de `beleza`. O slug fica, porque é a chave dos vídeos e da ordem.
+- "Suplementos" não foi criada pela migration: a admin cria pela "Nova aba", que gera o slug `suplementos`, já na ordem.
+
+**Verificado:** testes, lint e build. No navegador (build em `localhost:3005`; abas e conta de teste apagadas no fim), com "Suplementos" e uma "Pet (teste)" criadas por SQL, a ordem foi: Moda fitness, Moda feminina, Beleza e autocuidado, Casa e cozinha, Suplementos, Maternidade e Pet (teste).
+
+**Produção:** rodar o `supabase db push` (ou o `update` do CLAUDE.md), criar "Suplementos" e conferir se os slugs de produção batem com `ORDEM`.
+
+## 2026-11-11: Limiares das fichas mais altos, o porquê de cada ficha e a página Roteiros expert
+
+**Pedido:**
+- O cartão "produtos parecidos" mostrava fichas de produtos que não eram o mesmo, e só 1 apareceu.
+- A dona propôs 0,85. Com os números de 2026-11-10 (o mesmo produto ≈ 0,73–0,75), isso esconderia até a ficha do mesmo produto, então ela escolheu **0,70** para o cartão e **0,80** para o prompt.
+- "Só 1" não era defeito: o cartão mostra **até** 3 fichas acima do limiar.
+- Ela também pediu:
+  - mostrar em cada ficha o quanto e no que ela parece com o roteiro;
+  - uma página com todos os roteiros das experts, com o porquê escondido até a aluna pedir;
+  - o nome **Roteiros expert**.
+
+**Como ficou:**
+- `LIMIAR_CARTAO = 0,7` e `LIMIAR_MODELO = 0,8` (`src/lib/fichas.ts`). Agora o prompt é mais exigente que o cartão: só o produto quase igual molda o roteiro.
+- `porQueAparece` (`src/lib/fichas-tipos.ts`, com teste) dá as etiquetas de cada ficha, só do que bate: "Produto 75% parecido", "Mesmo formato · Unboxing", "Mesmo gatilho · Fofoca". As etiquetas substituíram o "% parecido" do cartão.
+  - O cartão 2 ("desse jeito") não calcula a semelhança do produto: as fichas acima de 0,70 já entram no cartão 1, então a etiqueta de produto nunca apareceria ali.
+- Os cartões ganharam "Abrir na página" (por ficha) e "Ver todos os roteiros expert", em outra aba, para o roteiro gerado não se perder.
+- Página `/app/roteiros-expert`, no menu (Criar):
+  - as fichas como roteiro pronto (gancho, problema, solução, CTA), com produto, formato, gatilho e tipo;
+  - "Ver o porquê" abre o porquê e a entonação de cada parte;
+  - busca pelo produto e filtro por formato;
+  - `?ficha=<id>` rola até a ficha, que vem destacada e aberta.
+- `GET /api/roteiros-expert` com `autenticar()` e `listarFichas()`, sem embedding nem `criado_por`. A rota de admin `/api/fichas` continua igual.
+- **Achado no teste:** o menu acendia "Ganchos e roteiros" também em `/app/roteiros-expert`, porque a regra era "o caminho começa com". Agora é "igual, ou começa com o caminho + `/`".
+
+**Depois de a dona avaliar com 50 fichas de teste:**
+- O subtítulo dos cartões ficou maior. O do cartão "desse jeito" diz que nem sempre é o mesmo produto: as fichas aparecem pela intenção do vídeo, o mesmo formato e o mesmo gatilho.
+- As etiquetas vêm depois de "Por que aparece:".
+- O nome da ficha também leva à página, com ela aberta.
+- A página mostra até 5 roteiros por linha a partir de 1400 px (4 a 1280 px, 1 no celular).
+
+Depois, também a pedido da dona:
+- A página voltou para no máximo 4 por linha, porque com 5 ficava apertado.
+- **Menu lateral redimensionável:** uma alça na borda direita estreita o menu de 272 px (a largura de antes, o máximo) até 76 px.
+  - Abaixo de 180 px ficam só os ícones, com o nome no `title` e para o leitor de tela. A marca vira "shop / studio" empilhada, e a conta vira o avatar com o botão de sair embaixo.
+  - Entre 180 e 272 px, os nomes ficam numa linha, cortados com reticências.
+  - A alça tem `role="separator"`: as setas do teclado mudam 16 px e o duplo clique volta ao máximo.
+  - A largura fica no `localStorage` (conveniência, como o modo "Tô começando / Já vendo").
+  - A alça não ocupa espaço (margem negativa dos dois lados) e não aparece no celular.
+  - No navegador: começa em 272; arrastar além não passa disso; 210 mantém os nomes; o mínimo é 76, só com os ícones; recarregar mantém a largura; duas setas para a direita somam 32; o duplo clique volta a 272; a 375 px não há menu lateral, alça nem rolagem lateral; console sem erro.
+
+**Grade escolhida pela aluna** (pedido da dona): "Por linha", de 1 a 4, ao lado da busca, guardado no navegador e escondido no celular, onde é sempre 1.
+- Com mais de 3 na linha, o cartão mostra só o gancho e "Ver o roteiro" abre o roteiro inteiro num pop-up (Radix Dialog), com "Ver o porquê" lá dentro. Com até 3, fica como antes.
+- A regra olha o que cabe de verdade: escolher 4 numa tela abaixo de 1280 px mostra 3, então fica sem pop-up (`abreEmPopup`, com o `matchMedia` do mesmo `xl`).
+- O `?ficha=` do gerador abre o pop-up daquela ficha, com o porquê, quando a grade está em 4; senão, rola até a ficha.
+- No navegador:
+  - o padrão é 4 com pop-up, e "Ver o porquê" funciona dentro dele; Esc fecha;
+  - 3, 2 e 1 mostram o roteiro inteiro no cartão;
+  - recarregar mantém a escolha, e 4 a 1100 px vira 3 sem pop-up;
+  - o link da air fryer abre o pop-up dela com 4 e rola até ela com 2;
+  - celular sem o seletor e sem rolagem lateral; console sem erro.
+
+**Até 6 por linha** (pedido da dona): a escolha vai de 1 a 6. `colunasNaTela` diz quantos cartões cabem de verdade, pelos mesmos sm/lg/xl das classes: celular 1; a partir de 640 px, até 2; a partir de 1024 px, até 3 (4 com a escolha 6); a partir de 1280 px, a escolha. O pop-up vale quando passam de 3. No modo resumido, o cartão tem menos espaço interno e um título menor.
+- No navegador, a 1440 px: de 1 a 6 por linha, com o roteiro inteiro até 3 e o pop-up de 4 a 6.
+- A escolha 6 a 1100 px dá 4 com pop-up; a 5 a 1100 px dá 3 sem pop-up; a 800 px, 2.
+- O link com 6 abre o pop-up da ficha, e recarregar mantém a escolha.
+- Celular: 1 por linha; console sem erro.
+- No fim, as 50 fichas, as contas e os 22 roteiros de teste foram apagados.
+
+Medido com as 50 fichas: "garrafa térmica", "escova alisadora" e "air fryer 4 litros" trazem 2 fichas no cartão. **Nomes curtos ficam abaixo de 0,70 mesmo havendo ficha do mesmo produto:** "air fryer" (a ficha é "Air fryer 4 litros"), "legging de academia", "copo térmico", "protetor solar", "chapinha", "potes de vidro". Com o nome um pouco mais completo eles aparecem ("copo térmico com tampa" = 0,81). Se a dona quiser pegar os curtos, o caminho é baixar o cartão para perto de 0,65.
+
+**Verificado:**
+- Testes, lint e build.
+- No navegador, com o build em `localhost:3005` e a OpenRouter de verdade (admin, aluna e as 5 fichas de teste apagadas no fim):
+  - fichas: duas garrafas térmicas, um copo térmico, um sérum e um organizador;
+  - "garrafa térmica" em Unboxing trouxe Stanley a 0,751 e a de inox a 0,711 no cartão; o copo térmico ficou abaixo de 0,70;
+  - etiquetas da Stanley: "Produto 75% parecido" e "Mesmo formato · Unboxing";
+  - "Abrir na página" abriu outra aba com a Stanley destacada e com o porquê;
+  - a página lista as 5, e "Ver o porquê" abre as 4 partes;
+  - o filtro Unboxing deixou 3 e a busca "garrafa" deixou 2;
+  - a 375 px, sem rolagem lateral; console sem erro.
+
 ## 2026-11-10: Fichas no prompt: copiar a intenção, não a frase
 
 **Pedido:** depois do teste do rascunho, a dona pediu que a IA copie a intenção da ficha, e não o texto.

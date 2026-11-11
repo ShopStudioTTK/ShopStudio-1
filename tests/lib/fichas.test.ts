@@ -85,12 +85,12 @@ describe("listarGatilhos", () => {
 });
 
 describe("buscarParecidas", () => {
-  it("só ≥ 0,45, embedding do produto da aluna", async () => {
+  it("só ≥ 0,70 (o mesmo produto, não a mesma categoria), embedding do produto da aluna", async () => {
     responderCom([["as tem", [{ tem: true }]], [
       "from public.fichas_roteiro",
-      [0.8, 0.47, 0.44].map((s, i) => linha({ id: `f${i}`, similaridade: s })),
+      [0.9, 0.7, 0.69].map((s, i) => linha({ id: `f${i}`, similaridade: s })),
     ]]);
-    expect((await buscarParecidas("sérum")).map((f) => f.similaridade)).toEqual([0.8, 0.47]);
+    expect((await buscarParecidas("sérum")).map((f) => f.similaridade)).toEqual([0.9, 0.7]);
     expect(gerarEmbedding).toHaveBeenCalledWith("sérum");
     expect(naTabela("fichas_roteiro")[0].sql).toMatch(/embedding is not null/);
   });
@@ -131,9 +131,9 @@ describe("buscarDoMesmoJeito", () => {
 });
 
 describe("blocoDasFichas", () => {
-  it("lista os slugs dos gatilhos, só fichas ≥ 0,55, e manda não explicar", () => {
+  it("lista os slugs dos gatilhos, só fichas ≥ 0,80, e manda não explicar", () => {
     const b = blocoDasFichas(
-      [ficha({ similaridade: 0.56 }), ficha({ id: "f2", produto: "Garrafa", similaridade: 0.54 })],
+      [ficha({ similaridade: 0.8 }), ficha({ id: "f2", produto: "Garrafa", similaridade: 0.79 })],
       GATILHOS,
     );
     expect(b).toContain("prova-social");
@@ -148,8 +148,8 @@ describe("blocoDasFichas", () => {
     expect(b).toMatch(/não repita as frases/i);
   });
 
-  it("sem fichas ≥ 0,55, só a lista de gatilhos", () => {
-    const b = blocoDasFichas([ficha({ similaridade: 0.5 })], GATILHOS);
+  it("sem fichas ≥ 0,80, só a lista de gatilhos (mesmo as que aparecem no cartão, ≥ 0,70)", () => {
+    const b = blocoDasFichas([ficha({ similaridade: 0.75 })], GATILHOS);
     expect(b).toContain("fofoca");
     expect(b).not.toContain("Sérum");
   });

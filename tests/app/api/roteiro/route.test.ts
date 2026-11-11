@@ -247,8 +247,8 @@ describe("POST /api/roteiro", () => {
       });
     });
 
-    it("as fichas ≥ 0,7 e a lista de gatilhos vão no prompt de sistema, depois do dossiê", async () => {
-      buscarParecidas.mockResolvedValue([ficha({ similaridade: 0.8 })]);
+    it("as fichas ≥ 0,80 e a lista de gatilhos vão no prompt de sistema, depois do dossiê", async () => {
+      buscarParecidas.mockResolvedValue([ficha({ similaridade: 0.85 })]);
       await POST(req());
       const system = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).messages[0].content as string;
       expect(system).toContain("PORQUE-DA-ANA");

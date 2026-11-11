@@ -38,13 +38,15 @@ describe("slugDe", () => {
 });
 
 describe("GET /api/nichos", () => {
-  it("devolve as abas em ordem de criação", async () => {
-    const nichos = [{ slug: "beleza", rotulo: "Beleza" }];
+  it("ordem fixa: moda fitness, moda feminina, beleza, casa e cozinha, suplementos; depois as outras, por criação", async () => {
+    const nichos = [{ slug: "beleza", rotulo: "Beleza e autocuidado" }];
     responderCom([["from public.entitlements", [{}]], ["from public.nichos", nichos]]);
     const res = await GET(new Request("http://x/api/nichos", { headers: comToken }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ nichos });
-    expect(naTabela("nichos")[0].sql).toContain("order by criado_em");
+    const { sql, valores } = naTabela("nichos")[0];
+    expect(sql).toContain("order by array_position(?::text[], slug) nulls last, criado_em");
+    expect(valores[0]).toEqual(["moda-fitness", "moda-feminina", "beleza", "casa-e-cozinha", "suplementos"]);
   });
 });
 
