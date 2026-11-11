@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { FORMATOS } from "@/content/formatos";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
-import { abreEmPopup, colunasDaGrade, PARTES, type FichaCartao } from "@/lib/fichas-tipos";
+import { abreEmPopup, colunasDaGrade, PARTES, type Colunas, type FichaCartao } from "@/lib/fichas-tipos";
 import { cn } from "@/lib/utils";
 
 /** No celular é sempre 1 por linha; a escolha da aluna vale a partir de sm. */
@@ -18,20 +18,19 @@ const GRADES = {
   2: "sm:grid-cols-2",
   3: "sm:grid-cols-2 lg:grid-cols-3",
   4: "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+  5: "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5",
+  6: "sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6",
 } as const;
 const CHAVE_COLUNAS = "shopstudio:roteiros-expert-colunas";
-/** O mesmo `xl` da grade: só a partir dele cabem 4 por linha. */
-const TELA_LARGA = "(min-width: 1280px)";
-
-const useTelaLarga = () =>
+/** Largura da tela, para saber quantos cabem de verdade na linha (`colunasNaTela`). */
+const useLarguraDaTela = () =>
   useSyncExternalStore(
     (avisar) => {
-      const m = matchMedia(TELA_LARGA);
-      m.addEventListener("change", avisar);
-      return () => m.removeEventListener("change", avisar);
+      addEventListener("resize", avisar);
+      return () => removeEventListener("resize", avisar);
     },
-    () => matchMedia(TELA_LARGA).matches,
-    () => true,
+    () => innerWidth,
+    () => 1440,
   );
 
 const Etiquetas = ({ ficha }: { ficha: FichaCartao }) => (
@@ -98,11 +97,11 @@ const RoteirosExpert = () => {
       return colunasDaGrade(null);
     }
   });
-  const emPopup = abreEmPopup(colunas, useTelaLarga());
+  const emPopup = abreEmPopup(colunas, useLarguraDaTela());
   // Ficha aberta no pop-up; vindo do link do gerador (?ficha=), já abre nela.
   const [abertaId, setAbertaId] = useState<string | null>(destaque);
 
-  const escolherColunas = (n: 1 | 2 | 3 | 4) => {
+  const escolherColunas = (n: Colunas) => {
     setColunas(n);
     try {
       localStorage.setItem(CHAVE_COLUNAS, String(n));
@@ -159,7 +158,7 @@ const RoteirosExpert = () => {
           {/* no celular é sempre 1 por linha */}
           <div className="hidden items-center gap-2 sm:flex" role="group" aria-label="Roteiros por linha">
             <span className="text-[12px] font-medium text-muted-foreground">Por linha</span>
-            {([1, 2, 3, 4] as const).map((n) => (
+            {([1, 2, 3, 4, 5, 6] as const).map((n) => (
               <button
                 key={n}
                 type="button"
@@ -202,14 +201,15 @@ const RoteirosExpert = () => {
               key={f.id}
               id={`ficha-${f.id}`}
               className={cn(
-                "scroll-mt-24 rounded-[22px] border bg-card p-5 shadow-soft",
+                "scroll-mt-24 rounded-[22px] border bg-card shadow-soft",
+                emPopup ? "p-4" : "p-5",
                 f.id === destaque ? "border-rose ring-2 ring-rose/30" : "border-border",
               )}
             >
-              <p className="font-display text-[17px] font-semibold leading-snug">{f.produto}</p>
+              <p className={cn("font-display font-semibold leading-snug", emPopup ? "text-[15px]" : "text-[17px]")}>{f.produto}</p>
               <Etiquetas ficha={f} />
               {emPopup ? (
-                // mais de 3 por linha: só o gancho, e o roteiro inteiro abre no pop-up
+                // mais de 3 na linha: só o gancho, e o roteiro inteiro abre no pop-up
                 <>
                   <p className="mt-4 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Gancho</p>
                   <p className="mt-0.5 line-clamp-3 text-[13.5px] leading-relaxed text-foreground/85">{f.gancho.texto}</p>
