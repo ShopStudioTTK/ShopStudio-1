@@ -11,8 +11,8 @@ import { api } from "@/lib/api-cliente";
 import { PARTES, type FichaCartao } from "@/lib/fichas-tipos";
 import { cn } from "@/lib/utils";
 
-/** 1 por linha no celular, até 5 em tela larga (a partir de 1400 px). */
-const GRADE = "grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 min-[1400px]:grid-cols-5";
+/** 1 por linha no celular, até 4 em tela larga (com 5 ficava apertado). */
+const GRADE = "grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
 /** Um roteiro da expert: as quatro partes; "Ver o porquê" abre o porquê e a entonação de cada uma. */
 const Roteiro = ({ ficha, destacada }: { ficha: FichaCartao; destacada: boolean }) => {
@@ -21,11 +21,11 @@ const Roteiro = ({ ficha, destacada }: { ficha: FichaCartao; destacada: boolean 
     <article
       id={`ficha-${ficha.id}`}
       className={cn(
-        "scroll-mt-24 rounded-[22px] border bg-card p-4 shadow-soft",
+        "scroll-mt-24 rounded-[22px] border bg-card p-5 shadow-soft",
         destacada ? "border-rose ring-2 ring-rose/30" : "border-border",
       )}
     >
-      <p className="font-display text-[16px] font-semibold leading-snug">{ficha.produto}</p>
+      <p className="font-display text-[17px] font-semibold leading-snug">{ficha.produto}</p>
       <p className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-semibold">
         <span className="rounded-full bg-rose-soft px-2.5 py-0.5 text-rose">{ficha.formato}</span>
         <span className="rounded-full bg-secondary px-2.5 py-0.5 text-foreground/70">Gatilho: {ficha.gatilho.rotulo}</span>
@@ -38,7 +38,7 @@ const Roteiro = ({ ficha, destacada }: { ficha: FichaCartao; destacada: boolean 
           return (
             <div key={chave}>
               <dt className="text-[10.5px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{rotulo}</dt>
-              <dd className="mt-0.5 text-[13px] leading-relaxed text-foreground/85">{parte.texto}</dd>
+              <dd className="mt-0.5 text-[13.5px] leading-relaxed text-foreground/85">{parte.texto}</dd>
               {aberto && (parte.porque || parte.entonacao) ? (
                 <dd className="mt-1.5 space-y-1 rounded-xl bg-secondary/60 px-2.5 py-2 text-[12px] leading-relaxed text-foreground/75">
                   {parte.porque ? (
@@ -130,7 +130,7 @@ const RoteirosExpert = () => {
 
       {fichasQuery.isLoading ? (
         <div className={GRADE}>
-          {[0, 1, 2, 3, 4].map((i) => (
+          {[0, 1, 2, 3].map((i) => (
             <div key={i} className="h-72 animate-pulse rounded-[22px] border border-border bg-secondary/40" />
           ))}
         </div>

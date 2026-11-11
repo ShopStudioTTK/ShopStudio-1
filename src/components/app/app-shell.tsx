@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -26,6 +26,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useChapterProgress } from "@/hooks/use-progress";
 import { chapters } from "@/content/chapters";
 import type { ReactNode } from "react";
+import { larguraDoMenu, MENU_MAX, MENU_MIN, menuCompacto } from "@/lib/navegacao";
 import { nomeDoPerfil } from "@/lib/nome";
 import { cn } from "@/lib/utils";
 
@@ -58,16 +59,23 @@ const Grupo = ({
   itens,
   onNavigate,
   extra,
+  compacto = false,
 }: {
   titulo: string;
   itens: NavItem[];
   onNavigate?: () => void;
   extra?: Record<string, ReactNode>;
+  /** Menu estreito: só os ícones, com o nome no title e para leitor de tela. */
+  compacto?: boolean;
 }) => {
   const pathname = usePathname();
   return (
     <div>
-      <p className="px-3 text-[10.5px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/80">{titulo}</p>
+      {compacto ? (
+        <div className="mx-auto h-px w-8 bg-border" aria-hidden="true" />
+      ) : (
+        <p className="px-3 text-[10.5px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/80">{titulo}</p>
+      )}
       <nav className="mt-2 space-y-0.5">
         {itens.map((item) => {
           const Icon = item.icon;
@@ -78,8 +86,10 @@ const Grupo = ({
               href={item.to}
               onClick={onNavigate}
               aria-current={isActive ? "page" : undefined}
+              title={compacto ? item.label : undefined}
               className={cn(
-                "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-[14px] font-medium transition-all",
+                "group flex min-w-0 items-center gap-3 whitespace-nowrap rounded-2xl py-2.5 text-[14px] font-medium transition-all",
+                compacto ? "justify-center px-0" : "px-3",
                 isActive
                   ? "bg-rose-soft text-foreground"
                   : "text-foreground/60 hover:bg-secondary hover:text-foreground",
@@ -87,14 +97,14 @@ const Grupo = ({
             >
               <span
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-xl transition-colors",
+                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-xl transition-colors",
                   isActive ? "bg-gradient-pop text-primary-foreground shadow-glow" : "bg-secondary text-foreground/60 group-hover:text-rose",
                 )}
               >
                 <Icon className="h-3.5 w-3.5" />
               </span>
-              <span className="flex-1">{item.label}</span>
-              {extra?.[item.to]}
+              <span className={compacto ? "sr-only" : "min-w-0 flex-1 truncate"}>{item.label}</span>
+              {!compacto && extra?.[item.to]}
             </Link>
           );
         })}
@@ -155,12 +165,37 @@ const BarraInferior = () => {
   );
 };
 
+const CHAVE_LARGURA = "shopstudio:menu-largura";
+
 const AppShell = ({ children }: { children: ReactNode }) => {
   const { user, signOut } = useAuth();
   const { completed } = useChapterProgress();
   const { isAdmin } = useAccess();
   const router = useRouter();
   const [menuAberto, setMenuAberto] = useState(false);
+  // Largura do menu lateral: conveniência de cada aluna, guardada só no navegador dela.
+  // A guarda só monta o AppShell no navegador (depois da sessão), então dá para ler o localStorage aqui.
+  const [largura, setLargura] = useState(() => {
+    try {
+      return larguraDoMenu(localStorage.getItem(CHAVE_LARGURA));
+    } catch {
+      return MENU_MAX;
+    }
+  });
+  const asideRef = useRef<HTMLElement>(null);
+  const compacto = menuCompacto(largura);
+  const guardarLargura = (valor: number) => {
+    try {
+      localStorage.setItem(CHAVE_LARGURA, String(valor));
+    } catch {
+      // modo privado ou armazenamento bloqueado: vale só nesta visita
+    }
+  };
+  const mudarLargura = (valor: number) => {
+    const nova = larguraDoMenu(valor);
+    setLargura(nova);
+    guardarLargura(nova);
+  };
   const fecharMenu = () => setMenuAberto(false);
   const nome = nomeDoPerfil(user?.user_metadata);
 
@@ -170,40 +205,51 @@ const AppShell = ({ children }: { children: ReactNode }) => {
   };
 
   const progressoTrilha = (
-    <span className="rounded-full bg-secondary px-2 py-0.5 text-[10.5px] font-semibold text-foreground/60">
+    <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10.5px] font-semibold text-foreground/60">
       {completed.size}/{chapters.length}
     </span>
   );
 
-  const navegacao = (onNavigate?: () => void) => (
+  // `compacto` só vale no menu lateral do computador; o do celular abre sempre inteiro.
+  const navegacao = (onNavigate?: () => void, compacto = false) => (
     <div className="space-y-6">
-      <Button asChild variant="pop" className="w-full">
-        <Link href="/app/roteiros?aba=gerador" onClick={onNavigate}>
+      <Button asChild variant="pop" className={compacto ? "h-10 w-full px-0" : "w-full"}>
+        <Link href="/app/roteiros?aba=gerador" onClick={onNavigate} title={compacto ? "Novo roteiro" : undefined}>
           <Wand2 className="h-4 w-4" />
-          Novo roteiro
+          <span className={compacto ? "sr-only" : "truncate"}>Novo roteiro</span>
         </Link>
       </Button>
-      <Grupo titulo="Criar" itens={criar} onNavigate={onNavigate} />
+      <Grupo titulo="Criar" itens={criar} onNavigate={onNavigate} compacto={compacto} />
       <Grupo
         titulo="Aprender"
         itens={aprender}
         onNavigate={onNavigate}
         extra={{ "/app/capitulos": progressoTrilha }}
+        compacto={compacto}
       />
-      {isAdmin && <Grupo titulo="Admin" itens={administracao} onNavigate={onNavigate} />}
+      {isAdmin && <Grupo titulo="Admin" itens={administracao} onNavigate={onNavigate} compacto={compacto} />}
     </div>
   );
 
-  const account = (
-    <div className="flex items-center gap-3 rounded-2xl border border-border bg-card/80 p-2.5">
+  const account = (compacto = false) => (
+    <div
+      className={cn(
+        "flex items-center rounded-2xl border border-border bg-card/80 p-2.5",
+        compacto ? "flex-col gap-1.5 px-1" : "gap-3",
+      )}
+    >
       <Link href="/app/conta" onClick={fecharMenu} title="Minha conta" className="flex min-w-0 flex-1 items-center gap-3">
         <span className="bg-gradient-pop flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold text-primary-foreground">
           {(nome ?? user?.email ?? "s").slice(0, 1).toUpperCase()}
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[12.5px] font-medium text-foreground/85">{nome ?? user?.email}</p>
-          <p className="text-[11px] text-muted-foreground">Minha conta ✦</p>
-        </div>
+        {compacto ? (
+          <span className="sr-only">Minha conta</span>
+        ) : (
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12.5px] font-medium text-foreground/85">{nome ?? user?.email}</p>
+            <p className="truncate text-[11px] text-muted-foreground">Minha conta ✦</p>
+          </div>
+        )}
       </Link>
       <button
         type="button"
@@ -217,17 +263,61 @@ const AppShell = ({ children }: { children: ReactNode }) => {
     </div>
   );
 
+  // Alça na borda direita do menu: arrasta para estreitar (até só os ícones); a largura original é o máximo.
+  const arrastar = (e: React.PointerEvent<HTMLDivElement>) => {
+    const esquerda = asideRef.current?.getBoundingClientRect().left ?? 0;
+    const alca = e.currentTarget;
+    alca.setPointerCapture(e.pointerId);
+    const mover = (ev: PointerEvent) => setLargura(larguraDoMenu(ev.clientX - esquerda));
+    const soltar = (ev: PointerEvent) => {
+      alca.removeEventListener("pointermove", mover);
+      alca.removeEventListener("pointerup", soltar);
+      guardarLargura(larguraDoMenu(ev.clientX - esquerda));
+    };
+    alca.addEventListener("pointermove", mover);
+    alca.addEventListener("pointerup", soltar);
+  };
+
   return (
     <div className="flex min-h-dvh w-full max-w-full overflow-x-clip">
-      <aside className="glass sticky top-0 hidden h-screen w-[272px] shrink-0 flex-col justify-between overflow-y-auto border-r border-border px-4 py-6 lg:flex">
+      <aside
+        ref={asideRef}
+        style={{ width: largura }}
+        className={cn(
+          "glass sticky top-0 hidden h-screen shrink-0 flex-col justify-between overflow-y-auto border-r border-border py-6 lg:flex",
+          compacto ? "px-2" : "px-4",
+        )}
+      >
         <div>
-          <Link href="/app" className="block px-3">
-            <Wordmark className="text-[26px]" />
+          <Link href="/app" className={cn("block", compacto ? "text-center" : "px-3")} aria-label="Shop Studio, início">
+            <Wordmark className={compacto ? "text-[17px]" : "text-[26px]"} stacked={compacto} />
           </Link>
-          <div className="mt-7">{navegacao()}</div>
+          <div className="mt-7">{navegacao(undefined, compacto)}</div>
         </div>
-        <div className="mt-6">{account}</div>
+        <div className="mt-6">{account(compacto)}</div>
       </aside>
+      {/* Fica fora do aside (que rola): presa na borda dele, na altura da tela. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Largura do menu"
+        aria-valuemin={MENU_MIN}
+        aria-valuemax={MENU_MAX}
+        aria-valuenow={largura}
+        tabIndex={0}
+        title="Arraste para ajustar o menu (duplo clique volta ao tamanho cheio)"
+        onPointerDown={arrastar}
+        onDoubleClick={() => mudarLargura(MENU_MAX)}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") mudarLargura(largura - 16);
+          else if (e.key === "ArrowRight") mudarLargura(largura + 16);
+          else return;
+          e.preventDefault();
+        }}
+        className="group sticky top-0 z-20 -mx-1.5 hidden h-screen w-3 shrink-0 cursor-col-resize touch-none lg:block"
+      >
+        <span className="mx-auto block h-full w-px bg-transparent transition-colors group-hover:bg-rose/50 group-focus-visible:bg-rose" />
+      </div>
 
       <div className="flex min-h-screen w-full min-w-0 flex-1 flex-col">
         <header className="glass sticky top-0 z-30 flex items-center justify-between border-b border-border px-5 py-3 lg:hidden">
@@ -246,7 +336,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
                 <Wordmark className="px-3 text-[24px]" />
                 <div className="mt-7">{navegacao(fecharMenu)}</div>
               </div>
-              <div className="mt-6">{account}</div>
+              <div className="mt-6">{account()}</div>
             </SheetContent>
           </Sheet>
         </header>
