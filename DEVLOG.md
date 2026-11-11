@@ -4,6 +4,25 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-11: Créditos, pop-ups do roteiro e mural juntos na main (local)
+
+**Pedido:** juntar tudo na `main` local antes de subir para produção.
+
+**Como foi:**
+- Merge de `feat/creditos-semanais` e depois de `feat/mural-tiktok` (que já trazia `feat/roteiro-confirmacoes`) sobre a `main` com o PR #10.
+- Conflitos só nos documentos e em `script-generator.tsx`. O gerador ficou com as três coisas: créditos (aviso e trava), cartões das fichas (com formato e gatilho) e a guarda de saída. Em `podeGerar` entrou também o `!creditos.esgotado`.
+- As 4 migrations novas (`20261111000000` a `030000`) estão na pasta, e o banco local não tem nenhuma pendente. Os tipos gerados batem com o arquivo.
+
+**Verificado:** 608 testes, lint e build. No navegador (build em `localhost:3005`, OpenRouter de verdade; contas, fichas e dados de teste apagados no fim):
+- o roteiro de "garrafa térmica" trouxe o cartão com "Por que aparece" e gastou 1 crédito;
+- o menu com o roteiro não salvo abriu o pop-up, e "Salvar e sair" salvou e foi para o mural;
+- com 31 gastos, o gerador avisou "Restam 9 créditos";
+- o TikTok salvo em Minha conta virou o link do nome no mural;
+- Roteiros expert mostrou as fichas e o seletor de grade;
+- o menu estreitou até os ícones;
+- as abas dos Campeões vieram na ordem fixa;
+- a 375 px, sem rolagem lateral; console sem erro.
+
 ## 2026-11-11: Ordem fixa das abas dos Campeões
 
 **Pedido:** a ordem das abas é fixa: Moda fitness, Moda feminina, Beleza e autocuidado, Casa e cozinha e Suplementos. As outras abas que a admin criar vêm depois. "Beleza" passa a se chamar "Beleza e autocuidado", e a dona pediu que eu lembrasse que isso precisa mudar no banco de produção.
