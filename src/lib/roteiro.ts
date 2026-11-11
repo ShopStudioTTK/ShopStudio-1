@@ -22,13 +22,14 @@ export type ScriptResult = {
 };
 
 export const METHOD = `Método do guia Shop Studio (capítulo 10):
-- Gancho (2 a 5 segundos): faz a pessoa parar de rolar. Ângulos: curiosidade (informação incompleta de propósito), problema (dor que a pessoa reconhece), transformação (antes e depois), choque (quebra o padrão do feed, e o vídeo precisa sustentar) e prova social (só com sinal que dá para conferir). Pode vir com uma entrega visual (abrindo a caixa, produto perto da câmera, já em uso) ou texto na tela em caixa alta. Nunca comece com "oi gente, vim mostrar" nem com frase genérica como "você precisa conhecer isso".
+- Gancho (2 a 5 segundos): faz a pessoa parar de rolar. Ângulos: curiosidade (informação incompleta de propósito), problema (dor que a pessoa reconhece), transformação (antes e depois), choque (quebra o padrão do feed, e o vídeo precisa sustentar) e prova social (só com sinal que dá para conferir). Pode vir com uma entrega visual (abrindo a caixa, produto perto da câmera, já em uso) ou texto na tela em caixa alta. Nunca comece com "oi gente, vim mostrar" nem com frase genérica como "você precisa conhecer isso". No máximo 1 dos 5 ganchos cita o público pelo nome ("loira", "mãe"); os outros falam da situação, da cena ou do resultado. Prova social só com sinal que dá para conferir; sem ele, use a experiência de uso dela, sem inventar tempo de uso, número ou resultado que ela não contou.
 - Problema: uma dor real que gera identificação, dita como quem conversa com uma amiga.
-- Solução: a transformação que o produto entrega, nunca medidas, gramas ou embalagem. O meio paga o que o gancho prometeu: prometeu preço, mostra o preço; prometeu transformação, mostra no corpo ou no espaço. Tem pelo menos uma prova concreta, uma situação de uso e um motivo para comprar, nunca uma lista de atributos.
-- CTA: direciona para o link da sacolinha. Escassez só no condicional ("se ainda tiver nesse preço, aproveita"); nunca "vai acabar", "vai subir" ou "últimas unidades".
+- Solução: a transformação que o produto entrega, nunca medidas, gramas ou embalagem. O meio paga o que o gancho prometeu: prometeu preço, mostra o preço; prometeu transformação, mostra no corpo ou no espaço. Tem pelo menos uma prova que aparece no vídeo (o produto em uso, na frente da câmera), uma situação de uso e um motivo para comprar, nunca uma lista de atributos.
+- CTA: direciona para o link da sacolinha, com "confere o preço no carrinho". Escassez só no condicional e só se a aluna informou promoção ou estoque; sem isso, nada de "nesse preço", "enquanto tiver" ou "olha as cores". Nunca "vai acabar", "vai subir" ou "últimas unidades".
 - Duração: 30 a 50 segundos, no máximo 1 minuto.
 - Tom: conselho de amiga, no jeito de uma criadora comum (não da mentora), com frases que cabem numa respiração, palavras inteiras, sem parecer anúncio.
-- Verdade antes de criatividade: Nunca invente preço, desconto, estoque, comissão, depoimento, número de avaliações, celebridade usando, recomendação de médico ou dermatologista, nem efeito de saúde, emagrecimento ou pele. Para preço, use "confere o preço no carrinho".
+- Verdade antes de criatividade: Nunca invente preço, desconto, estoque, comissão, depoimento, número de avaliações, celebridade usando, recomendação de médico ou dermatologista, nem efeito de saúde, emagrecimento ou pele. Para preço, use "confere o preço no carrinho". Só cite característica que esteja no que a aluna preencheu (produto, público e benefício): nada de cor, tamanho, variação, kit, material, preço, promoção, frete ou estoque que ela não informou. Na dúvida, mostre o produto em vez de descrever.
+- Resultado como experiência: o efeito do produto vem na primeira pessoa, no que ela sentiu ou viu ("no meu cabelo soltou fácil", "senti que desliza"), nunca como garantia para quem assiste ("o nó solta sem puxar", "seu cabelo vai ficar alinhado"). Nunca use "garantido", "100%", "nunca mais", "acaba com", "elimina", "de vez", "definitivo" nem "zero" + problema.
 - Regras da plataforma: sem palavrão, sem promessa (nem a palavra "promete"), sem resultado milagroso. Marca concorrente nunca aparece, nem pelo nome ("você sabe de qual loja é essa, né?"). Nada de insulto ("burra", "baranga") nos ganchos.
 - Formatos possíveis: conselho de amiga, tela verde, unboxing, storytelling (só com história real de quem vai gravar), respondendo comentários (mesmo assim começa com gancho), música viral (produto no corpo com uma música liberada para uso comercial e texto na tela).`;
 
@@ -38,12 +39,12 @@ ${METHOD}
 
 Responda APENAS com um objeto JSON válido, sem markdown, sem comentários, com exatamente estas chaves:
 {
-  "ganchos": ["5 ganchos diferentes, cada um com no máximo 16 palavras"],
+  "ganchos": ["5 ganchos, um de cada ângulo do método, nesta ordem: curiosidade, problema, transformação, choque, prova social; cada um com no máximo 16 palavras e começando de um jeito diferente"],
   "problemas": ["5 dores curtas e específicas"],
   "solucoes": ["5 transformações concretas"],
   "ctas": ["5 chamadas para ação diferentes"],
   "roteiro": {
-    "gancho": "1 frase de abertura escolhida entre os ganchos",
+    "gancho": "1 frase de abertura escolhida entre os 5 ganchos (a que melhor combina com o produto e o formato)",
     "problema": "1 parágrafo curto de 1 a 2 frases",
     "solucao": "1 parágrafo curto de 1 a 2 frases",
     "cta": "1 frase final"
