@@ -38,7 +38,7 @@ export const CartaoDaExpert = ({
           <span className="flex items-center gap-2 font-display text-lg font-semibold leading-tight">
             <Sparkles className="h-4 w-4 shrink-0" /> {titulo}
           </span>
-          <span className="mt-1 block text-[13px] text-cream/70">{subtitulo}</span>
+          <span className="mt-1.5 block max-w-2xl text-[14.5px] leading-relaxed text-cream/85">{subtitulo}</span>
         </span>
         <ChevronDown className="mt-1 h-5 w-5 shrink-0 text-cream/80 transition-transform group-open:rotate-180" aria-hidden="true" />
       </summary>
@@ -46,7 +46,14 @@ export const CartaoDaExpert = ({
 
         <div className="mt-4 rounded-2xl bg-white/10 p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="font-display text-[16px] font-semibold">{aberta.produto}</p>
+            {/* o nome também leva à página, com esta ficha aberta */}
+            <Link
+              href={`/app/roteiros-expert?ficha=${aberta.id}`}
+              target="_blank"
+              className="font-display text-[16px] font-semibold underline-offset-4 hover:underline"
+            >
+              {aberta.produto}
+            </Link>
             <Link
               href={`/app/roteiros-expert?ficha=${aberta.id}`}
               target="_blank"
@@ -56,7 +63,8 @@ export const CartaoDaExpert = ({
             </Link>
           </div>
           {/* o que esta ficha tem em comum com o roteiro dela */}
-          <p className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-bold">
+          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-bold">
+            <span className="text-[11.5px] font-semibold text-cream/70">Por que aparece:</span>
             {porQueAparece(aberta, formato, gatilho).map((motivo) => (
               <span key={motivo} className="rounded-full bg-cream px-2 py-0.5 text-foreground">
                 {motivo}

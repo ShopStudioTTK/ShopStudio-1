@@ -407,14 +407,14 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
 
           <CartaoDaExpert
             titulo="A Ana já fez roteiro de produtos parecidos"
-            subtitulo="Veja como ela pensou."
+            subtitulo="Roteiros dela para o mesmo produto ou um bem parecido. Veja como ela pensou."
             fichas={result.fichas?.parecidas ?? []}
             formato={formato}
             gatilho={result.gatilho ?? ""}
           />
           <CartaoDaExpert
             titulo="A Ana já fez alguns roteiros desse jeito"
-            subtitulo="Mesmo formato e mesmo gatilho. Ela estruturou assim."
+            subtitulo="Nem sempre é o mesmo produto: estes aparecem pela intenção do vídeo, porque usam o mesmo formato e o mesmo gatilho do seu roteiro. Veja como ela estruturou."
             fichas={result.fichas?.mesmoJeito ?? []}
             formato={formato}
             gatilho={result.gatilho ?? ""}
