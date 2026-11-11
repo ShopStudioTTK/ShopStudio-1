@@ -4,6 +4,53 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-11: Gerador de roteiros na voz da Ana, regras por formato, preço opcional e exemplos fixos
+
+**Pedido:** um segundo feedback trouxe um prompt inteiro "na voz da Ana" e três ajustes de código.
+
+**O que a dona decidiu:**
+- **Aplicar:** as regras por formato, a duração por formato na tela, a lista de frases proibidas, a cena entre colchetes e as fichas em minúsculas no embedding.
+- **A voz da Ana como o texto manda:** muda a decisão de 2026-11-06, de roteiro na voz da aluna.
+- **Preço:** campo opcional; só com ele o roteiro fala de valor.
+- **Fofoca com prova social:** só nas opções de gancho.
+- **Fichas:** a admin marca algumas como exemplo fixo de voz.
+- **Ficou de fora:** CTA sempre com urgência ("vai esgotar", "escolhe sua cor"); "não repetir CTA entre roteiros" (cada geração é independente); autoconferência no prompt; os 4 exemplos com preço inventado; trocar o prompt inteiro.
+
+**Como ficou:**
+- `METHOD` reescrito em três blocos:
+  - COMO A ANA FALA: vocativos (pelo menos 2), expressões, CAIXA ALTA (2 a 4), palavras esticadas (1 ou 2), português falado, frases proibidas e colchetes de cena;
+  - ESTRUTURA, com os tipos de gancho;
+  - FORMATOS, com Unboxing antes de abrir, Tela verde apontando, Storytelling em arco e Música viral sem fala, "Texto na tela: …" e 7 a 15 s.
+- As regras de verdade e de resultado como experiência ficaram. A ancoragem de preço só compara com o preço que a aluna informou.
+- **JSON:** os 5 ganchos são de tipos diferentes (fofoca, provocação, indignação com preço ou curiosidade, problema, reação de unboxing ou transformação), e o gancho do roteiro nunca é o de fofoca. Os CTAs não citam cor, tamanho, estoque nem preço não informado.
+- `preco` (até 40 caracteres) no pedido; `buildUserPrompt` diz "não informado: não cite nenhum valor" quando falta.
+- `duracaoDoFormato` (`src/content/formatos.ts`): "7 a 15s · sem fala" na Música viral e "30 a 60s" nos outros, com o tempo de cada parte no cartão do roteiro.
+- **Fichas:**
+  - `textoDaFicha` e a busca da aluna em minúsculas;
+  - `POST /api/fichas/reindexar`, só admin, 4 embeddings por vez, com o botão "Reindexar fichas";
+  - coluna `exemplo_fixo` (migration `20261112000000`), marcada no formulário;
+  - `listarExemplosFixos` (até 6) entra no `blocoDasFichas` como "EXEMPLOS DE VOZ DA ANA", depois dos gatilhos e antes das parecidas, sem repetir uma que já é modelo.
+
+**Medido** com a OpenRouter de verdade, em 4 casos (escova/Conselho de amiga, babydoll com R$ 59,90/Storytelling, conjunto fitness/Unboxing, pijama de cetim/Música viral), 2 roteiros de cada:
+
+| | Antes | Depois |
+|---|---|---|
+| Vocativos no roteiro | 0 a 2 | 1 a 4 (quase sempre 2 ou mais) |
+| Palavras em CAIXA ALTA | 0 | 0 a 3 |
+| Palavras esticadas | 0 | 0 a 1 |
+| Cena entre colchetes | 0 | 1 a 2 nos formatos falados |
+| Música viral sem fala ("Texto na tela") | não | sim |
+| Preço com o campo preenchido | (sem campo) | aparece só o valor informado |
+| Preço sem o campo | 0 | 0 |
+| Fofoca entre os 5 ganchos / no gancho principal | 0 / 0 | 1 / 0 |
+| Detalhe inventado no 5×5 | 0 | 1 ("cores disponíveis" num CTA alternativo); 0 depois do reforço na descrição dos CTAs |
+
+Exemplos: "Gente… abri a caixa e já tô EM CHOQUE com esse conjunto." (Unboxing, antes de abrir) e "Texto na tela: Antes: camisetão velho. Depois: cetim ✨" (Música viral).
+
+**No navegador:** o campo de preço foi no pedido; a Música viral mostrou "7 a 15s · sem fala" e "Gancho · 0–2s"; a ficha "PAPETE DE BRILHO" marcada mostrou a etiqueta "Exemplo fixo"; "Reindexar fichas" deu "1 fichas reindexadas" (vetor refeito em minúsculas); o formulário tem a caixa "Exemplo fixo de voz"; console sem erro. Conta, ficha e roteiros de teste apagados.
+
+**Produção:** a migration `20261112000000_fichas_exemplo_fixo` vai **antes** do deploy (sem a coluna, a lista de fichas da admin quebra). Depois, a admin aperta "Reindexar fichas" uma vez e marca os exemplos fixos.
+
 ## 2026-11-11: Gerador de roteiros: ganchos variados, sem inventar detalhe e sem garantir resultado
 
 **Pedido:** feedback de quem testou, num roteiro de "escova de cabelo", para "loira com cabelo embolado", com o benefício "parar de quebrar os fios":
