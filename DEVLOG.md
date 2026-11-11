@@ -28,6 +28,14 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 - `GET /api/roteiros-expert` com `autenticar()` e `listarFichas()`, sem embedding nem `criado_por`. A rota de admin `/api/fichas` continua igual.
 - **Achado no teste:** o menu acendia "Ganchos e roteiros" também em `/app/roteiros-expert`, porque a regra era "o caminho começa com". Agora é "igual, ou começa com o caminho + `/`".
 
+**Depois de a dona avaliar com 50 fichas de teste:**
+- O subtítulo dos cartões ficou maior. O do cartão "desse jeito" diz que nem sempre é o mesmo produto: as fichas aparecem pela intenção do vídeo, o mesmo formato e o mesmo gatilho.
+- As etiquetas vêm depois de "Por que aparece:".
+- O nome da ficha também leva à página, com ela aberta.
+- A página mostra até 5 roteiros por linha a partir de 1400 px (4 a 1280 px, 1 no celular).
+
+Medido com as 50 fichas: "garrafa térmica", "escova alisadora" e "air fryer 4 litros" trazem 2 fichas no cartão. **Nomes curtos ficam abaixo de 0,70 mesmo havendo ficha do mesmo produto:** "air fryer" (a ficha é "Air fryer 4 litros"), "legging de academia", "copo térmico", "protetor solar", "chapinha", "potes de vidro". Com o nome um pouco mais completo eles aparecem ("copo térmico com tampa" = 0,81). Se a dona quiser pegar os curtos, o caminho é baixar o cartão para perto de 0,65.
+
 **Verificado:**
 - Testes, lint e build.
 - No navegador, com o build em `localhost:3005` e a OpenRouter de verdade (admin, aluna e as 5 fichas de teste apagadas no fim):
