@@ -4,6 +4,41 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-11: Limiares das fichas mais altos, o porquê de cada ficha e a página Roteiros expert
+
+**Pedido:**
+- O cartão "produtos parecidos" mostrava fichas de produtos que não eram o mesmo, e só 1 apareceu.
+- A dona propôs 0,85. Com os números de 2026-11-10 (o mesmo produto ≈ 0,73–0,75), isso esconderia até a ficha do mesmo produto, então ela escolheu **0,70** para o cartão e **0,80** para o prompt.
+- "Só 1" não era defeito: o cartão mostra **até** 3 fichas acima do limiar.
+- Ela também pediu:
+  - mostrar em cada ficha o quanto e no que ela parece com o roteiro;
+  - uma página com todos os roteiros das experts, com o porquê escondido até a aluna pedir;
+  - o nome **Roteiros expert**.
+
+**Como ficou:**
+- `LIMIAR_CARTAO = 0,7` e `LIMIAR_MODELO = 0,8` (`src/lib/fichas.ts`). Agora o prompt é mais exigente que o cartão: só o produto quase igual molda o roteiro.
+- `porQueAparece` (`src/lib/fichas-tipos.ts`, com teste) dá as etiquetas de cada ficha, só do que bate: "Produto 75% parecido", "Mesmo formato · Unboxing", "Mesmo gatilho · Fofoca". As etiquetas substituíram o "% parecido" do cartão.
+  - O cartão 2 ("desse jeito") não calcula a semelhança do produto: as fichas acima de 0,70 já entram no cartão 1, então a etiqueta de produto nunca apareceria ali.
+- Os cartões ganharam "Abrir na página" (por ficha) e "Ver todos os roteiros expert", em outra aba, para o roteiro gerado não se perder.
+- Página `/app/roteiros-expert`, no menu (Criar):
+  - as fichas como roteiro pronto (gancho, problema, solução, CTA), com produto, formato, gatilho e tipo;
+  - "Ver o porquê" abre o porquê e a entonação de cada parte;
+  - busca pelo produto e filtro por formato;
+  - `?ficha=<id>` rola até a ficha, que vem destacada e aberta.
+- `GET /api/roteiros-expert` com `autenticar()` e `listarFichas()`, sem embedding nem `criado_por`. A rota de admin `/api/fichas` continua igual.
+- **Achado no teste:** o menu acendia "Ganchos e roteiros" também em `/app/roteiros-expert`, porque a regra era "o caminho começa com". Agora é "igual, ou começa com o caminho + `/`".
+
+**Verificado:**
+- Testes, lint e build.
+- No navegador, com o build em `localhost:3005` e a OpenRouter de verdade (admin, aluna e as 5 fichas de teste apagadas no fim):
+  - fichas: duas garrafas térmicas, um copo térmico, um sérum e um organizador;
+  - "garrafa térmica" em Unboxing trouxe Stanley a 0,751 e a de inox a 0,711 no cartão; o copo térmico ficou abaixo de 0,70;
+  - etiquetas da Stanley: "Produto 75% parecido" e "Mesmo formato · Unboxing";
+  - "Abrir na página" abriu outra aba com a Stanley destacada e com o porquê;
+  - a página lista as 5, e "Ver o porquê" abre as 4 partes;
+  - o filtro Unboxing deixou 3 e a busca "garrafa" deixou 2;
+  - a 375 px, sem rolagem lateral; console sem erro.
+
 ## 2026-11-10: Fichas no prompt: copiar a intenção, não a frase
 
 **Pedido:** depois do teste do rascunho, a dona pediu que a IA copie a intenção da ficha, e não o texto.
