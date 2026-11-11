@@ -4,6 +4,19 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-11: Ordem fixa das abas dos Campeões
+
+**Pedido:** a ordem das abas é fixa: Moda fitness, Moda feminina, Beleza e autocuidado, Casa e cozinha e Suplementos. As outras abas que a admin criar vêm depois. "Beleza" passa a se chamar "Beleza e autocuidado", e a dona pediu que eu lembrasse que isso precisa mudar no banco de produção.
+
+**Como ficou:**
+- `GET /api/nichos` ordena por `array_position(ORDEM, slug) nulls last, criado_em`. `ORDEM` fica em código, pelo slug: `moda-fitness`, `moda-feminina`, `beleza`, `casa-e-cozinha`, `suplementos`. Uma aba fora da lista vai para o fim, na ordem de criação.
+- Migration `20261111030000_nicho_beleza_autocuidado`: muda só o rótulo de `beleza`. O slug fica, porque é a chave dos vídeos e da ordem.
+- "Suplementos" não foi criada pela migration: a admin cria pela "Nova aba", que gera o slug `suplementos`, já na ordem.
+
+**Verificado:** testes, lint e build. No navegador (build em `localhost:3005`; abas e conta de teste apagadas no fim), com "Suplementos" e uma "Pet (teste)" criadas por SQL, a ordem foi: Moda fitness, Moda feminina, Beleza e autocuidado, Casa e cozinha, Suplementos, Maternidade e Pet (teste).
+
+**Produção:** rodar o `supabase db push` (ou o `update` do CLAUDE.md), criar "Suplementos" e conferir se os slugs de produção batem com `ORDEM`.
+
 ## 2026-11-11: Limiares das fichas mais altos, o porquê de cada ficha e a página Roteiros expert
 
 **Pedido:**
