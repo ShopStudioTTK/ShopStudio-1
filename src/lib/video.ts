@@ -103,3 +103,17 @@ export const linkCurtoDoTiktok = (url: string): string | null => {
   if (!u || u.protocol !== "https:" || !["vt.tiktok.com", "vm.tiktok.com"].includes(u.hostname)) return null;
   return /^\/[A-Za-z0-9]+\/?$/.test(u.pathname) ? `https://${u.hostname}${u.pathname}` : null;
 };
+
+/** Link completo do vídeo; o link curto do celular é resolvido lendo o redirecionamento (só o `Location`, sem abrir a página). Só no servidor. */
+export async function resolverUrlDoTiktok(url: string): Promise<string | null> {
+  const completo = urlDoTiktok(url);
+  if (completo) return completo;
+  const curto = linkCurtoDoTiktok(url);
+  if (!curto) return null;
+  try {
+    const res = await fetch(curto, { redirect: "manual", signal: AbortSignal.timeout(5000) });
+    return urlDoTiktok(res.headers.get("location") ?? "");
+  } catch {
+    return null;
+  }
+}

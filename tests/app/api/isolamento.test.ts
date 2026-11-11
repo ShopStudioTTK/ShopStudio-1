@@ -98,10 +98,11 @@ describe("cada conta só vê e mexe no que é dela", () => {
     ]);
   });
 
-  it("resultados: publica em nome de quem está logada; apaga só o próprio; só https", async () => {
-    await resultados.POST(req("/api/resultados", "POST", { aluna: "Ana", user_id: OUTRA }));
+  it("resultados: publica em nome de quem está logada; apaga só o próprio; só vídeo do TikTok", async () => {
+    await resultados.POST(req("/api/resultados", "POST", { texto: "Vendi", user_id: OUTRA }));
     expect(naTabela("success_cases")[0].valores[0]).toBe("u1");
-    expect((await resultados.POST(req("/api/resultados", "POST", { aluna: "Ana", midiaUrl: "javascript:alert(1)" }))).status).toBe(400);
+    expect(naTabela("success_cases")[0].valores).not.toContain(OUTRA);
+    expect((await resultados.POST(req("/api/resultados", "POST", { texto: "Vendi", midiaUrl: "javascript:alert(1)" }))).status).toBe(400);
     await resultados.DELETE(req(`/api/resultados?id=${ID}`, "DELETE"));
     expect(naTabela("success_cases")[1].valores).toEqual([ID, "u1"]);
   });
