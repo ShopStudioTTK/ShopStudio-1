@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  BadgeCheck,
   BookOpen,
   Clapperboard,
   GraduationCap,
@@ -34,6 +35,7 @@ type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
 const criar: NavItem[] = [
   { to: "/app", label: "Studio", icon: Home, end: true },
   { to: "/app/roteiros", label: "Ganchos e roteiros", icon: Wand2 },
+  { to: "/app/roteiros-expert", label: "Roteiros expert", icon: BadgeCheck },
   { to: "/app/campeoes", label: "Vídeos campeões", icon: Clapperboard },
   { to: "/app/assistente", label: "Pergunte pra IA", icon: Sparkles },
 ];
@@ -48,7 +50,8 @@ const aprender: NavItem[] = [
 const administracao: NavItem[] = [{ to: "/app/treinamento", label: "Treinamento da IA", icon: GraduationCap }];
 
 const ativo = (pathname: string, item: NavItem) =>
-  item.end ? pathname === item.to : pathname.startsWith(item.to);
+  // com a barra: /app/roteiros não pode acender em /app/roteiros-expert
+  item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`);
 
 const Grupo = ({
   titulo,

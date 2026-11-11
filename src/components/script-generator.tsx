@@ -409,11 +409,15 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
             titulo="A Ana já fez roteiro de produtos parecidos"
             subtitulo="Veja como ela pensou."
             fichas={result.fichas?.parecidas ?? []}
+            formato={formato}
+            gatilho={result.gatilho ?? ""}
           />
           <CartaoDaExpert
             titulo="A Ana já fez alguns roteiros desse jeito"
             subtitulo="Mesmo formato e mesmo gatilho. Ela estruturou assim."
             fichas={result.fichas?.mesmoJeito ?? []}
+            formato={formato}
+            gatilho={result.gatilho ?? ""}
           />
 
           <div className="glass sticky bottom-24 z-20 flex flex-wrap items-center gap-2 rounded-[22px] border border-border p-2.5 shadow-editorial lg:bottom-4">

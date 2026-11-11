@@ -26,3 +26,11 @@ export const PARTES = [
   { chave: "solucao", rotulo: "Solução" },
   { chave: "cta", rotulo: "CTA" },
 ] as const;
+
+/** Por que a ficha aparece embaixo do roteiro da aluna: só o que bate (produto, formato, gatilho). */
+export const porQueAparece = (f: FichaCartao, formato: string, gatilho: string): string[] =>
+  [
+    f.similaridade != null && `Produto ${Math.round(f.similaridade * 100)}% parecido`,
+    f.formato === formato && `Mesmo formato · ${f.formato}`,
+    gatilho && f.gatilho.slug === gatilho && `Mesmo gatilho · ${f.gatilho.rotulo}`,
+  ].filter((m): m is string => Boolean(m));
