@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { PERGUNTAS_HOJE_KEY } from "@/hooks/use-perguntas-hoje";
+import { CREDITOS_KEY } from "@/hooks/use-creditos";
 import { lerEventos } from "@/lib/sse";
 
 export type ChatMessage = {
@@ -98,7 +98,7 @@ export const useAiChat = (capitulo?: string) => {
       } finally {
         finishLast();
         setIsLoading(false);
-        void queryClient.invalidateQueries({ queryKey: [PERGUNTAS_HOJE_KEY] });
+        void queryClient.invalidateQueries({ queryKey: [CREDITOS_KEY] });
       }
     },
     [capitulo, isLoading, messages, session?.access_token, queryClient],

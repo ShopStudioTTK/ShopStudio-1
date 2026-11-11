@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { CartaoDaExpert } from "@/components/fichas-da-expert";
 import { FORMATOS, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
+import { CREDITOS_KEY, useCreditos } from "@/hooks/use-creditos";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
 import { cn } from "@/lib/utils";
@@ -236,6 +237,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
   const jaGerou = useRef(false);
 
   const savedQuery = useRoteirosSalvos();
+  const creditos = useCreditos();
 
   const generate = useMutation({
     mutationFn: async () => {
@@ -257,6 +259,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
       requestAnimationFrame(() => resultadoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     },
     onError: (error: Error) => toast.error(error.message),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: [CREDITOS_KEY] }),
   });
 
   useEffect(() => {
@@ -289,7 +292,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
     },
   });
 
-  const podeGerar = produto.trim().length >= 2 && !generate.isPending;
+  const podeGerar = produto.trim().length >= 2 && !generate.isPending && !creditos.esgotado;
 
   return (
     <div className="space-y-8">
@@ -386,6 +389,11 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
             {generate.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             {generate.isPending ? "Escrevendo seu roteiro…" : "Criar meu roteiro"}
           </Button>
+          {creditos.aviso ? (
+            <p className="mt-3 text-[12px] text-rose" role="status">
+              {creditos.aviso}
+            </p>
+          ) : null}
         </form>
       </section>
 
@@ -432,7 +440,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
               {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
               Salvar
             </Button>
-            <Button variant="ghost" onClick={() => generate.mutate()} disabled={generate.isPending}>
+            <Button variant="ghost" onClick={() => generate.mutate()} disabled={generate.isPending || creditos.esgotado}>
               {generate.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
               Outra versão
             </Button>

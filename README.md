@@ -105,7 +105,8 @@ src/
       treinamento/            treinamento da IA (só admin): fila de perguntas e fichas de roteiro
       conta/                  minha conta: nome, e-mail e senha
     api/
-      assistente/route.ts     chat com streaming, limite diário, registro de custo
+      assistente/route.ts     chat com streaming, créditos, registro de custo
+      creditos/route.ts       quantos créditos restam na semana (para o aviso na tela)
       roteiro/route.ts        gerador de roteiros (JSON)
       treinamento/route.ts    fila de treinamento da IA (só admin, admin() em api-auth.ts)
       fichas/route.ts         fichas de roteiro da expert (só admin)
@@ -127,7 +128,7 @@ src/
     contas.ts                 criarConta: usuário + senha temporária + acesso (só servidor)
     email.ts                  e-mail de acesso (link, e-mail e senha temporária) pela Resend
     roteiro.ts                prompt do gerador de roteiros
-    limite.ts                 limite diário (15) e aviso (a partir de 12)
+    limite.ts                 créditos semanais (40), preço por tokens e aviso (10 ou menos)
     uso.ts  sse.ts            leitura do stream e do custo da OpenRouter
     conhecimento/             material da IA: transcricao.md, dossie.md (só servidor)
     supabase/admin.ts         cliente service role (só servidor)
@@ -151,7 +152,29 @@ docs/superpowers/             design e plano da migração do Enter
 - Cada pergunta envia ao modelo as regras, o **resumo dos 12 capítulos**, a **transcrição das aulas** e o **dossiê da especialista** (~78 mil tokens). Junto vão a persona e a base de conhecimento do banco (`ai_config`, `ai_knowledge`) e as últimas 12 mensagens da conversa.
 - A IA usa primeiro o material e cita a aula e o minuto ("Aula 7, 3:12"). Quando o material não cobre o assunto, ela responde mesmo assim com o que se sabe em geral e diz que aquela parte não está nas aulas. Não abre com "o material não cobre", não atribui à Ana o que não é dela e não dá número, prazo ou regra inventados como certos. A resposta chega aos poucos (SSE).
 - **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. Nesse caso, a persona do `ai_config` não vai, para as duas não brigarem. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
-- **Limite de 15 perguntas por dia** por aluna, contadas a partir da meia-noite de Brasília. O aviso "Você ainda pode fazer N perguntas hoje" aparece a partir da 12ª. Pergunta que a IA não conseguiu responder não conta.
+- **Créditos:** cada pergunta gasta créditos da semana (ver [Créditos semanais](#créditos-semanais)).
+
+### Créditos semanais
+
+Cada aluna tem **40 créditos por semana**, para o assistente e o gerador juntos. Não há mais limite por dia. A semana começa **no domingo à 0h de Brasília**, e o que sobrou não acumula. Admin não gasta créditos.
+
+- **Preço**, pelos tokens de saída (o que a IA escreveu mais o raciocínio). O material é igual para todas e fica em cache, por isso não entra na conta:
+
+  | | 1 crédito até | +0,5 a cada | Teto |
+  |---|---|---|---|
+  | Pergunta | 600 tokens | 600 a mais | 2 |
+  | Roteiro | 2.000 tokens | 1.000 a mais | 2 |
+
+  Medido em 2026-11-11 (9 perguntas e 11 roteiros): uma pergunta típica tem ~280 tokens de saída (90% abaixo de ~480), e um roteiro típico ~1.500 (90% abaixo de ~2.000). Quase tudo custa 1. Os números ficam em `PRECO` (`src/lib/limite.ts`); recalibre com uso real pelos `tokens_saida` de `ai_perguntas`.
+- **Como conta:** a chamada reserva 1 crédito antes da IA, numa consulta só na tabela `creditos_semana`, que só soma se ainda couber nos 40. Sem saldo, a resposta é 429 "Seus créditos da semana acabaram. Domingo tem mais.". No fim, soma o que o preço real passou de 1, sem passar de 40. Se a IA falhar, ou se o roteiro vier cortado ou fora do formato, o crédito volta.
+- **Na tela:** nada enquanto restam mais de 10. Com 10 ou menos aparece "Restam N créditos nesta semana. Renova no domingo.", e abaixo de 1 crédito o assistente e o botão de criar roteiro travam.
+
+```sql
+-- créditos gastos na semana atual (semana = o domingo em que ela começou)
+select u.email, c.gastos from public.creditos_semana c join auth.users u on u.id = c.user_id
+where c.semana = (date_trunc('week', (now() at time zone 'America/Sao_Paulo')::date + 1) - interval '1 day')::date
+order by c.gastos desc;
+```
 
 ### Ganchos (`/api/ganchos`)
 A tela de Roteiros abre nos **ganchos** (a aba "Criar roteiro" vem depois, em `?aba=gerador`). São duas listas, com o mesmo filtro por tipo, busca e "Mais bem avaliados":
@@ -163,7 +186,7 @@ Toda aluna dá nota de 1 a 5 a qualquer gancho (`POST /api/ganchos/nota`; dar de
 ### Gerador de roteiros (`/api/roteiro`)
 Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags, formato e o **gatilho** do gancho escolhido (um dos slugs de `gatilhos`).
 
-**Fichas da expert (treinamento de roteiros):** em `/app/treinamento`, aba **Roteiros**, "Nova ficha" abre o gerador, igual ao da aluna (produto, público, benefício e formato). A IA escreve o rascunho pela mesma `/api/roteiro`, com `rascunho: true`, já com o tipo do produto, o gatilho e o porquê e a entonação de cada parte. O formulário abre preenchido, e embaixo dele fica a prévia de **como a aluna vê** (roteiro pronto + 5×5). Cada mudança aparece na prévia; no 5×5 muda só a frase escolhida, e as outras 4 de cada coluna não são salvas. "Gerar outra versão" troca o rascunho, depois de confirmar. **"Escrever do zero"**, ao lado do "Nova ficha", abre o formulário vazio. Para quem está em `admins` (conferido no banco a cada chamada), a rota não tem limite diário (o custo continua em `ai_perguntas`) e aceita o `rascunho`; para a aluna, o campo é ignorado. A ficha registra como a expert pensaria o roteiro de um produto, campo por campo: produto, tipo, formato e, para gancho, problema, solução e CTA, o texto, o porquê e a entonação (porquê e entonação obrigatórios no gancho). O gatilho do gancho vem da tabela `gatilhos` (curiosidade, fofoca, choque, problema, transformação, prova social), e o "+" ao lado cria outro. O embedding da ficha é só de `"<produto> — <tipo>"`. No gerador:
+**Fichas da expert (treinamento de roteiros):** em `/app/treinamento`, aba **Roteiros**, "Nova ficha" abre o gerador, igual ao da aluna (produto, público, benefício e formato). A IA escreve o rascunho pela mesma `/api/roteiro`, com `rascunho: true`, já com o tipo do produto, o gatilho e o porquê e a entonação de cada parte. O formulário abre preenchido, e embaixo dele fica a prévia de **como a aluna vê** (roteiro pronto + 5×5). Cada mudança aparece na prévia; no 5×5 muda só a frase escolhida, e as outras 4 de cada coluna não são salvas. "Gerar outra versão" troca o rascunho, depois de confirmar. **"Escrever do zero"**, ao lado do "Nova ficha", abre o formulário vazio. Para quem está em `admins` (conferido no banco a cada chamada), a rota não gasta créditos (o custo continua em `ai_perguntas`) e aceita o `rascunho`; para a aluna, o campo é ignorado. A ficha registra como a expert pensaria o roteiro de um produto, campo por campo: produto, tipo, formato e, para gancho, problema, solução e CTA, o texto, o porquê e a entonação (porquê e entonação obrigatórios no gancho). O gatilho do gancho vem da tabela `gatilhos` (curiosidade, fofoca, choque, problema, transformação, prova social), e o "+" ao lado cria outro. O embedding da ficha é só de `"<produto> — <tipo>"`. No gerador:
 - o produto da aluna vira embedding, e as fichas com semelhança **≥ 0,80** entram no prompt como modelo de raciocínio, **depois** do dossiê (o cache continua valendo), com a ordem de copiar a intenção dela (gatilho, porquê, entonação, estrutura) e não as frases (nenhuma abertura igual, nenhum trecho de 3 palavras seguidas igual), e de não explicar as escolhas no roteiro;
 - embaixo do roteiro, o cartão **"A Ana já fez roteiro de produtos parecidos"** mostra até 3 fichas com semelhança **≥ 0,70**, e o cartão **"A Ana já fez alguns roteiros desse jeito"** mostra até 3 com o mesmo formato e o mesmo gatilho do roteiro gerado, sem repetir as do primeiro. Os dois cartões são dropdowns: vêm abertos e a aluna fecha pelo título. Cada ficha mostra "Por que aparece:" com o que tem em comum com o roteiro dela ("Produto 75% parecido", "Mesmo formato · Unboxing", "Mesmo gatilho · Fofoca"). O subtítulo do cartão "desse jeito" avisa que nem sempre é o mesmo produto: as fichas aparecem pela intenção do vídeo (o mesmo formato e o mesmo gatilho). O nome da ficha e "Abrir na página" levam à página com ela aberta; no fim do cartão vem "Ver todos os roteiros expert"; os dois abrem em outra aba, para o roteiro gerado não se perder;
 - a página **Roteiros expert** (`/app/roteiros-expert`, também no menu) mostra todas as fichas como roteiros prontos, com busca pelo produto, filtro por formato e "Por linha" (1 a 6, guardado no navegador; no celular é sempre 1). Com mais de 3 cartões na linha, o cartão mostra o gancho e "Ver o roteiro" abre o roteiro inteiro num pop-up; com até 3, o roteiro inteiro fica no cartão. "Ver o porquê" abre o porquê e a entonação de cada parte. Vindo do link de uma ficha, ela já abre destacada e com o porquê. As fichas saem por `GET /api/roteiros-expert`, para toda aluna com acesso, sem embedding nem quem cadastrou;
@@ -234,7 +257,8 @@ Migrations em `supabase/migrations/`:
 | `campeoes` | vídeos campeões do TikTok por aba (compartilhado, sem `user_id`) | servidor (`/api/campeoes`, só admin) |
 | `ganchos` | banco de ganchos e os da comunidade (`comunidade = true`). O `user_id` de quem registrou só serve ao limite diário e nunca sai nas rotas | servidor (`/api/ganchos`: aluna cria, admin edita e apaga) |
 | `gancho_notas` | nota de 1 a 5 de cada aluna em cada gancho | servidor (`/api/ganchos/nota`) |
-| `ai_perguntas` | perguntas ao assistente, tokens e custo | servidor (`/api/assistente`) |
+| `ai_perguntas` | perguntas ao assistente e roteiros gerados, tokens e custo | servidor (`/api/assistente`, `/api/roteiro`) |
+| `creditos_semana` | créditos gastos por aluna em cada semana (`semana` = o domingo em que ela começou) | servidor (`reservarChamada`) |
 | `admins` | quem acessa o treinamento da IA e cadastra as abas e os vídeos campeões | só service role (painel do Supabase) |
 | `treinamento` | perguntas e respostas da expert, com embedding (pgvector, 1536). Sem `user_id` de aluna | servidor (`/api/treinamento`, só admin; `/api/assistente` grava as conversas) |
 | `gatilhos` | gatilhos do gancho das fichas (slug + rótulo) | servidor (`/api/gatilhos`, só admin) |
@@ -305,7 +329,7 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 | Aluna escrever na conversa de outra na fila de treinamento | A conversa é sempre o par (`user_id` do token, id do navegador). A linha do treinamento não tem `user_id`, e a expert não vê quem perguntou. |
 | Aluna liberar o próprio acesso, criar código ou mexer na IA | Essas tabelas não têm política de escrita: só a service role escreve. |
 | Chutar códigos de acesso | `resgatar_codigo` (só o servidor executa) bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
-| Gastar IA sem limite | 15 perguntas e 10 roteiros por dia por aluna, contados no servidor (`ai_perguntas.rota`). |
+| Gastar IA sem limite | 40 créditos por semana por aluna, reservados no servidor numa consulta atômica (`creditos_semana`). |
 | Injetar instruções na IA | O navegador só manda o slug do capítulo; o título vem do conteúdo. O prompt proíbe copiar o material pago. |
 | Roubo do token (a sessão fica no `localStorage`) | CSP com `connect-src` limitado ao app e ao Supabase: um script injetado não consegue mandar o token para fora. Sem `dangerouslySetInnerHTML`; respostas da IA são texto puro. O token vale 15 min. |
 | E-mails de recuperação/link mágico disparados por qualquer um | Os modelos não têm link nem código (`supabase/templates/sem-link.html`). |
@@ -318,7 +342,6 @@ Os cabeçalhos ficam em `src/lib/seguranca.ts`. **Ao embutir um player ou chamar
 
 Pendências conhecidas (risco baixo):
 - `script-src` usa `'unsafe-inline'`, porque o Next injeta scripts inline. Trocar por nonce exige proxy e renderização dinâmica.
-- A contagem do limite diário não é atômica: duas abas ao mesmo tempo podem passar 1 do limite.
 
 ## Testes
 

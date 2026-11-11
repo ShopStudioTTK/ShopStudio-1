@@ -10,6 +10,7 @@ vi.mock("@/lib/supabase/admin", async () => (await import("../../../apoio/db-fal
 import { getUser, naTabela, reiniciarDb, responderCom } from "../../../apoio/db-falso";
 
 const gravou = (inicio: string) => naTabela("ai_perguntas").find((c) => c.sql.startsWith(inicio));
+const creditos = (inicio: string) => naTabela("creditos_semana").filter((c) => c.sql.startsWith(inicio));
 
 const temAcesso = vi.fn();
 vi.mock("@/lib/access", () => ({ temAcesso: (v: boolean) => temAcesso(v) }));
@@ -26,6 +27,7 @@ vi.mock("@/lib/fichas", async (original) => ({
 
 import { POST } from "@/app/api/roteiro/route";
 import type { FichaCartao } from "@/lib/fichas-tipos";
+import { semanaSP } from "@/lib/limite";
 
 const ficha = (o: Partial<FichaCartao> = {}): FichaCartao => ({
   id: "f1", produto: "Sérum Principia", tipo: "skincare", formato: "Unboxing",
@@ -44,22 +46,22 @@ const req = (body: unknown = { produto: "Sérum" }, auth: string | null = "Beare
     body: JSON.stringify(body),
   });
 
-const ia = (content: string) =>
+const ia = (content: string, saida = 900) =>
   new Response(
     JSON.stringify({
       choices: [{ message: { content } }],
-      usage: { prompt_tokens: 12000, completion_tokens: 900, cost: 0.0007, prompt_tokens_details: { cached_tokens: 11000 } },
+      usage: { prompt_tokens: 12000, completion_tokens: saida, cost: 0.0007, prompt_tokens_details: { cached_tokens: 11000 } },
     }),
   );
 const msg = async (res: Response) => (await res.json()).error.message;
 
 type R = Record<string, unknown>[] | Error;
-const regras = (o: { entitlements?: R; config?: R; usadas?: number; admins?: R } = {}): [string, R][] => [
+const regras = (o: { entitlements?: R; config?: R; semCredito?: boolean; admins?: R } = {}): [string, R][] => [
   ["from public.entitlements", o.entitlements ?? [{}]],
   ["from public.admins", o.admins ?? []],
   ["from public.ai_config", o.config ?? [{ tom: "alegre", persona: null, evitar: null }]],
   ["from public.ai_knowledge", [{ titulo: "t", conteudo: "c" }]],
-  ["as usadas", [{ usadas: o.usadas ?? 0 }]],
+  ["insert into public.creditos_semana", o.semCredito ? [] : [{ gastos: 1 }]],
   ["insert into public.ai_perguntas", [{ id: "r1" }]],
 ];
 
@@ -163,6 +165,9 @@ describe("POST /api/roteiro", () => {
     const res = await POST(req());
     expect(res.status).toBe(502);
     expect(await msg(res)).toBe("A resposta da IA veio em formato inesperado. Tente de novo.");
+    // a IA respondeu (o custo fica registrado), mas a aluna não recebeu roteiro: o crédito volta
+    expect(gravou("update")?.valores).toEqual([12000, 900, 11000, 0.0007, "r1"]);
+    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
   });
 
   it("200 chama a OpenRouter uma vez e devolve o JSON", async () => {
@@ -203,6 +208,7 @@ describe("POST /api/roteiro", () => {
     const res = await POST(req());
     expect(res.status).toBe(502);
     expect(await msg(res)).toBe("A resposta da IA veio cortada. Tente de novo.");
+    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
   });
 
   it("segue sem treino se as leituras opcionais falham", async () => {
@@ -210,11 +216,11 @@ describe("POST /api/roteiro", () => {
     expect((await POST(req())).status).toBe(200);
   });
 
-  it("429 ao atingir 10 roteiros no dia, sem gravar nem chamar a IA", async () => {
-    responderCom(regras({ usadas: 10 }));
+  it("429 sem créditos na semana, sem gravar nem chamar a IA", async () => {
+    responderCom(regras({ semCredito: true }));
     const res = await POST(req());
     expect(res.status).toBe(429);
-    expect(await msg(res)).toBe("Você gerou os 10 roteiros de hoje. Amanhã tem mais.");
+    expect(await msg(res)).toBe("Seus créditos da semana acabaram. Domingo tem mais.");
     expect(gravou("insert")).toBeUndefined();
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -224,12 +230,22 @@ describe("POST /api/roteiro", () => {
     expect(res.status).toBe(200);
     expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null]);
     expect(gravou("update")?.valores).toEqual([12000, 900, 11000, 0.0007, "r1"]);
+    expect(creditos("insert")[0].valores).toEqual(["u1", semanaSP(), 40]);
+    // 900 tokens de saída: fica no 1 crédito reservado
+    expect(creditos("update")).toHaveLength(0);
   });
 
-  it("geração que falhou não conta no limite", async () => {
+  it("roteiro maior cobra meio crédito a mais", async () => {
+    vi.mocked(fetch).mockResolvedValue(ia('{"ganchos":["a"]}', 2410));
+    expect((await POST(req())).status).toBe(200);
+    expect(creditos("update")[0].valores).toEqual([40, 0.5, "u1", semanaSP()]);
+  });
+
+  it("geração que falhou não gasta crédito", async () => {
     vi.mocked(fetch).mockRejectedValue(new Error("net"));
     await POST(req());
     expect(gravou("delete")?.valores).toEqual(["r1"]);
+    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
   });
 
   describe("fichas da expert", () => {
@@ -276,11 +292,13 @@ describe("POST /api/roteiro", () => {
   describe("admin", () => {
     const system = () => JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).messages[0].content as string;
 
-    it("admin não tem limite diário, mas a geração continua registrada", async () => {
-      responderCom(regras({ usadas: 10, admins: [{}] }));
+    it("admin não gasta créditos, mas a geração continua registrada", async () => {
+      responderCom(regras({ semCredito: true, admins: [{}] }));
+      vi.mocked(fetch).mockResolvedValue(ia('{"ganchos":["a"]}', 2410));
       const res = await POST(req());
       expect(res.status).toBe(200);
       expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null]);
+      expect(naTabela("creditos_semana")).toHaveLength(0);
     });
 
     it("rascunho da admin pede tipo, porquê e entonação, depois do dossiê, e devolve o que a IA mandou", async () => {
@@ -298,13 +316,13 @@ describe("POST /api/roteiro", () => {
       expect(system()).not.toContain("RASCUNHO PARA A ESPECIALISTA");
     });
 
-    it("aluna que pede rascunho continua no limite", async () => {
-      responderCom(regras({ usadas: 10 }));
+    it("aluna que pede rascunho continua nos créditos", async () => {
+      responderCom(regras({ semCredito: true }));
       expect((await POST(req({ produto: "Sérum", rascunho: true }))).status).toBe(429);
     });
 
-    it("admins fora do ar → segue como aluna, com limite", async () => {
-      responderCom(regras({ usadas: 10, admins: new Error("db") }));
+    it("admins fora do ar → segue como aluna, com créditos", async () => {
+      responderCom(regras({ semCredito: true, admins: new Error("db") }));
       expect((await POST(req())).status).toBe(429);
     });
 
