@@ -11,11 +11,13 @@ vi.mock("@/lib/supabase/admin", async () => (await import("../../../apoio/db-fal
 import { consultas, getUser, naTabela, reiniciarDb, responderCom } from "../../../apoio/db-falso";
 
 const gravou = (inicio: string) => naTabela("ai_perguntas").find((c) => c.sql.startsWith(inicio));
+const creditos = (inicio: string) => naTabela("creditos_semana").filter((c) => c.sql.startsWith(inicio));
 
 const temAcesso = vi.fn();
 vi.mock("@/lib/access", () => ({ temAcesso: (v: boolean) => temAcesso(v) }));
 
-import { GET, POST } from "@/app/api/assistente/route";
+import { POST } from "@/app/api/assistente/route";
+import { semanaSP } from "@/lib/limite";
 
 const conversa = [{ role: "user", content: "Como pedir amostra?" }];
 const req = (body: unknown = { messages: conversa }, auth: string | null = "Bearer tok") =>
@@ -44,7 +46,7 @@ beforeEach(() => {
   reiniciarDb();
   responderCom([
     ["from public.entitlements", [{}]],
-    ["as usadas", [{ usadas: 4 }]],
+    ["insert into public.creditos_semana", [{ gastos: 5 }]],
     ["insert into public.ai_perguntas", [{ id: "p1" }]],
   ]);
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -75,29 +77,69 @@ describe("POST /api/assistente", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("429 ao atingir 15 perguntas no dia, sem gravar nem chamar a IA", async () => {
-    responderCom([["from public.entitlements", [{}]], ["as usadas", [{ usadas: 15 }]]]);
+  it("429 sem créditos na semana (a reserva atômica não devolve linha), sem gravar nem chamar a IA", async () => {
+    responderCom([["from public.entitlements", [{}]]]);
     const res = await POST(req());
     expect(res.status).toBe(429);
-    expect(await msg(res)).toBe("Você usou as 15 perguntas de hoje. Amanhã tem mais.");
+    expect(await msg(res)).toBe("Seus créditos da semana acabaram. Domingo tem mais.");
     expect(gravou("insert")).toBeUndefined();
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("grava a pergunta, informa quantas restam e registra tokens e custo no fim", async () => {
+  it("reserva 1 crédito da aluna logada nesta semana, só se ainda couber no total", async () => {
+    await (await POST(req({ messages: conversa, user_id: "u2" }))).text();
+    const [reserva] = creditos("insert");
+    expect(reserva.valores).toEqual(["u1", semanaSP(), 40]);
+    expect(reserva.sql).toContain("on conflict (user_id, semana) do update set gastos = creditos_semana.gastos + 1");
+    expect(reserva.sql).toContain("where creditos_semana.gastos + 1 <= ?");
+  });
+
+  it("grava a pergunta, registra tokens e custo e, no fim, cobra o que passou de 1 crédito", async () => {
     const res = await POST(req({ messages: conversa, capitulo: "mentalidade-de-shop-girl" }));
     expect(res.status).toBe(200);
-    expect(res.headers.get("X-Perguntas-Restantes")).toBe("10");
+    expect(res.headers.get("X-Perguntas-Restantes")).toBeNull();
     expect(gravou("insert")?.valores).toEqual(["u1", "assistente", "Como pedir amostra?", "Mentalidade de Shop Girl"]);
     expect(await res.text()).toBe(sse);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(gravou("update")?.valores).toEqual([90000, 800, 89000, 0.0081, "p1"]);
+    // 800 tokens de saída = 1,5 crédito: +0,5 sobre a reserva, com teto no total
+    expect(creditos("update")[0].valores).toEqual([40, 0.5, "u1", semanaSP()]);
+  });
+
+  it("resposta dentro do preço base não mexe mais no saldo", async () => {
+    vi.mocked(fetch).mockImplementation(async (url) =>
+      String(url).endsWith("/embeddings")
+        ? new Response(JSON.stringify({ data: [{ embedding: vetor }] }))
+        : new Response(sse.replace('"completion_tokens":800', '"completion_tokens":300')));
+    await (await POST(req())).text();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(creditos("update")).toHaveLength(0);
+  });
+
+  it("admin: sem créditos (nada em creditos_semana), mas o custo continua registrado", async () => {
+    responderCom([
+      ["from public.entitlements", [{}]],
+      ["from public.admins", [{}]],
+      ["insert into public.ai_perguntas", [{ id: "p1" }]],
+    ]);
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    await res.text();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(naTabela("creditos_semana")).toHaveLength(0);
     expect(gravou("update")?.valores).toEqual([90000, 800, 89000, 0.0081, "p1"]);
   });
 
-  it("500 se não conseguir gravar a pergunta", async () => {
-    responderCom([["from public.entitlements", [{}]], ["insert into public.ai_perguntas", new Error("x")]]);
+  it("500 se não conseguir gravar a pergunta, e o crédito volta", async () => {
+    responderCom([
+      ["from public.entitlements", [{}]],
+      ["insert into public.creditos_semana", [{ gastos: 5 }]],
+      ["insert into public.ai_perguntas", new Error("x")],
+    ]);
     const res = await POST(req());
     expect(res.status).toBe(500);
     expect(fetch).not.toHaveBeenCalled();
+    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
   });
 
   it("título do capítulo vem do conteúdo pelo slug, nunca do texto enviado pelo navegador", async () => {
@@ -124,7 +166,7 @@ describe("POST /api/assistente", () => {
     vi.stubEnv("OPENROUTER_PRESET", "voz-teste");
     responderCom([
       ["from public.entitlements", [{}]],
-      ["as usadas", [{ usadas: 4 }]],
+      ["insert into public.creditos_semana", [{ gastos: 5 }]],
       ["insert into public.ai_perguntas", [{ id: "p1" }]],
       ["from public.ai_config", [{ nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: null, exemplos: [] }]],
       ["from public.ai_knowledge", [{ titulo: "Frete", conteudo: "grátis" }]],
@@ -140,7 +182,7 @@ describe("POST /api/assistente", () => {
   it("sem OPENROUTER_PRESET, segue com a persona do ai_config", async () => {
     responderCom([
       ["from public.entitlements", [{}]],
-      ["as usadas", [{ usadas: 4 }]],
+      ["insert into public.creditos_semana", [{ gastos: 5 }]],
       ["insert into public.ai_perguntas", [{ id: "p1" }]],
       ["from public.ai_config", [{ nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: null, exemplos: [] }]],
     ]);
@@ -156,6 +198,7 @@ describe("POST /api/assistente", () => {
     expect(res.status).toBe(502);
     expect(await msg(res)).toBe("sem créditos");
     expect(gravou("delete")?.valores).toEqual(["p1"]);
+    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
   });
 
   it("502 quando a chamada falha na rede e a pergunta não conta", async () => {
@@ -164,6 +207,7 @@ describe("POST /api/assistente", () => {
     expect(res.status).toBe(502);
     expect(await msg(res)).toBe("Não consegui responder agora. Tente de novo.");
     expect(gravou("delete")?.valores).toEqual(["p1"]);
+    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
   });
 });
 
@@ -171,7 +215,7 @@ describe("respostas da expert e fila de treinamento", () => {
   const comExpert = (similaridade: number) =>
     responderCom([
       ["from public.entitlements", [{}]],
-      ["as usadas", [{ usadas: 4 }]],
+      ["insert into public.creditos_semana", [{ gastos: 5 }]],
       ["insert into public.ai_perguntas", [{ id: "p1" }]],
       ["order by embedding", [{ pergunta: "Como pedir amostra?", resposta: "RESPOSTA-DA-ANA", similaridade }]],
     ]);
@@ -261,7 +305,7 @@ describe("respostas da expert e fila de treinamento", () => {
   it("falha ao gravar na fila não atrapalha a aluna", async () => {
     responderCom([
       ["from public.entitlements", [{}]],
-      ["as usadas", [{ usadas: 4 }]],
+      ["insert into public.creditos_semana", [{ gastos: 5 }]],
       ["insert into public.ai_perguntas", [{ id: "p1" }]],
       ["insert into public.treinamento_conversas", new Error("caiu")],
     ]);
@@ -270,13 +314,5 @@ describe("respostas da expert e fila de treinamento", () => {
     expect(await res.text()).toBe(sse);
     await new Promise((r) => setTimeout(r, 0));
     expect(console.error).toHaveBeenCalled();
-  });
-});
-
-describe("GET /api/assistente", () => {
-  it("conta só as perguntas da própria aluna, hoje", async () => {
-    const res = await GET(new Request("http://x/api/assistente", { headers: { Authorization: "Bearer tok" } }));
-    expect(await res.json()).toEqual({ usadas: 4 });
-    expect(naTabela("ai_perguntas")[0].valores.slice(0, 2)).toEqual(["u1", "assistente"]);
   });
 });

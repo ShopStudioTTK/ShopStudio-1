@@ -11,6 +11,7 @@ vi.mock("@/lib/access", () => ({ temAcesso: () => true }));
 import { conferirSenha, createSignedUrls, getUser, naTabela, reiniciarDb, responderCom, updateUserById } from "../../apoio/db-falso";
 import * as acesso from "@/app/api/acesso/route";
 import * as conta from "@/app/api/conta/route";
+import * as creditos from "@/app/api/creditos/route";
 import * as ganchos from "@/app/api/ganchos/route";
 import * as notaDoGancho from "@/app/api/ganchos/nota/route";
 import * as perfil from "@/app/api/perfil/route";
@@ -172,6 +173,12 @@ describe("cada conta só vê e mexe no que é dela", () => {
 
     await notaDoGancho.POST(req("/api/ganchos/nota", "POST", { id: ID, nota: 5, user_id: OUTRA }));
     expect(naTabela("gancho_notas").at(-1)?.valores).toEqual([ID, "u1", 5]);
+  });
+
+  it("créditos: lê só a semana da aluna logada", async () => {
+    responderCom([["from public.entitlements", [{}]]]);
+    await creditos.GET(req("/api/creditos?user_id=u2"));
+    expect(naTabela("creditos_semana")[0].valores[0]).toBe("u1");
   });
 
   it("vídeos: arquivo do bucket sai assinado com a validade do .env; link externo passa direto", async () => {

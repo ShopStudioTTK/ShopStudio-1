@@ -183,6 +183,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"creditos_semana": {
+                  Row: {
+                    "gastos": number,"semana": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "gastos"?: number,"semana": string,"user_id": string
+                  }
+                  Update: {
+                    "gastos"?: number,"semana"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"entitlements": {
                   Row: {
                     "codigo": string | null,"criado_em": string,"origem": string,"user_id": string

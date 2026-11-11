@@ -1,10 +1,10 @@
 import { getChapter } from "@/content/chapters";
 import {
-  autenticar,
   autorizar,
-  chamadasDeHoje,
   chamarOpenRouter,
+  cobrarCreditos,
   configDaIA,
+  ehAdmin,
   erro,
   liberarChamada,
   registrarCusto,
@@ -12,7 +12,6 @@ import {
 } from "@/lib/api-auth";
 import { buildAssistantSystemPrompt, sanitizeMessages } from "@/lib/assistente";
 import { uuid } from "@/lib/entrada";
-import { LIMITE_DIARIO, mensagemDeLimite } from "@/lib/limite";
 import { blocoDaExpert, consultarExpert, registrarNaFila } from "@/lib/treinamento";
 import { comRegistroDeUso } from "@/lib/uso";
 
@@ -35,12 +34,14 @@ export async function POST(req: Request) {
   const pergunta = perguntas.at(-1)!;
   const anteriores = perguntas.slice(0, -1);
 
-  const reserva = await reservarChamada(
-    userId, "assistente", LIMITE_DIARIO, (usadas) => mensagemDeLimite(usadas)!,
-    turns.at(-1)!.content, chapterTitle ?? null,
-  );
+  // Admin (conferida no banco a cada chamada) não gasta créditos. Falha na leitura = segue como aluna.
+  const adm = await ehAdmin(userId).catch((e) => {
+    console.error("assistente: falha ao ler admins", e);
+    return false;
+  });
+  const reserva = await reservarChamada(userId, "assistente", adm, turns.at(-1)!.content, chapterTitle ?? null);
   if (reserva instanceof Response) return reserva;
-  const descontar = () => liberarChamada(reserva.id);
+  const descontar = () => liberarChamada(reserva);
 
   // persona, base de conhecimento e respostas da expert são opcionais
   const [{ config, knowledge }, expert] = await Promise.all([configDaIA(), consultarExpert(anteriores, pergunta)]);
@@ -77,6 +78,7 @@ export async function POST(req: Request) {
 
   const corpo = comRegistroDeUso(response.body, async (uso, fim) => {
     await registrarCusto(reserva.id, uso);
+    await cobrarCreditos(reserva, uso?.completion_tokens);
     // A conversa vai para a fila de treinamento da expert. Só resposta completa ("stop"): cortada,
     // com erro ou interrompida não entra, para meia resposta nunca ser aprovada como exemplo.
     if (!conversa || !fim.texto.trim() || fim.finishReason !== "stop") return;
@@ -88,14 +90,6 @@ export async function POST(req: Request) {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      "X-Perguntas-Restantes": String(LIMITE_DIARIO - reserva.usadas - 1),
     },
   });
-}
-
-/** Quantas perguntas a aluna já fez hoje (para o aviso de limite na tela). */
-export async function GET(req: Request) {
-  const auth = await autenticar(req, "assistente", "Faça login para usar o assistente.");
-  if (auth instanceof Response) return auth;
-  return Response.json({ usadas: await chamadasDeHoje(auth.userId, "assistente") });
 }

@@ -3,7 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { temAcesso } from "@/lib/access";
 import { estadoDaSenhaTemporaria } from "@/lib/contas";
 import { db } from "@/lib/db";
-import { inicioDoDiaSP } from "@/lib/limite";
+import { CREDITOS_POR_SEMANA, MSG_SEM_CREDITOS, precoEmCreditos, semanaSP } from "@/lib/limite";
 import type { Uso } from "@/lib/uso";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -134,48 +134,75 @@ export async function configDaIA(): Promise<{ config: ConfigDaIA | null; knowled
   }
 }
 
-/** Quantas chamadas a aluna já fez hoje (horário de Brasília) nesta rota. */
-export const chamadasDeHoje = async (userId: string, rota: Rota): Promise<number> => {
-  const [{ usadas }] = await db()`
-    select count(*)::int as usadas from public.ai_perguntas
-    where user_id = ${userId} and rota = ${rota} and created_at >= ${inicioDoDiaSP()}`;
-  return usadas;
+/** Reserva de uma chamada de IA. `semana` nula = admin, sem créditos. */
+export type Reserva = { id: string; userId: string; rota: Rota; semana: string | null };
+
+const ajustarCreditos = (userId: string, semana: string, delta: number) => db()`
+  update public.creditos_semana set gastos = least(${CREDITOS_POR_SEMANA}, greatest(0, gastos + ${delta}))
+  where user_id = ${userId} and semana = ${semana}`;
+
+/** Créditos que restam à aluna nesta semana (semana sem linha = nada gasto). */
+export const creditosRestantes = async (userId: string): Promise<number> => {
+  const [linha] = await db()`
+    select gastos::float8 as gastos from public.creditos_semana where user_id = ${userId} and semana = ${semanaSP()}`;
+  return CREDITOS_POR_SEMANA - Number(linha?.gastos ?? 0);
 };
 
 /**
- * Conta as chamadas de hoje e, abaixo do limite, já grava esta.
- * ponytail: contar e gravar não é atômico; duas abas ao mesmo tempo podem passar 1 do limite.
+ * Reserva 1 crédito da semana (numa consulta só, que só soma se ainda couber no total) e grava a
+ * chamada em ai_perguntas. Admin (`ilimitada`) não mexe em créditos.
  */
 export async function reservarChamada(
   userId: string,
   rota: Rota,
-  limite: number,
-  msgLimite: (usadas: number) => string,
+  ilimitada: boolean,
   pergunta: string,
   capitulo: string | null = null,
-): Promise<{ id: string; usadas: number } | Response> {
-  let usadas: number;
-  try {
-    usadas = await chamadasDeHoje(userId, rota);
-  } catch (e) {
-    console.error(`${rota}: falha ao contar chamadas`, e);
-    return erro("Não consegui verificar seu limite agora.", 500);
+): Promise<Reserva | Response> {
+  const reserva: Reserva = { id: "", userId, rota, semana: ilimitada ? null : semanaSP() };
+  if (reserva.semana) {
+    let reservou: boolean;
+    try {
+      reservou = (await db()`
+        insert into public.creditos_semana (user_id, semana, gastos) values (${userId}, ${reserva.semana}, 1)
+        on conflict (user_id, semana) do update set gastos = creditos_semana.gastos + 1
+        where creditos_semana.gastos + 1 <= ${CREDITOS_POR_SEMANA}
+        returning gastos`).length > 0;
+    } catch (e) {
+      console.error(`${rota}: falha ao reservar crédito`, e);
+      return erro("Não consegui verificar seus créditos agora.", 500);
+    }
+    if (!reservou) return erro(MSG_SEM_CREDITOS, 429);
   }
-  if (usadas >= limite) return erro(msgLimite(usadas), 429);
   try {
     const [{ id }] = await db()`
       insert into public.ai_perguntas (user_id, rota, pergunta, capitulo)
       values (${userId}, ${rota}, ${pergunta}, ${capitulo}) returning id`;
-    return { id, usadas };
+    return { ...reserva, id };
   } catch (e) {
     console.error(`${rota}: falha ao gravar chamada`, e);
+    await devolverCredito(reserva);
     return erro("Não consegui registrar seu pedido agora.", 500);
   }
 }
 
-/** Chamada que a IA não atendeu não conta no limite. */
-export const liberarChamada = async (id: string) => {
-  await db()`delete from public.ai_perguntas where id = ${id}`;
+/** A aluna não recebeu resposta: o crédito reservado volta. */
+export const devolverCredito = async (r: Reserva) => {
+  if (!r.semana) return;
+  await ajustarCreditos(r.userId, r.semana, -1).catch((e) => console.error(`${r.rota}: falha ao devolver crédito`, e));
+};
+
+/** Cobra o que o preço real (pelos tokens de saída) passou do crédito reservado. */
+export const cobrarCreditos = async (r: Reserva, tokensSaida: number | null | undefined) => {
+  const extra = precoEmCreditos(r.rota, tokensSaida) - 1;
+  if (!r.semana || extra <= 0) return;
+  await ajustarCreditos(r.userId, r.semana, extra).catch((e) => console.error(`${r.rota}: falha ao cobrar créditos`, e));
+};
+
+/** Chamada que a IA não atendeu: some de ai_perguntas e não gasta crédito. */
+export const liberarChamada = async (r: Reserva) => {
+  await devolverCredito(r);
+  await db()`delete from public.ai_perguntas where id = ${r.id}`;
 };
 
 export async function registrarCusto(id: string, uso: Uso | null | undefined) {

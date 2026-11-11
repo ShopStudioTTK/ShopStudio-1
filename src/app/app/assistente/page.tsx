@@ -7,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAiChat } from "@/hooks/use-ai-chat";
 import { useAuth } from "@/hooks/use-auth";
-import { usePerguntasHoje } from "@/hooks/use-perguntas-hoje";
+import { useCreditos } from "@/hooks/use-creditos";
 import { getChapter } from "@/content/chapters";
-import { LIMITE_DIARIO, mensagemDeLimite } from "@/lib/limite";
 import { cn, partesNegrito } from "@/lib/utils";
 
 const suggestions = [
@@ -28,9 +27,7 @@ const Assistant = () => {
   const pathname = usePathname();
   const { session } = useAuth();
   const { messages, isLoading, error, sendMessage, reset } = useAiChat(chapter?.slug);
-  const { data: usadas = 0, isSuccess: contagemPronta } = usePerguntasHoje();
-  const esgotado = usadas >= LIMITE_DIARIO;
-  const aviso = mensagemDeLimite(usadas);
+  const { pronto: contagemPronta, esgotado, aviso } = useCreditos();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const trechoEnviado = useRef(false);
