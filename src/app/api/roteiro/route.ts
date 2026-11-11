@@ -1,5 +1,15 @@
-import { autorizar, chamarOpenRouter, configDaIA, ehAdmin, erro, liberarChamada, registrarCusto, reservarChamada } from "@/lib/api-auth";
-import { LIMITE_ROTEIROS, MSG_LIMITE_ROTEIROS } from "@/lib/limite";
+import {
+  autorizar,
+  chamarOpenRouter,
+  cobrarCreditos,
+  configDaIA,
+  devolverCredito,
+  ehAdmin,
+  erro,
+  liberarChamada,
+  registrarCusto,
+  reservarChamada,
+} from "@/lib/api-auth";
 import { blocoDasFichas, buscarDoMesmoJeito, buscarParecidas, gatilhoDaIa, listarGatilhos } from "@/lib/fichas";
 import type { Gatilho } from "@/lib/fichas-tipos";
 import { buildSystemPrompt, buildUserPrompt, extractScriptJson, RASCUNHO_BLOCK } from "@/lib/roteiro";
@@ -22,7 +32,7 @@ export async function POST(req: Request) {
   };
   if (!input.produto) return erro("Diga qual é o produto.", 400);
 
-  // Admin (conferida no banco a cada chamada): sem limite, e o rascunho da ficha leva porquê e entonação.
+  // Admin (conferida no banco a cada chamada): sem créditos, e o rascunho da ficha leva porquê e entonação.
   // A falha na leitura de admins = segue como aluna.
   const adm = await ehAdmin(userId).catch((e) => {
     console.error("roteiro: falha ao ler admins", e);
@@ -30,11 +40,9 @@ export async function POST(req: Request) {
   });
   const rascunho = adm && body?.rascunho === true;
 
-  const reserva = await reservarChamada(
-    userId, "roteiro", adm ? Infinity : LIMITE_ROTEIROS, () => MSG_LIMITE_ROTEIROS, input.produto,
-  );
+  const reserva = await reservarChamada(userId, "roteiro", adm, input.produto);
   if (reserva instanceof Response) return reserva;
-  const descontar = () => liberarChamada(reserva.id);
+  const descontar = () => liberarChamada(reserva);
 
   // Opcionais: config, base, fichas da expert e gatilhos. Falha em qualquer um = roteiro como antes.
   const [{ config, knowledge }, parecidas, gatilhos] = await Promise.all([
@@ -72,20 +80,25 @@ export async function POST(req: Request) {
   }
 
   const payload = await response.json().catch(() => null);
-  // A IA respondeu (mesmo que fora do formato): conta no limite e registra o custo.
+  // A IA respondeu: o custo fica registrado. Mas o crédito só é gasto se a aluna recebe o roteiro.
   await registrarCusto(reserva.id, payload?.usage);
-  if (payload?.choices?.[0]?.finish_reason === "length")
+  if (payload?.choices?.[0]?.finish_reason === "length") {
+    await devolverCredito(reserva);
     return erro("A resposta da IA veio cortada. Tente de novo.", 502);
+  }
+  let roteiro: ReturnType<typeof extractScriptJson>;
   try {
-    const roteiro = extractScriptJson(payload?.choices?.[0]?.message?.content ?? "");
-    const gatilho = gatilhoDaIa(roteiro.gatilho, gatilhos);
-    const mesmoJeito = await buscarDoMesmoJeito(input.formato, gatilho, parecidas.map((f) => f.id)).catch((e) => {
-      console.error("roteiro: falha ao buscar fichas do mesmo jeito", e);
-      return [];
-    });
-    return Response.json({ ...roteiro, gatilho, fichas: { parecidas, mesmoJeito } });
+    roteiro = extractScriptJson(payload?.choices?.[0]?.message?.content ?? "");
   } catch (e) {
     console.error("roteiro: JSON inválido na resposta da IA", e);
+    await devolverCredito(reserva);
     return erro((e as Error).message, 502);
   }
+  await cobrarCreditos(reserva, payload?.usage?.completion_tokens);
+  const gatilho = gatilhoDaIa(roteiro.gatilho, gatilhos);
+  const mesmoJeito = await buscarDoMesmoJeito(input.formato, gatilho, parecidas.map((f) => f.id)).catch((e) => {
+    console.error("roteiro: falha ao buscar fichas do mesmo jeito", e);
+    return [];
+  });
+  return Response.json({ ...roteiro, gatilho, fichas: { parecidas, mesmoJeito } });
 }

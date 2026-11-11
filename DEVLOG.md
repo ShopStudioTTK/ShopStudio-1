@@ -4,6 +4,25 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-11: Créditos, pop-ups do roteiro e mural juntos na main (local)
+
+**Pedido:** juntar tudo na `main` local antes de subir para produção.
+
+**Como foi:**
+- Merge de `feat/creditos-semanais` e depois de `feat/mural-tiktok` (que já trazia `feat/roteiro-confirmacoes`) sobre a `main` com o PR #10.
+- Conflitos só nos documentos e em `script-generator.tsx`. O gerador ficou com as três coisas: créditos (aviso e trava), cartões das fichas (com formato e gatilho) e a guarda de saída. Em `podeGerar` entrou também o `!creditos.esgotado`.
+- As 4 migrations novas (`20261111000000` a `030000`) estão na pasta, e o banco local não tem nenhuma pendente. Os tipos gerados batem com o arquivo.
+
+**Verificado:** 608 testes, lint e build. No navegador (build em `localhost:3005`, OpenRouter de verdade; contas, fichas e dados de teste apagados no fim):
+- o roteiro de "garrafa térmica" trouxe o cartão com "Por que aparece" e gastou 1 crédito;
+- o menu com o roteiro não salvo abriu o pop-up, e "Salvar e sair" salvou e foi para o mural;
+- com 31 gastos, o gerador avisou "Restam 9 créditos";
+- o TikTok salvo em Minha conta virou o link do nome no mural;
+- Roteiros expert mostrou as fichas e o seletor de grade;
+- o menu estreitou até os ícones;
+- as abas dos Campeões vieram na ordem fixa;
+- a 375 px, sem rolagem lateral; console sem erro.
+
 ## 2026-11-11: Ordem fixa das abas dos Campeões
 
 **Pedido:** a ordem das abas é fixa: Moda fitness, Moda feminina, Beleza e autocuidado, Casa e cozinha e Suplementos. As outras abas que a admin criar vêm depois. "Beleza" passa a se chamar "Beleza e autocuidado", e a dona pediu que eu lembrasse que isso precisa mudar no banco de produção.
@@ -87,6 +106,156 @@ Medido com as 50 fichas: "garrafa térmica", "escova alisadora" e "air fryer 4 l
   - a página lista as 5, e "Ver o porquê" abre as 4 partes;
   - o filtro Unboxing deixou 3 e a busca "garrafa" deixou 2;
   - a 375 px, sem rolagem lateral; console sem erro.
+
+## 2026-11-11: Campeões aceitam o link curto do celular
+
+**Pedido:** no celular, "copiar link" do TikTok dá `vt.tiktok.com/ZS…/`; no PC, `https://www.tiktok.com/@perfil/video/<id>?_r=1&_t=…`. Os dois precisam entrar.
+
+**O que mudou:**
+- `linkCurtoDoTiktok` (`src/lib/video.ts`) reconhece `vt.tiktok.com`/`vm.tiktok.com` com um código só no caminho. As duas funções aceitam o link sem `https://`.
+- `POST /api/campeoes` resolve o link curto com `fetch(…, { redirect: "manual" })` e lê só o `Location` (um 301 direto para o link completo), com 5 s de limite. Isso não é scraping, porque a página não é aberta. O destino passa de novo por `urlDoTiktok`, e o banco continua guardando só o formato completo. Se o destino não for um vídeo ou o TikTok não responder, a rota devolve 400. Só a admin chega nesse código (`admin()` vem antes), e o host é fixo, então não abre SSRF.
+- Na tela, a checagem aceita os dois formatos.
+
+**Verificado:** testes, lint e build. Com o link real, `vt.tiktok.com/ZSpmQHBdV/` e o link do PC dão o mesmo `https://www.tiktok.com/@kevelybr/video/7661082129920527636`.
+
+## 2026-11-11: Créditos semanais no lugar dos limites diários
+
+**Pedido:** 40 créditos por semana, sem acumular, renovando no domingo. Uma pergunta ou um roteiro custa 1, e os que exigem mais custam meio crédito a mais. Admin tem créditos ilimitados.
+
+**Decisões da dona:**
+- os limites diários (15 perguntas e 10 roteiros) saem, e ficam só os 40 créditos;
+- preço pelos tokens de saída, como proposto: pergunta 1 até 600, +0,5 a cada 600; roteiro 1 até 2.000, +0,5 a cada 1.000; teto de 2;
+- o saldo não aparece na tela; só o aviso quando restam 10 ou menos;
+- uma tabela nova para os créditos.
+
+**Por que tokens de saída:** o material (~80 mil tokens no assistente, ~12 mil no roteiro) é igual para todas e fica em cache. O que varia é o que a IA escreve e pensa. Cobrar pelo custo em US$ puniria a aluna por um cache vazio, que não depende dela. Amostra do banco local: pergunta com ~280 tokens típicos (90% abaixo de ~480, máximo de 721); roteiro com ~1.500 (90% abaixo de ~2.000, máximo de 2.410). Quase tudo custa 1.
+
+**Como ficou:**
+- Tabela `creditos_semana` (`user_id`, `semana` = o domingo, `gastos`). Cada semana é uma linha nova, então o reset é sozinho, sem cron. O banco recusa uma `semana` que não seja domingo.
+- `reservarChamada` reserva 1 crédito numa consulta só (`insert … on conflict do update … where gastos + 1 <= 40`). Isso resolve a ressalva antiga das duas abas, que podiam passar 1 do limite. No fim, `cobrarCreditos` soma o que passou de 1, com teto de 40. A reserva guarda a semana, então uma chamada que cruza a meia-noite de domingo acerta a semana em que começou.
+- Falha da IA = `liberarChamada`, que devolve o crédito antes de apagar a linha. **Mudança:** o roteiro cortado ou sem JSON antes contava no limite; agora devolve o crédito (o custo continua em `ai_perguntas`), porque a aluna não recebeu nada.
+- O assistente agora confere `ehAdmin`, como o roteiro: a admin não grava nada em `creditos_semana`.
+- `GET /api/creditos` (com `autenticar()`) devolve `{ restantes }`, ou `{ ilimitado: true }` para a admin. Ele substitui o `GET /api/assistente`, que contava as perguntas do dia. O cabeçalho `X-Perguntas-Restantes` saiu.
+- Tela: `useCreditos`. Assistente e gerador mostram o aviso com 10 ou menos e travam abaixo de 1.
+- Perguntas e roteiros de antes da mudança não contam: a semana em que isso entrar começa com 40.
+
+**Verificado:**
+- Testes, lint e build.
+- SQL no Postgres local, com rollback: com 39,5 gastos, a reserva não volta linha; a semana nova começa em 1; o teto segura em 40; uma quarta-feira como `semana` é recusada; `authenticated` sem permissão.
+- No build em `localhost:3005`, com a OpenRouter de verdade (conta de teste apagada no fim): 40 → 39 depois de uma pergunta → 38 depois de um roteiro (1.416 tokens). Com 39,5 gastos, `restantes: 0.5`, e a pergunta deu 429 sem gastar. Como admin, `ilimitado: true`, e a pergunta não mexeu no saldo.
+- **No navegador** (Chrome headless pelo Playwright, build em `localhost:3005`, conta de teste apagada no fim; console sem erro):
+  - com 40 restantes, nenhum aviso no assistente nem no gerador;
+  - com 9, "Restam 9 créditos nesta semana. Renova no domingo." embaixo do campo do assistente e do botão "Criar meu roteiro", com os dois ativos;
+  - com 0,5, "Seus créditos da semana acabaram. Domingo tem mais." e o campo e o botão travados;
+  - o aviso acompanha o uso real: 8 → 7 depois de uma pergunta e 7 → 6 depois de um roteiro, sem recarregar;
+  - a 375 px, sem rolagem lateral nas duas telas.
+
+**Limite conhecido:** se a aluna fecha a aba no meio do stream, o fim não roda e fica só o 1 crédito reservado (o custo também não é registrado, como antes).
+
+## 2026-11-11: Mural das alunas: só vídeo do TikTok, nome da conta e fixar só da admin
+
+**Pedido:** testar o mural no navegador. O teste mostrou que ele funcionava, mas:
+- qualquer aluna podia fixar no topo;
+- o link do Drive, que o próprio formulário sugeria, dava imagem quebrada;
+- o cartão só com texto tinha um bloco vazio;
+- os cartões esticavam até a altura do maior;
+- apagar não pedia confirmação;
+- o resultado ficava em caixa alta;
+- o nome era livre, e não havia limite por dia.
+
+**Decisões da dona:**
+- fixar só a admin;
+- sem imagem: só vídeo do TikTok, tocando como nos Campeões;
+- cartões com altura parecida;
+- apagar pede confirmação;
+- resultado legível;
+- 10 por dia;
+- o nome é o da conta, e a aluna não preenche.
+
+**Como ficou:**
+- `POST /api/resultados`:
+  - o nome vem do token (`nomeDoPerfil`, ou "Aluna do Shop Studio");
+  - o `destaque` não vem mais da aluna;
+  - o vídeo passa por `resolverUrlDoTiktok`, que saiu da rota dos Campeões para `src/lib/video.ts`, então o link curto do celular também vale;
+  - exige depoimento ou vídeo;
+  - o resultado vai até 80 caracteres;
+  - o limite de 10 por dia é contado no próprio insert.
+- `PATCH /api/resultados` com `admin()` fixa e desafixa qualquer cartão.
+- Migration `20261111010000_mural_so_tiktok`: o banco só aceita vídeo do TikTok em `midia_url`. Ela é `not valid`, então os prints antigos ficam e a tela mostra só o texto deles.
+- **Tela:**
+  - todo cartão tem o tamanho do player do TikTok (9:16, até 320 px), em 3 colunas como nos Campeões. O vídeo usa o `VideoEmbed`; o depoimento sem vídeo vai num quadro escuro, centralizado, com a letra maior para texto curto e "Ler mais" para o longo;
+  - o resultado aparece em rosa, sem caixa alta;
+  - a admin vê o alfinete e o "Fixado";
+  - apagar usa o `Confirmacao`;
+  - o formulário mostra "Vai aparecer como <nome>", com link para Minha conta.
+
+**Verificado:**
+- Testes (rota nova em `tests/app/api/resultados/route.test.ts`), lint e build.
+- A restrição foi conferida no Postgres local numa transação desfeita. O `migration up` recusou porque o banco local tem a migration dos créditos, de outra branch; ela entra quando as branches se juntarem.
+- No navegador (Chrome headless, build em `localhost:3005`, três contas de teste apagadas no fim):
+  - o nome vem da conta, e sem nome aparece "Aluna do Shop Studio";
+  - o formulário não tem o "Fixar", nem o campo de nome, nem a opção de print;
+  - envio vazio e link de imagem são recusados, e a 11ª publicação do dia dá o aviso do limite;
+  - vídeo com query é aceito, e as publicações só com texto aparecem;
+  - apagar: "Cancelar" mantém e "Apagar" tira;
+  - a aluna B só tem lixeira no dela e não tem o alfinete;
+  - a admin fixa (vai para o topo com "Fixado") e desafixa;
+  - o print antigo aparece só com o texto;
+  - os cartões ficam entre 547 e 646 px de altura;
+  - a 375 px, sem rolagem lateral.
+**Ajuste depois de a dona ver com 10 publicações de teste:**
+- tudo menor, com até 4 cartões por linha em tela larga (a partir de 1280 px) e até 280 px no celular;
+- o resultado virou o título do cartão; embaixo dele, o depoimento e, por último, o nome da aluna, pequeno.
+
+Medido: a 1440 px, 4 por linha com 241 px de largura (alturas entre 464 e 593); a 1280 px, 4 por linha com 213 px; a 375 px, 1 por linha com 280 px, sem rolagem lateral.
+
+**Depois, também a pedido da dona:**
+- Nos cartões sem vídeo, o resultado (título) fica dentro do quadro, em cima do depoimento. Nos com vídeo, continua embaixo do vídeo.
+- **TikTok da aluna:** Minha conta ganhou o cartão "TikTok".
+  - Ela cola o `@` ou o link do perfil; `perfilDoTiktok` limpa para `https://www.tiktok.com/@usuário`, e o banco só aceita esse formato.
+  - Não pede senha, porque não é login, e vazio tira o link.
+  - Fica em `profiles.tiktok` (migration `20261111020000_perfil_tiktok`), fora dos metadados que viajam no JWT; o `GET /api/conta` devolve o link para a tela.
+  - No mural, o `GET` faz `left join` em `profiles`, e o nome da aluna vira link para o TikTok dela, em outra aba. Quem não pôs fica sem link. O perfil só aparece porque ela escolheu pôr.
+- **No navegador** (contas de teste):
+  - em Minha conta, o link do Instagram foi recusado e "@tiktok" foi salvo como o link limpo, que continua lá depois de recarregar;
+  - no mural, os 3 nomes da Camila viraram link e os de quem não pôs ficaram sem;
+  - o título aparece dentro do quadro sem vídeo e embaixo do vídeo;
+  - a 375 px, sem rolagem lateral.
+- Banco local: a cópia do arquivo da migration dos créditos voltou à pasta só para o `migration up` rodar e foi apagada em seguida. Os tipos receberam só a coluna `tiktok`, sem a tabela dos créditos, que é de outra branch.
+
+- **Não conferido:** o vídeo tocando. No Chrome automatizado, o player do TikTok responde "Server error", mesmo com o vídeo de exemplo da documentação dele (o oEmbed responde 200). É o mesmo player dos Campeões, já visto funcionando num navegador normal.
+
+## 2026-11-11: Roteiro não salvo pergunta antes de sair; apagar pede confirmação
+
+**Pedido:** na tela de roteiros, ao sair com um roteiro gerado, um pop-up pergunta se ela quer salvar antes; ao apagar um roteiro, outro pergunta se é isso mesmo. E limpar os estados ao sair de cada página.
+
+**Limpar estados:** não foi feito, de propósito. No React 18/19, a página desmonta ao navegar e o estado vai junto (o aviso de "update em componente desmontado" saiu no React 18). O Next só preserva páginas escondidas (`<Activity>`) com `cacheComponents`, que está desligado desde a migração. O que precisa de cleanup são recursos externos (listeners, timers, a inscrição do login), e todos já tinham. O stream do assistente continua até o fim se a aluna sai no meio, de propósito: cortar faria o servidor não registrar o custo.
+
+**Decisões da dona:** o pop-up de saída só aparece com um roteiro gerado e não salvo, e oferece salvar antes. **Decisões minhas:** depois de salvar não pergunta; enquanto o roteiro está sendo escrito também não; "Outra versão" continua sem perguntar; abrir outro roteiro da biblioteca pergunta (o não salvo sairia da tela); o mural fica como está.
+
+**Como ficou:**
+- `useGuardaDeSaida(ativa)`: enquanto ativa, liga a guarda de `src/lib/saida.ts` e escuta três coisas:
+  - **cliques em links:** em captura no `document`, só com `preventDefault`. O `onClick` do `Link` ainda roda (o menu do celular fecha) e ele não navega porque vê o `defaultPrevented`;
+  - **voltar:** uma entrada extra no histórico com a mesma URL. O voltar cai nela, a tela continua e pergunta. Na saída, `history.go(-2)`. O `pushState` passa pelo do Next 16, que copia o estado interno dele, então o Next não recarrega a página;
+  - **`beforeunload`:** recarregar ou fechar a aba.
+- Saindo por link, o destino entra com `router.replace` no lugar da entrada extra. Se ela salva e fica, a entrada extra sai (`history.back()`), senão o voltar "não faria nada" uma vez. Um contador segura o StrictMode do dev, que monta duas vezes.
+- "Salvar e sair" espera o salvamento. Se ele falhar, o erro aparece e o pop-up continua aberto.
+- `Confirmacao`: Radix Dialog (já instalado), que prende o foco e fecha com Esc. No celular os botões ficam empilhados, com o principal embaixo.
+- Teste da lógica em `tests/lib/saida.test.ts` (qual clique é saída e a guarda).
+
+**Verificado no navegador** (Chrome headless pelo Playwright, build em `localhost:3005`, conta de teste apagada no fim; a resposta da `/api/roteiro` veio de um roteiro real gravado antes, para não chamar a IA a cada cenário). 26 cenários, todos certos e sem erro no console:
+- sem roteiro, o menu sai direto;
+- com roteiro: menu, Esc e "Continuar aqui" (fica, com o roteiro), "Sair sem salvar" (vai, e o voltar volta ao gerador vazio);
+- botão voltar: pergunta sem sair, pergunta de novo e sai para a página anterior;
+- aba "Ganchos" com "Salvar e sair": salva e troca de aba;
+- depois de salvar, um voltar só já sai;
+- recarregar mostra o aviso do navegador;
+- abrir outro roteiro da biblioteca pergunta, e o aberto de lá sai sem perguntar;
+- apagar: "Cancelar" mantém e "Apagar" tira;
+- "Sair da conta" pergunta;
+- a 375 px, a barra de baixo e o menu lateral perguntam, e o menu fecha.
+
+**Visto e deixado:** com o pop-up aberto, o Radix trava a rolagem do `body`, e o menu lateral `sticky` aparece deslocado atrás do fundo escurecido (a mesma armadilha do `overflow: hidden` do CLAUDE.md). Só acontece com o pop-up aberto, coberto pelo desfoque.
 
 ## 2026-11-10: Fichas no prompt: copiar a intenção, não a frase
 

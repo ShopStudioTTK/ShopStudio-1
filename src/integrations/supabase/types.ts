@@ -183,6 +183,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"creditos_semana": {
+                  Row: {
+                    "gastos": number,"semana": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "gastos"?: number,"semana": string,"user_id": string
+                  }
+                  Update: {
+                    "gastos"?: number,"semana"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"entitlements": {
                   Row: {
                     "codigo": string | null,"criado_em": string,"origem": string,"user_id": string
@@ -281,14 +295,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "created_at": string,"email": string | null,"id": string,"nome": string | null
+                    "created_at": string,"email": string | null,"id": string,"nome": string | null,"tiktok": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"email"?: string | null,"id": string,"nome"?: string | null
+                    "created_at"?: string,"email"?: string | null,"id": string,"nome"?: string | null,"tiktok"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"email"?: string | null,"id"?: string,"nome"?: string | null
+                    "created_at"?: string,"email"?: string | null,"id"?: string,"nome"?: string | null,"tiktok"?: string | null
                   }
                   Relationships: [
                     

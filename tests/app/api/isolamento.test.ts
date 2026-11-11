@@ -11,6 +11,7 @@ vi.mock("@/lib/access", () => ({ temAcesso: () => true }));
 import { conferirSenha, createSignedUrls, getUser, naTabela, reiniciarDb, responderCom, updateUserById } from "../../apoio/db-falso";
 import * as acesso from "@/app/api/acesso/route";
 import * as conta from "@/app/api/conta/route";
+import * as creditos from "@/app/api/creditos/route";
 import * as ganchos from "@/app/api/ganchos/route";
 import * as notaDoGancho from "@/app/api/ganchos/nota/route";
 import * as perfil from "@/app/api/perfil/route";
@@ -98,10 +99,11 @@ describe("cada conta só vê e mexe no que é dela", () => {
     ]);
   });
 
-  it("resultados: publica em nome de quem está logada; apaga só o próprio; só https", async () => {
-    await resultados.POST(req("/api/resultados", "POST", { aluna: "Ana", user_id: OUTRA }));
+  it("resultados: publica em nome de quem está logada; apaga só o próprio; só vídeo do TikTok", async () => {
+    await resultados.POST(req("/api/resultados", "POST", { texto: "Vendi", user_id: OUTRA }));
     expect(naTabela("success_cases")[0].valores[0]).toBe("u1");
-    expect((await resultados.POST(req("/api/resultados", "POST", { aluna: "Ana", midiaUrl: "javascript:alert(1)" }))).status).toBe(400);
+    expect(naTabela("success_cases")[0].valores).not.toContain(OUTRA);
+    expect((await resultados.POST(req("/api/resultados", "POST", { texto: "Vendi", midiaUrl: "javascript:alert(1)" }))).status).toBe(400);
     await resultados.DELETE(req(`/api/resultados?id=${ID}`, "DELETE"));
     expect(naTabela("success_cases")[1].valores).toEqual([ID, "u1"]);
   });
@@ -131,6 +133,14 @@ describe("cada conta só vê e mexe no que é dela", () => {
     expect(naTabela("admins")[0].valores).toEqual(["u1"]);
     reiniciarDb();
     expect(await (await acesso.GET(req("/api/acesso"))).json()).not.toHaveProperty("admin");
+  });
+
+  it("conta: o TikTok lido e gravado é sempre o da conta logada", async () => {
+    await conta.GET(req("/api/conta?user_id=u2"));
+    expect(naTabela("profiles")[0].valores).toEqual(["u1"]);
+    await conta.PATCH(req("/api/conta", "PATCH", { tiktok: "@ana", user_id: OUTRA, id: OUTRA }));
+    expect(naTabela("profiles")[1].valores[0]).toBe("u1");
+    expect(naTabela("profiles")[1].valores).not.toContain(OUTRA);
   });
 
   it("conta: muda a conta logada e confere a senha dela, nunca a do id mandado no corpo", async () => {
@@ -172,6 +182,12 @@ describe("cada conta só vê e mexe no que é dela", () => {
 
     await notaDoGancho.POST(req("/api/ganchos/nota", "POST", { id: ID, nota: 5, user_id: OUTRA }));
     expect(naTabela("gancho_notas").at(-1)?.valores).toEqual([ID, "u1", 5]);
+  });
+
+  it("créditos: lê só a semana da aluna logada", async () => {
+    responderCom([["from public.entitlements", [{}]]]);
+    await creditos.GET(req("/api/creditos?user_id=u2"));
+    expect(naTabela("creditos_semana")[0].valores[0]).toBe("u1");
   });
 
   it("vídeos: arquivo do bucket sai assinado com a validade do .env; link externo passa direto", async () => {

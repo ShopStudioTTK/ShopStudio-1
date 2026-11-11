@@ -7,6 +7,7 @@ import { ScriptGenerator } from "@/components/script-generator";
 import { HookBank } from "@/components/hook-bank";
 import { ehFormato } from "@/content/formatos";
 import { useGanchos } from "@/hooks/use-ganchos";
+import { sair } from "@/lib/saida";
 import { cn } from "@/lib/utils";
 
 type View = "gerador" | "ganchos";
@@ -27,7 +28,9 @@ const Scripts = () => {
   // Os ganchos vêm primeiro. A aba fica na URL: o "Novo roteiro" do menu (?aba=gerador) troca de aba
   // mesmo com a página já aberta.
   const view: View = searchParams.get("aba") === "gerador" || produto ? "gerador" : "ganchos";
-  const setView = (v: View) => router.replace(v === "gerador" ? "/app/roteiros?aba=gerador" : "/app/roteiros", { scroll: false });
+  // Trocar de aba desmonta o gerador: com roteiro não salvo, passa pela guarda de saída.
+  const setView = (v: View) =>
+    v !== view && sair(() => router.replace(v === "gerador" ? "/app/roteiros?aba=gerador" : "/app/roteiros", { scroll: false }));
 
   const views = [
     { id: "ganchos" as View, label: "Ganchos", icon: Flame, hint: ganchos ? `${ganchos.length} pra testar` : "Banco + comunidade" },
