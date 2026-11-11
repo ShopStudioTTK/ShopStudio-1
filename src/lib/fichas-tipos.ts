@@ -34,3 +34,12 @@ export const porQueAparece = (f: FichaCartao, formato: string, gatilho: string):
     f.formato === formato && `Mesmo formato · ${f.formato}`,
     gatilho && f.gatilho.slug === gatilho && `Mesmo gatilho · ${f.gatilho.rotulo}`,
   ].filter((m): m is string => Boolean(m));
+
+/** Página Roteiros expert: quantos por linha a aluna escolheu (1 a 4; inválido = 4). */
+export const colunasDaGrade = (valor: unknown): 1 | 2 | 3 | 4 => {
+  const n = Number(valor);
+  return n === 1 || n === 2 || n === 3 || n === 4 ? n : 4;
+};
+
+/** Com mais de 3 na linha, o cartão fica resumido e o roteiro abre num pop-up. Só a tela larga mostra 4. */
+export const abreEmPopup = (colunas: number, telaLarga: boolean) => colunas > 3 && telaLarga;
