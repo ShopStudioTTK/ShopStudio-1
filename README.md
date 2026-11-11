@@ -155,7 +155,7 @@ docs/superpowers/             design e plano da migração do Enter
 ### Mural das alunas (`/api/resultados`)
 A aluna conta o resultado dela: **resultado em uma linha** (até 80 caracteres), **depoimento** e, se quiser, o **link do vídeo no TikTok** (o link curto do celular também vale). Pelo menos o depoimento ou o vídeo. Não há campo de nome: aparece o nome da conta (Minha conta), ou "Aluna do Shop Studio". Até 10 publicações por dia. Ela apaga só as dela, com confirmação. Quem está em `admins` vê um alfinete em todos os cartões para fixar no topo ou desafixar.
 
-Na tela, os cartões têm todos o tamanho do player do TikTok: o vídeo toca ali mesmo, como nos Campeões, e o depoimento sem vídeo aparece num quadro escuro, com a letra maior quando o texto é curto e "Ler mais" quando é longo. Prints publicados antes da mudança aparecem só com o texto.
+Na tela, os cartões têm todos o tamanho do player do TikTok (até 4 por linha em tela larga): o vídeo toca ali mesmo, como nos Campeões, e o depoimento sem vídeo aparece num quadro escuro, com a letra maior quando o texto é curto e "Ler mais" quando é longo. Embaixo de cada cartão vêm o resultado, como título, o depoimento e o nome da aluna. Prints publicados antes da mudança aparecem só com o texto.
 
 ### Ganchos (`/api/ganchos`)
 A tela de Roteiros abre nos **ganchos** (a aba "Criar roteiro" vem depois, em `?aba=gerador`). São duas listas, com o mesmo filtro por tipo, busca e "Mais bem avaliados":

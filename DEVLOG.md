@@ -55,6 +55,12 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
   - o print antigo aparece só com o texto;
   - os cartões ficam entre 547 e 646 px de altura;
   - a 375 px, sem rolagem lateral.
+**Ajuste depois de a dona ver com 10 publicações de teste:**
+- tudo menor, com até 4 cartões por linha em tela larga (a partir de 1280 px) e até 280 px no celular;
+- o resultado virou o título do cartão; embaixo dele, o depoimento e, por último, o nome da aluna, pequeno.
+
+Medido: a 1440 px, 4 por linha com 241 px de largura (alturas entre 464 e 593); a 1280 px, 4 por linha com 213 px; a 375 px, 1 por linha com 280 px, sem rolagem lateral.
+
 - **Não conferido:** o vídeo tocando. No Chrome automatizado, o player do TikTok responde "Server error", mesmo com o vídeo de exemplo da documentação dele (o oEmbed responde 200). É o mesmo player dos Campeões, já visto funcionando num navegador normal.
 
 ## 2026-11-11: Roteiro não salvo pergunta antes de sair; apagar pede confirmação
