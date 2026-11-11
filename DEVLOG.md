@@ -61,6 +61,20 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 Medido: a 1440 px, 4 por linha com 241 px de largura (alturas entre 464 e 593); a 1280 px, 4 por linha com 213 px; a 375 px, 1 por linha com 280 px, sem rolagem lateral.
 
+**Depois, também a pedido da dona:**
+- Nos cartões sem vídeo, o resultado (título) fica dentro do quadro, em cima do depoimento. Nos com vídeo, continua embaixo do vídeo.
+- **TikTok da aluna:** Minha conta ganhou o cartão "TikTok".
+  - Ela cola o `@` ou o link do perfil; `perfilDoTiktok` limpa para `https://www.tiktok.com/@usuário`, e o banco só aceita esse formato.
+  - Não pede senha, porque não é login, e vazio tira o link.
+  - Fica em `profiles.tiktok` (migration `20261111020000_perfil_tiktok`), fora dos metadados que viajam no JWT; o `GET /api/conta` devolve o link para a tela.
+  - No mural, o `GET` faz `left join` em `profiles`, e o nome da aluna vira link para o TikTok dela, em outra aba. Quem não pôs fica sem link. O perfil só aparece porque ela escolheu pôr.
+- **No navegador** (contas de teste):
+  - em Minha conta, o link do Instagram foi recusado e "@tiktok" foi salvo como o link limpo, que continua lá depois de recarregar;
+  - no mural, os 3 nomes da Camila viraram link e os de quem não pôs ficaram sem;
+  - o título aparece dentro do quadro sem vídeo e embaixo do vídeo;
+  - a 375 px, sem rolagem lateral.
+- Banco local: a cópia do arquivo da migration dos créditos voltou à pasta só para o `migration up` rodar e foi apagada em seguida. Os tipos receberam só a coluna `tiktok`, sem a tabela dos créditos, que é de outra branch.
+
 - **Não conferido:** o vídeo tocando. No Chrome automatizado, o player do TikTok responde "Server error", mesmo com o vídeo de exemplo da documentação dele (o oEmbed responde 200). É o mesmo player dos Campeões, já visto funcionando num navegador normal.
 
 ## 2026-11-11: Roteiro não salvo pergunta antes de sair; apagar pede confirmação

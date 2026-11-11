@@ -155,7 +155,7 @@ docs/superpowers/             design e plano da migração do Enter
 ### Mural das alunas (`/api/resultados`)
 A aluna conta o resultado dela: **resultado em uma linha** (até 80 caracteres), **depoimento** e, se quiser, o **link do vídeo no TikTok** (o link curto do celular também vale). Pelo menos o depoimento ou o vídeo. Não há campo de nome: aparece o nome da conta (Minha conta), ou "Aluna do Shop Studio". Até 10 publicações por dia. Ela apaga só as dela, com confirmação. Quem está em `admins` vê um alfinete em todos os cartões para fixar no topo ou desafixar.
 
-Na tela, os cartões têm todos o tamanho do player do TikTok (até 4 por linha em tela larga): o vídeo toca ali mesmo, como nos Campeões, e o depoimento sem vídeo aparece num quadro escuro, com a letra maior quando o texto é curto e "Ler mais" quando é longo. Embaixo de cada cartão vêm o resultado, como título, o depoimento e o nome da aluna. Prints publicados antes da mudança aparecem só com o texto.
+Na tela, os cartões têm todos o tamanho do player do TikTok (até 4 por linha em tela larga): o vídeo toca ali mesmo, como nos Campeões, e o depoimento sem vídeo aparece num quadro escuro, com a letra maior quando o texto é curto e "Ler mais" quando é longo. Nos cartões com vídeo, o resultado (título) e o depoimento vêm embaixo do vídeo; nos sem vídeo, o resultado fica dentro do quadro, em cima do depoimento. Por último vem o nome da aluna, que abre o TikTok dela em outra aba quando ela o pôs em Minha conta. Prints publicados antes da mudança aparecem só com o texto.
 
 ### Ganchos (`/api/ganchos`)
 A tela de Roteiros abre nos **ganchos** (a aba "Criar roteiro" vem depois, em `?aba=gerador`). São duas listas, com o mesmo filtro por tipo, busca e "Mais bem avaliados":
@@ -225,7 +225,7 @@ Migrations em `supabase/migrations/`:
 
 | Tabela | Para quê | Quem escreve |
 |---|---|---|
-| `profiles` | nome e e-mail da aluna (espelho do login) | servidor (`/api/perfil` no primeiro login, `/api/conta`) |
+| `profiles` | nome e e-mail da aluna (espelho do login) e o link do perfil dela no TikTok, que o mural liga ao nome | servidor (`/api/perfil` no primeiro login, `/api/conta`) |
 | `compras_applyfy` | transações da Applyfy já processadas (o aviso repetido não gera outra senha) | servidor (`/api/webhook/applyfy`) |
 | `senhas_temporarias` | contas que ainda não trocaram a senha temporária | servidor (webhook e `/api/senha`) |
 | `chapter_progress`, `checklist_progress` | progresso | a própria aluna |
@@ -258,7 +258,7 @@ Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql
 3. A resposta é `201 { email, senhaTemporaria }`. **O envio da senha à aluna ainda não existe:** quando houver um serviço de e-mail, ele entra nessa rota.
 4. A aluna entra em `/entrar` com o e-mail e a senha temporária, e o app pede a senha nova (mínimo de 6 caracteres). Até ela trocar, toda rota de conteúdo responde 403.
 5. **A senha temporária vale 24 horas** (`VALIDADE_SENHA_TEMPORARIA_MIN`, contados pelo relógio do banco). Depois disso, o app mostra "Sua senha temporária expirou" e não deixa trocar. Para gerar outra, chame o webhook de novo com o mesmo e-mail: ele cria uma senha nova, com mais 24 horas, e a antiga para de valer.
-6. Depois, a aluna muda nome, e-mail e senha em **Minha conta** (`/app/conta`, pelo cartão no rodapé do menu). E-mail e senha pedem a senha atual; o e-mail novo entra já confirmado.
+6. Depois, a aluna muda nome, e-mail e senha em **Minha conta** (`/app/conta`, pelo cartão no rodapé do menu). E-mail e senha pedem a senha atual; o e-mail novo entra já confirmado. Ali ela também põe o **TikTok** (o `@` ou o link do perfil), sem pedir senha: no mural, o nome dela vira link para esse perfil.
 7. A troca (`POST /api/senha`) apaga a linha da aluna em `senhas_temporarias` e derruba as sessões abertas. A tela entra de novo sozinha com a senha nova. Daí em diante, `GET /api/acesso` responde só `{ "acesso": true }`, sem campo de senha, e o JWT nunca carrega nada sobre isso.
 
 Respostas do webhook: `201` conta criada (ou senha temporária renovada) · `400` e-mail inválido · `401` segredo ausente ou errado · `403` `Origin` fora da lista · `409` a aluna já definiu a própria senha · `500` segredo não configurado ou falha.
