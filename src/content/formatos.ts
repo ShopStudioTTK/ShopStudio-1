@@ -22,3 +22,10 @@ export const SUGESTOES_DE_PRODUTO = [
   "Escova secadora",
   "Kit de enxoval",
 ];
+
+type Duracao = { total: string; etapas: Record<"gancho" | "problema" | "solucao" | "cta", string> };
+const FALADO: Duracao = { total: "30 a 60s", etapas: { gancho: "0–3s", problema: "até 15s", solucao: "até 45s", cta: "até 60s" } };
+const MUSICA: Duracao = { total: "7 a 15s · sem fala", etapas: { gancho: "0–2s", problema: "até 5s", solucao: "até 12s", cta: "até 15s" } };
+
+/** Duração do roteiro e de cada parte, pelo formato (a Música viral é curta e sem fala). */
+export const duracaoDoFormato = (formato: string): Duracao => (formato === "Música viral" ? MUSICA : FALADO);

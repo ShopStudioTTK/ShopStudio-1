@@ -18,11 +18,13 @@ vi.mock("@/lib/access", () => ({ temAcesso: (v: boolean) => temAcesso(v) }));
 const buscarParecidas = vi.fn();
 const buscarDoMesmoJeito = vi.fn();
 const listarGatilhos = vi.fn();
+const listarExemplosFixos = vi.fn();
 vi.mock("@/lib/fichas", async (original) => ({
   ...(await original<typeof import("@/lib/fichas")>()),
   buscarParecidas: (p: string) => buscarParecidas(p),
   buscarDoMesmoJeito: (f: string, g: string, e: string[]) => buscarDoMesmoJeito(f, g, e),
   listarGatilhos: () => listarGatilhos(),
+  listarExemplosFixos: () => listarExemplosFixos(),
 }));
 
 import { POST } from "@/app/api/roteiro/route";
@@ -78,6 +80,7 @@ beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue(ia('{"ganchos":["a"]}')) as typeof fetch;
   buscarParecidas.mockReset().mockResolvedValue([]);
   buscarDoMesmoJeito.mockReset().mockResolvedValue([]);
+  listarExemplosFixos.mockReset().mockResolvedValue([]);
   listarGatilhos.mockReset().mockResolvedValue([{ slug: "fofoca", rotulo: "Fofoca" }, { slug: "choque", rotulo: "Choque (quebra de padrão)" }]);
 });
 
@@ -138,6 +141,16 @@ describe("POST /api/roteiro", () => {
     const user = body.messages[1].content as string;
     expect(user).toContain("x".repeat(500));
     expect(user).not.toContain("x".repeat(501));
+  });
+
+  it("preço opcional vai para o pedido à IA, cortado em 40 caracteres", async () => {
+    await POST(req({ produto: "Babydoll", preco: "R$ 59,90" + " ".repeat(10) + "x".repeat(60) }));
+    const user = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).messages[1].content as string;
+    expect(user).toContain("Preço: R$ 59,90");
+    expect(user).not.toContain("x".repeat(30));
+    vi.mocked(fetch).mockClear();
+    await POST(req({ produto: "Babydoll" }));
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).messages[1].content).toContain("Preço: não informado");
   });
 
   it("400 sem produto", async () => {
@@ -270,6 +283,17 @@ describe("POST /api/roteiro", () => {
       expect(system).toContain("PORQUE-DA-ANA");
       expect(system).toContain("choque");
       expect(system.indexOf("PORQUE-DA-ANA")).toBeGreaterThan(system.indexOf("DOSSIÊ DA ESPECIALISTA"));
+    });
+
+    it("as fichas marcadas como exemplo fixo de voz vão no prompt de todo roteiro; falha na leitura = roteiro igual", async () => {
+      listarExemplosFixos.mockResolvedValue([ficha({ id: "fx", produto: "Papete de brilho" })]);
+      await POST(req());
+      const system = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).messages[0].content as string;
+      expect(system).toContain("EXEMPLOS DE VOZ DA ANA");
+      expect(system).toContain("Papete de brilho");
+      vi.mocked(fetch).mockClear().mockResolvedValue(ia('{"ganchos":["a"]}'));
+      listarExemplosFixos.mockRejectedValue(new Error("db"));
+      expect((await POST(req())).status).toBe(200);
     });
 
     it("gatilho fora da lista → vazio, sem cartão 2", async () => {

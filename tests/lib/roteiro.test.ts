@@ -23,29 +23,53 @@ describe("prompts", () => {
     expect(p).toContain("Público: mulheres brasileiras que compram por impulso no TikTok");
     expect(p).toContain("Formato desejado: conselho de amiga");
   });
-  it("METHOD segue as regras da especialista (instruções da Ana, 2026-11-06)", () => {
+  it("METHOD segue as regras da especialista (instruções da Ana, 2026-11-06) e as durações por formato", () => {
     expect(METHOD).not.toContain("escassez e urgência");
     expect(METHOD).toContain("Escassez só no condicional");
-    expect(METHOD).toContain("30 a 50 segundos");
+    expect(METHOD).toContain("30 a 60 segundos");
+    expect(METHOD).toContain("7 a 15 segundos");
     expect(METHOD).toContain("Nunca invente preço");
     expect(METHOD).toContain("O meio paga o que o gancho prometeu");
     expect(METHOD).toContain("Marca concorrente nunca");
   });
-  it("ganchos variados: um de cada ângulo do método, e o público não se repete em todos (feedback de 2026-11-11)", () => {
-    expect(SYSTEM_PROMPT).toContain("um de cada ângulo do método");
-    expect(SYSTEM_PROMPT).toMatch(/curiosidade, problema, transformação, choque, prova social/);
+  it("a voz é a da Ana, com as marcas dela e as frases proibidas (feedback de 2026-11-11)", () => {
+    expect(METHOD).toContain("COMO A ANA FALA");
+    expect(METHOD).not.toContain("não da mentora");
+    expect(METHOD).toContain("pelo menos 2 por roteiro");
+    expect(METHOD).toMatch(/CAIXA ALTA: de 2 a 4 palavras/);
+    expect(METHOD).toContain("suuuper");
+    expect(METHOD).toMatch(/"produto incrível", "não perca"/);
+    expect(METHOD).toContain("[mostrar de perto]");
+  });
+  it("regras por formato: unboxing antes de abrir, tela verde apontando, música viral sem fala", () => {
+    expect(METHOD).toContain("ANTES de abrir a caixa");
+    expect(METHOD).toContain("olha isso atrás de mim");
+    expect(METHOD).toContain("Música viral: SEM FALA");
+    expect(METHOD).toContain('"Texto na tela: …"');
+  });
+  it("ganchos: fofoca só entre as 5 opções, nunca no roteiro principal; indignação com preço só com preço", () => {
+    expect(METHOD).toContain("nunca é o gancho do roteiro principal");
+    expect(SYSTEM_PROMPT).toContain("1 de fofoca com prova social");
+    expect(SYSTEM_PROMPT).toContain("nunca o de fofoca");
+    expect(SYSTEM_PROMPT).toMatch(/indignação com preço se a aluna informou o preço/);
     expect(METHOD).toContain("No máximo 1 dos 5 ganchos cita o público pelo nome");
   });
-  it("não inventa detalhe do produto: cor, tamanho, preço e promoção só se a aluna informou", () => {
+  it("não inventa detalhe do produto nem preço: só compara com o preço que a aluna informou", () => {
     expect(METHOD).toContain("Só cite característica que esteja no que a aluna preencheu");
     expect(METHOD).toMatch(/cor, tamanho, variação/);
-    expect(METHOD).not.toContain("se ainda tiver nesse preço, aproveita");
     expect(METHOD).toContain("só se a aluna informou promoção ou estoque");
+    expect(METHOD).toContain("nunca invente preço de outra loja");
+    expect(METHOD).not.toMatch(/vai esgotar rapidinho|sempre com urgência/i);
   });
   it("resultado como experiência dela, nunca garantia para quem assiste", () => {
     expect(METHOD).toContain("Resultado como experiência");
     expect(METHOD).toMatch(/"garantido", "100%", "nunca mais"/);
     expect(METHOD).toContain("prova que aparece no vídeo");
+  });
+  it("preço no pedido: com ele, pode citar e comparar só com ele; sem ele, nenhum valor", () => {
+    const base = { produto: "Babydoll", publico: "", beneficio: "", formato: "Storytelling" };
+    expect(buildUserPrompt({ ...base, preco: "R$ 59,90" })).toContain("Preço: R$ 59,90 (informado pela aluna");
+    expect(buildUserPrompt({ ...base, preco: "" })).toContain("Preço: não informado");
   });
   it("SYSTEM_PROMPT diz Shop Studio", () => {
     expect(SYSTEM_PROMPT).toContain("Shop Studio");

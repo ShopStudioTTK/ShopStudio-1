@@ -10,8 +10,8 @@ import {
   registrarCusto,
   reservarChamada,
 } from "@/lib/api-auth";
-import { blocoDasFichas, buscarDoMesmoJeito, buscarParecidas, gatilhoDaIa, listarGatilhos } from "@/lib/fichas";
-import type { Gatilho } from "@/lib/fichas-tipos";
+import { blocoDasFichas, buscarDoMesmoJeito, buscarParecidas, gatilhoDaIa, listarExemplosFixos, listarGatilhos } from "@/lib/fichas";
+import type { FichaCartao, Gatilho } from "@/lib/fichas-tipos";
 import { buildSystemPrompt, buildUserPrompt, extractScriptJson, RASCUNHO_BLOCK } from "@/lib/roteiro";
 
 export const runtime = "nodejs";
@@ -29,6 +29,7 @@ export async function POST(req: Request) {
     publico: field("publico"),
     beneficio: field("beneficio"),
     formato: field("formato"),
+    preco: field("preco").slice(0, 40).trim(),
   };
   if (!input.produto) return erro("Diga qual é o produto.", 400);
 
@@ -44,12 +45,16 @@ export async function POST(req: Request) {
   if (reserva instanceof Response) return reserva;
   const descontar = () => liberarChamada(reserva);
 
-  // Opcionais: config, base, fichas da expert e gatilhos. Falha em qualquer um = roteiro como antes.
-  const [{ config, knowledge }, parecidas, gatilhos] = await Promise.all([
+  // Opcionais: config, base, fichas da expert (parecidas e fixas) e gatilhos. Falha em qualquer um = roteiro como antes.
+  const [{ config, knowledge }, parecidas, gatilhos, fixas] = await Promise.all([
     configDaIA(),
     buscarParecidas(input.produto),
     listarGatilhos().catch((e): Gatilho[] => {
       console.error("roteiro: falha ao ler os gatilhos", e);
+      return [];
+    }),
+    listarExemplosFixos().catch((e): FichaCartao[] => {
+      console.error("roteiro: falha ao ler os exemplos fixos", e);
       return [];
     }),
   ]);
@@ -59,7 +64,7 @@ export async function POST(req: Request) {
     response = await chamarOpenRouter(apiKey, {
       model,
       messages: [
-        { role: "system", content: buildSystemPrompt(config, knowledge, blocoDasFichas(parecidas, gatilhos) + (rascunho ? RASCUNHO_BLOCK : "")) },
+        { role: "system", content: buildSystemPrompt(config, knowledge, blocoDasFichas(parecidas, gatilhos, fixas) + (rascunho ? RASCUNHO_BLOCK : "")) },
         { role: "user", content: buildUserPrompt(input) },
       ],
       stream: false,
