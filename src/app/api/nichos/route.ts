@@ -4,11 +4,19 @@ import { SLUG, slugDe, texto } from "@/lib/entrada";
 
 export const runtime = "nodejs";
 
-/** Abas da tela de Campeões, na ordem em que foram criadas. */
+/**
+ * Ordem das abas pedida pela dona (2026-11-11), pelo slug. Abas fora da lista (as que a admin criar)
+ * vêm depois, na ordem de criação. "suplementos" é o slug que a "Nova aba" gera para "Suplementos".
+ */
+const ORDEM = ["moda-fitness", "moda-feminina", "beleza", "casa-e-cozinha", "suplementos"];
+
+/** Abas da tela de Campeões: as de ORDEM primeiro, depois as outras, na ordem em que foram criadas. */
 export async function GET(req: Request) {
   const auth = await autenticar(req, "nichos", "Faça login.");
   if (auth instanceof Response) return auth;
-  const nichos = await db()`select slug, rotulo from public.nichos order by criado_em`;
+  const nichos = await db()`
+    select slug, rotulo from public.nichos
+    order by array_position(${ORDEM}::text[], slug) nulls last, criado_em`;
   return Response.json({ nichos });
 }
 
