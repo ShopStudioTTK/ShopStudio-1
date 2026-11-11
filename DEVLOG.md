@@ -34,6 +34,16 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 - O nome da ficha também leva à página, com ela aberta.
 - A página mostra até 5 roteiros por linha a partir de 1400 px (4 a 1280 px, 1 no celular).
 
+Depois, também a pedido da dona:
+- A página voltou para no máximo 4 por linha, porque com 5 ficava apertado.
+- **Menu lateral redimensionável:** uma alça na borda direita estreita o menu de 272 px (a largura de antes, o máximo) até 76 px.
+  - Abaixo de 180 px ficam só os ícones, com o nome no `title` e para o leitor de tela. A marca vira "shop / studio" empilhada, e a conta vira o avatar com o botão de sair embaixo.
+  - Entre 180 e 272 px, os nomes ficam numa linha, cortados com reticências.
+  - A alça tem `role="separator"`: as setas do teclado mudam 16 px e o duplo clique volta ao máximo.
+  - A largura fica no `localStorage` (conveniência, como o modo "Tô começando / Já vendo").
+  - A alça não ocupa espaço (margem negativa dos dois lados) e não aparece no celular.
+  - No navegador: começa em 272; arrastar além não passa disso; 210 mantém os nomes; o mínimo é 76, só com os ícones; recarregar mantém a largura; duas setas para a direita somam 32; o duplo clique volta a 272; a 375 px não há menu lateral, alça nem rolagem lateral; console sem erro.
+
 Medido com as 50 fichas: "garrafa térmica", "escova alisadora" e "air fryer 4 litros" trazem 2 fichas no cartão. **Nomes curtos ficam abaixo de 0,70 mesmo havendo ficha do mesmo produto:** "air fryer" (a ficha é "Air fryer 4 litros"), "legging de academia", "copo térmico", "protetor solar", "chapinha", "potes de vidro". Com o nome um pouco mais completo eles aparecem ("copo térmico com tampa" = 0,81). Se a dona quiser pegar os curtos, o caminho é baixar o cartão para perto de 0,65.
 
 **Verificado:**
