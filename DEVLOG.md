@@ -4,17 +4,6 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
-## 2026-11-11: Campeões aceitam o link curto do celular
-
-**Pedido:** no celular, "copiar link" do TikTok dá `https://vt.tiktok.com/ZS…/`; no PC, `https://www.tiktok.com/@perfil/video/<id>?_r=1&_t=…`. Os dois precisam entrar.
-
-**O que mudou:**
-- `linkCurtoDoTiktok` (`src/lib/video.ts`) reconhece `vt.tiktok.com`/`vm.tiktok.com` com um código só no caminho. As duas funções aceitam o link sem `https://`.
-- `POST /api/campeoes` resolve o link curto com `fetch(…, { redirect: "manual" })` e lê só o `Location` (um 301 direto para o link completo), com 5 s de limite. Isso não é scraping, porque a página não é aberta. O destino passa de novo por `urlDoTiktok`, e o banco continua guardando só o formato completo. Se o destino não for um vídeo ou o TikTok não responder, a rota devolve 400. Só a admin chega nesse código (`admin()` vem antes), e o host é fixo, então não abre SSRF.
-- Na tela, a checagem aceita os dois formatos.
-
-**Verificado:** testes, lint e build. Com o link real, `https://vt.tiktok.com/ZSpmQHBdV/` e o link do PC dão o mesmo `https://www.tiktok.com/@kevelybr/video/7661082129920527636`. No navegador (admin de teste local): o link curto grava o vídeo (201), o link do PC do mesmo vídeo dá 409 e um link curto inexistente dá 400.
-
 ## 2026-11-10: Fichas no prompt: copiar a intenção, não a frase
 
 **Pedido:** depois do teste do rascunho, a dona pediu que a IA copie a intenção da ficha, e não o texto.
