@@ -80,13 +80,26 @@ export const validadeDaUrlAssinada = (valor: string | undefined): number => {
   return Number.isInteger(n) && n > 0 ? n : 3600;
 };
 
-/** Link de vídeo do TikTok no formato completo, sem query: `https://www.tiktok.com/@perfil/video/123`. Outro formato vira null. */
-export const urlDoTiktok = (url: string): string | null => {
+/** Aceita o link sem `https://` (o celular às vezes copia só `vt.tiktok.com/…`). */
+const comoUrl = (url: string): URL | null => {
+  const v = url.trim();
   try {
-    const u = new URL(url.trim());
-    if (u.protocol !== "https:" || !["www.tiktok.com", "tiktok.com"].includes(u.hostname)) return null;
-    return /^\/@[\w.-]+\/video\/\d+$/.test(u.pathname) ? `https://www.tiktok.com${u.pathname}` : null;
+    return new URL(/^[a-z]+:\/\//i.test(v) ? v : `https://${v}`);
   } catch {
     return null;
   }
+};
+
+/** Link de vídeo do TikTok no formato completo, sem query: `https://www.tiktok.com/@perfil/video/123`. Outro formato vira null. */
+export const urlDoTiktok = (url: string): string | null => {
+  const u = comoUrl(url);
+  if (!u || u.protocol !== "https:" || !["www.tiktok.com", "tiktok.com"].includes(u.hostname)) return null;
+  return /^\/@[\w.-]+\/video\/\d+$/.test(u.pathname) ? `https://www.tiktok.com${u.pathname}` : null;
+};
+
+/** Link curto que o app do celular copia (`https://vt.tiktok.com/ZS…/`), normalizado; outro formato vira null. */
+export const linkCurtoDoTiktok = (url: string): string | null => {
+  const u = comoUrl(url);
+  if (!u || u.protocol !== "https:" || !["vt.tiktok.com", "vm.tiktok.com"].includes(u.hostname)) return null;
+  return /^\/[A-Za-z0-9]+\/?$/.test(u.pathname) ? `https://${u.hostname}${u.pathname}` : null;
 };

@@ -12,7 +12,7 @@ import { useAccess } from "@/hooks/use-access";
 import { useAuth } from "@/hooks/use-auth";
 import { useNichos, type Nicho } from "@/hooks/use-nichos";
 import { api } from "@/lib/api-cliente";
-import { urlDoTiktok } from "@/lib/video";
+import { linkCurtoDoTiktok, urlDoTiktok } from "@/lib/video";
 
 type Video = { id: string; url: string; titulo: string };
 
@@ -33,7 +33,8 @@ const NovoVideo = ({ nicho }: { nicho: Nicho }) => {
   });
   const enviar = (e: FormEvent) => {
     e.preventDefault();
-    if (!urlDoTiktok(url)) return toast.error("Cole o link completo do vídeo: https://www.tiktok.com/@perfil/video/…");
+    if (!urlDoTiktok(url) && !linkCurtoDoTiktok(url))
+      return toast.error("Cole o link do vídeo do TikTok (https://www.tiktok.com/@perfil/video/… ou vt.tiktok.com/…).");
     salvar.mutate();
   };
   return (
