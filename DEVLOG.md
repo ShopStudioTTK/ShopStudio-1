@@ -44,6 +44,17 @@ Depois, também a pedido da dona:
   - A alça não ocupa espaço (margem negativa dos dois lados) e não aparece no celular.
   - No navegador: começa em 272; arrastar além não passa disso; 210 mantém os nomes; o mínimo é 76, só com os ícones; recarregar mantém a largura; duas setas para a direita somam 32; o duplo clique volta a 272; a 375 px não há menu lateral, alça nem rolagem lateral; console sem erro.
 
+**Grade escolhida pela aluna** (pedido da dona): "Por linha", de 1 a 4, ao lado da busca, guardado no navegador e escondido no celular, onde é sempre 1.
+- Com mais de 3 na linha, o cartão mostra só o gancho e "Ver o roteiro" abre o roteiro inteiro num pop-up (Radix Dialog), com "Ver o porquê" lá dentro. Com até 3, fica como antes.
+- A regra olha o que cabe de verdade: escolher 4 numa tela abaixo de 1280 px mostra 3, então fica sem pop-up (`abreEmPopup`, com o `matchMedia` do mesmo `xl`).
+- O `?ficha=` do gerador abre o pop-up daquela ficha, com o porquê, quando a grade está em 4; senão, rola até a ficha.
+- No navegador:
+  - o padrão é 4 com pop-up, e "Ver o porquê" funciona dentro dele; Esc fecha;
+  - 3, 2 e 1 mostram o roteiro inteiro no cartão;
+  - recarregar mantém a escolha, e 4 a 1100 px vira 3 sem pop-up;
+  - o link da air fryer abre o pop-up dela com 4 e rola até ela com 2;
+  - celular sem o seletor e sem rolagem lateral; console sem erro.
+
 Medido com as 50 fichas: "garrafa térmica", "escova alisadora" e "air fryer 4 litros" trazem 2 fichas no cartão. **Nomes curtos ficam abaixo de 0,70 mesmo havendo ficha do mesmo produto:** "air fryer" (a ficha é "Air fryer 4 litros"), "legging de academia", "copo térmico", "protetor solar", "chapinha", "potes de vidro". Com o nome um pouco mais completo eles aparecem ("copo térmico com tampa" = 0,81). Se a dona quiser pegar os curtos, o caminho é baixar o cartão para perto de 0,65.
 
 **Verificado:**
