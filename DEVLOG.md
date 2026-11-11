@@ -4,6 +4,59 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-11: Mural das alunas: só vídeo do TikTok, nome da conta e fixar só da admin
+
+**Pedido:** testar o mural no navegador. O teste mostrou que ele funcionava, mas:
+- qualquer aluna podia fixar no topo;
+- o link do Drive, que o próprio formulário sugeria, dava imagem quebrada;
+- o cartão só com texto tinha um bloco vazio;
+- os cartões esticavam até a altura do maior;
+- apagar não pedia confirmação;
+- o resultado ficava em caixa alta;
+- o nome era livre, e não havia limite por dia.
+
+**Decisões da dona:**
+- fixar só a admin;
+- sem imagem: só vídeo do TikTok, tocando como nos Campeões;
+- cartões com altura parecida;
+- apagar pede confirmação;
+- resultado legível;
+- 10 por dia;
+- o nome é o da conta, e a aluna não preenche.
+
+**Como ficou:**
+- `POST /api/resultados`:
+  - o nome vem do token (`nomeDoPerfil`, ou "Aluna do Shop Studio");
+  - o `destaque` não vem mais da aluna;
+  - o vídeo passa por `resolverUrlDoTiktok`, que saiu da rota dos Campeões para `src/lib/video.ts`, então o link curto do celular também vale;
+  - exige depoimento ou vídeo;
+  - o resultado vai até 80 caracteres;
+  - o limite de 10 por dia é contado no próprio insert.
+- `PATCH /api/resultados` com `admin()` fixa e desafixa qualquer cartão.
+- Migration `20261111010000_mural_so_tiktok`: o banco só aceita vídeo do TikTok em `midia_url`. Ela é `not valid`, então os prints antigos ficam e a tela mostra só o texto deles.
+- **Tela:**
+  - todo cartão tem o tamanho do player do TikTok (9:16, até 320 px), em 3 colunas como nos Campeões. O vídeo usa o `VideoEmbed`; o depoimento sem vídeo vai num quadro escuro, centralizado, com a letra maior para texto curto e "Ler mais" para o longo;
+  - o resultado aparece em rosa, sem caixa alta;
+  - a admin vê o alfinete e o "Fixado";
+  - apagar usa o `Confirmacao`;
+  - o formulário mostra "Vai aparecer como <nome>", com link para Minha conta.
+
+**Verificado:**
+- Testes (rota nova em `tests/app/api/resultados/route.test.ts`), lint e build.
+- A restrição foi conferida no Postgres local numa transação desfeita. O `migration up` recusou porque o banco local tem a migration dos créditos, de outra branch; ela entra quando as branches se juntarem.
+- No navegador (Chrome headless, build em `localhost:3005`, três contas de teste apagadas no fim):
+  - o nome vem da conta, e sem nome aparece "Aluna do Shop Studio";
+  - o formulário não tem o "Fixar", nem o campo de nome, nem a opção de print;
+  - envio vazio e link de imagem são recusados, e a 11ª publicação do dia dá o aviso do limite;
+  - vídeo com query é aceito, e as publicações só com texto aparecem;
+  - apagar: "Cancelar" mantém e "Apagar" tira;
+  - a aluna B só tem lixeira no dela e não tem o alfinete;
+  - a admin fixa (vai para o topo com "Fixado") e desafixa;
+  - o print antigo aparece só com o texto;
+  - os cartões ficam entre 547 e 646 px de altura;
+  - a 375 px, sem rolagem lateral.
+- **Não conferido:** o vídeo tocando. No Chrome automatizado, o player do TikTok responde "Server error", mesmo com o vídeo de exemplo da documentação dele (o oEmbed responde 200). É o mesmo player dos Campeões, já visto funcionando num navegador normal.
+
 ## 2026-11-11: Roteiro não salvo pergunta antes de sair; apagar pede confirmação
 
 **Pedido:** na tela de roteiros, ao sair com um roteiro gerado, um pop-up pergunta se ela quer salvar antes; ao apagar um roteiro, outro pergunta se é isso mesmo. E limpar os estados ao sair de cada página.

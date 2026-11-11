@@ -152,6 +152,11 @@ docs/superpowers/             design e plano da migração do Enter
 - **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. Nesse caso, a persona do `ai_config` não vai, para as duas não brigarem. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
 - **Limite de 15 perguntas por dia** por aluna, contadas a partir da meia-noite de Brasília. O aviso "Você ainda pode fazer N perguntas hoje" aparece a partir da 12ª. Pergunta que a IA não conseguiu responder não conta.
 
+### Mural das alunas (`/api/resultados`)
+A aluna conta o resultado dela: **resultado em uma linha** (até 80 caracteres), **depoimento** e, se quiser, o **link do vídeo no TikTok** (o link curto do celular também vale). Pelo menos o depoimento ou o vídeo. Não há campo de nome: aparece o nome da conta (Minha conta), ou "Aluna do Shop Studio". Até 10 publicações por dia. Ela apaga só as dela, com confirmação. Quem está em `admins` vê um alfinete em todos os cartões para fixar no topo ou desafixar.
+
+Na tela, os cartões têm todos o tamanho do player do TikTok: o vídeo toca ali mesmo, como nos Campeões, e o depoimento sem vídeo aparece num quadro escuro, com a letra maior quando o texto é curto e "Ler mais" quando é longo. Prints publicados antes da mudança aparecem só com o texto.
+
 ### Ganchos (`/api/ganchos`)
 A tela de Roteiros abre nos **ganchos** (a aba "Criar roteiro" vem depois, em `?aba=gerador`). São duas listas, com o mesmo filtro por tipo, busca e "Mais bem avaliados":
 - **Banco do Studio:** os 60 ganchos de antes, agora na tabela `ganchos`.
@@ -225,7 +230,7 @@ Migrations em `supabase/migrations/`:
 | `senhas_temporarias` | contas que ainda não trocaram a senha temporária | servidor (webhook e `/api/senha`) |
 | `chapter_progress`, `checklist_progress` | progresso | a própria aluna |
 | `saved_scripts` | roteiros salvos | a própria aluna |
-| `success_cases` | mural de resultados | a própria aluna (todas leem) |
+| `success_cases` | mural de resultados (vídeo do TikTok e depoimento; o nome vem da conta) | a própria aluna, até 10 por dia (todas leem); fixar no topo só a admin |
 | `entitlements` | quem tem acesso liberado | webhook da compra (`origem = 'compra'`) ou função `resgatar_codigo` (via `POST /api/acesso`) |
 | `access_codes` | códigos de compra | só service role (painel do Supabase) |
 | `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
@@ -311,7 +316,7 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 | E-mails de recuperação/link mágico disparados por qualquer um | Os modelos não têm link nem código (`supabase/templates/sem-link.html`). |
 | Usar o Supabase direto com a chave pública | Data API e realtime desligados; storage sem política (listar volta vazio, enviar dá 403); admin dá 403; 10 logins a cada 5 min por IP. |
 | Embutir o app em outro site (clickjacking) | `frame-ancestors 'none'` e `X-Frame-Options: DENY`. |
-| Link malicioso nos casos de sucesso | O banco só aceita `https://` em `midia_url`. |
+| Link malicioso no mural | O servidor e o banco só aceitam link de vídeo do TikTok em `midia_url`, e o vídeo toca no player oficial. |
 | Redirecionar para site falso após o login | `?de=` só aceita caminhos que começam com `/app`. |
 
 Os cabeçalhos ficam em `src/lib/seguranca.ts`. **Ao embutir um player ou chamar um serviço externo novo, libere o domínio ali** (`frame-src` ou `connect-src`), senão o navegador bloqueia.
