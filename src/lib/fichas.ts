@@ -10,9 +10,13 @@ import { vetorSql } from "@/lib/treinamento";
  * Fichas de roteiro da expert. Semelhança (1 - distância de cosseno) do produto da aluna com o
  * "produto — tipo" da ficha. Baixados de 0,6 / 0,7 em 2026-11-10: com nomes curtos, só o mesmo produto passava.
  */
-export const LIMIAR_CARTAO = 0.45; // aparece no cartão "produtos parecidos" (mesma categoria ≈ 0,47)
-export const LIMIAR_MODELO = 0.55; // entra no prompt do gerador como modelo
+// Medido com text-embedding-3-small (2026-11-10): o mesmo produto ≈ 0,73–0,75; a mesma categoria ≈ 0,47;
+// sem relação 0,1–0,25. A dona subiu os dois em 2026-11-11 (eram 0,45 / 0,55).
+export const LIMIAR_CARTAO = 0.7; // aparece no cartão "produtos parecidos": só o mesmo produto
+export const LIMIAR_MODELO = 0.8; // entra no prompt do gerador como modelo: só o produto quase igual
 export const MAX_CARTAO = 3;
+// ponytail: sem paginação; paginar quando a expert passar de algumas centenas de fichas.
+const MAX_LISTA = 300;
 
 /** O embedding da ficha leva só o produto e o tipo, não o raciocínio. */
 export const textoDaFicha = (produto: string, tipo: string) => `${produto} — ${tipo}`;
@@ -78,6 +82,18 @@ export async function buscarParecidas(produto: string): Promise<FichaCartao[]> {
     console.error("roteiro: falha ao buscar fichas parecidas", e);
     return [];
   }
+}
+
+/** Página "Roteiros expert": todas as fichas, as mais novas primeiro, sem nada interno (embedding, autora). */
+export async function listarFichas(): Promise<FichaCartao[]> {
+  const linhas = await db()`
+    select f.id, f.produto, f.tipo, f.formato, f.gancho_gatilho, g.rotulo as gatilho_rotulo,
+      f.gancho, f.gancho_porque, f.gancho_entonacao, f.problema, f.problema_porque, f.problema_entonacao,
+      f.solucao, f.solucao_porque, f.solucao_entonacao, f.cta, f.cta_porque, f.cta_entonacao
+    from public.fichas_roteiro f join public.gatilhos g on g.slug = f.gancho_gatilho
+    order by f.criado_em desc
+    limit ${MAX_LISTA}`;
+  return linhas.map(linhaParaCartao);
 }
 
 /** Cartão 2: fichas com o mesmo formato e o mesmo gatilho, de qualquer produto, sem as do cartão 1. */
