@@ -103,3 +103,33 @@ export const linkCurtoDoTiktok = (url: string): string | null => {
   if (!u || u.protocol !== "https:" || !["vt.tiktok.com", "vm.tiktok.com"].includes(u.hostname)) return null;
   return /^\/[A-Za-z0-9]+\/?$/.test(u.pathname) ? `https://${u.hostname}${u.pathname}` : null;
 };
+
+/** Link completo do vídeo; o link curto do celular é resolvido lendo o redirecionamento (só o `Location`, sem abrir a página). Só no servidor. */
+export async function resolverUrlDoTiktok(url: string): Promise<string | null> {
+  const completo = urlDoTiktok(url);
+  if (completo) return completo;
+  const curto = linkCurtoDoTiktok(url);
+  if (!curto) return null;
+  try {
+    const res = await fetch(curto, { redirect: "manual", signal: AbortSignal.timeout(5000) });
+    return urlDoTiktok(res.headers.get("location") ?? "");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Perfil da aluna no TikTok: aceita `@usuário`, o usuário solto ou um link do TikTok com `/@usuário`
+ * e devolve `https://www.tiktok.com/@usuário`. Usuário do TikTok: 2 a 24 letras, números, `_` e `.`.
+ */
+export const perfilDoTiktok = (valor: string): string | null => {
+  const v = valor.trim();
+  const usuario = /^@?[\w.]+$/.test(v)
+    ? v.replace(/^@/, "")
+    : (() => {
+        const u = comoUrl(v);
+        if (!u || u.protocol !== "https:" || !["www.tiktok.com", "tiktok.com"].includes(u.hostname)) return null;
+        return u.pathname.match(/^\/@([^/]+)/)?.[1] ?? null;
+      })();
+  return usuario && /^[\w.]{2,24}$/.test(usuario) ? `https://www.tiktok.com/@${usuario}` : null;
+};

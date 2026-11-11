@@ -176,6 +176,11 @@ where c.semana = (date_trunc('week', (now() at time zone 'America/Sao_Paulo')::d
 order by c.gastos desc;
 ```
 
+### Mural das alunas (`/api/resultados`)
+A aluna conta o resultado dela: **resultado em uma linha** (até 80 caracteres), **depoimento** e, se quiser, o **link do vídeo no TikTok** (o link curto do celular também vale). Pelo menos o depoimento ou o vídeo. Não há campo de nome: aparece o nome da conta (Minha conta), ou "Aluna do Shop Studio". Até 10 publicações por dia. Ela apaga só as dela, com confirmação. Quem está em `admins` vê um alfinete em todos os cartões para fixar no topo ou desafixar.
+
+Na tela, os cartões têm todos o tamanho do player do TikTok (até 4 por linha em tela larga): o vídeo toca ali mesmo, como nos Campeões, e o depoimento sem vídeo aparece num quadro escuro, com a letra maior quando o texto é curto e "Ler mais" quando é longo. Nos cartões com vídeo, o resultado (título) e o depoimento vêm embaixo do vídeo; nos sem vídeo, o resultado fica dentro do quadro, em cima do depoimento. Por último vem o nome da aluna, que abre o TikTok dela em outra aba quando ela o pôs em Minha conta. Prints publicados antes da mudança aparecem só com o texto.
+
 ### Ganchos (`/api/ganchos`)
 A tela de Roteiros abre nos **ganchos** (a aba "Criar roteiro" vem depois, em `?aba=gerador`). São duas listas, com o mesmo filtro por tipo, busca e "Mais bem avaliados":
 - **Banco do Studio:** os 60 ganchos de antes, agora na tabela `ganchos`.
@@ -185,6 +190,8 @@ Toda aluna dá nota de 1 a 5 a qualquer gancho (`POST /api/ganchos/nota`; dar de
 
 ### Gerador de roteiros (`/api/roteiro`)
 Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags, formato e o **gatilho** do gancho escolhido (um dos slugs de `gatilhos`).
+
+**Roteiro não salvo:** se a aluna tenta sair com um roteiro gerado que ainda não está na biblioteca, aparece "Salvar o roteiro antes de sair?", com **Salvar e sair**, **Sair sem salvar** e **Continuar aqui**. Isso vale para o menu, a barra de baixo do celular, a aba "Ganchos", "Sair da conta", abrir outro roteiro da biblioteca e o botão voltar. Ao recarregar ou fechar a aba, o navegador mostra o aviso padrão dele. Apagar um roteiro da biblioteca pede confirmação ("Apagar este roteiro?").
 
 **Fichas da expert (treinamento de roteiros):** em `/app/treinamento`, aba **Roteiros**, "Nova ficha" abre o gerador, igual ao da aluna (produto, público, benefício e formato). A IA escreve o rascunho pela mesma `/api/roteiro`, com `rascunho: true`, já com o tipo do produto, o gatilho e o porquê e a entonação de cada parte. O formulário abre preenchido, e embaixo dele fica a prévia de **como a aluna vê** (roteiro pronto + 5×5). Cada mudança aparece na prévia; no 5×5 muda só a frase escolhida, e as outras 4 de cada coluna não são salvas. "Gerar outra versão" troca o rascunho, depois de confirmar. **"Escrever do zero"**, ao lado do "Nova ficha", abre o formulário vazio. Para quem está em `admins` (conferido no banco a cada chamada), a rota não gasta créditos (o custo continua em `ai_perguntas`) e aceita o `rascunho`; para a aluna, o campo é ignorado. A ficha registra como a expert pensaria o roteiro de um produto, campo por campo: produto, tipo, formato e, para gancho, problema, solução e CTA, o texto, o porquê e a entonação (porquê e entonação obrigatórios no gancho). O gatilho do gancho vem da tabela `gatilhos` (curiosidade, fofoca, choque, problema, transformação, prova social), e o "+" ao lado cria outro. O embedding da ficha é só de `"<produto> — <tipo>"`. No gerador:
 - o produto da aluna vira embedding, e as fichas com semelhança **≥ 0,80** entram no prompt como modelo de raciocínio, **depois** do dossiê (o cache continua valendo), com a ordem de copiar a intenção dela (gatilho, porquê, entonação, estrutura) e não as frases (nenhuma abertura igual, nenhum trecho de 3 palavras seguidas igual), e de não explicar as escolhas no roteiro;
@@ -243,12 +250,12 @@ Migrations em `supabase/migrations/`:
 
 | Tabela | Para quê | Quem escreve |
 |---|---|---|
-| `profiles` | nome e e-mail da aluna (espelho do login) | servidor (`/api/perfil` no primeiro login, `/api/conta`) |
+| `profiles` | nome e e-mail da aluna (espelho do login) e o link do perfil dela no TikTok, que o mural liga ao nome | servidor (`/api/perfil` no primeiro login, `/api/conta`) |
 | `compras_applyfy` | transações da Applyfy já processadas (o aviso repetido não gera outra senha) | servidor (`/api/webhook/applyfy`) |
 | `senhas_temporarias` | contas que ainda não trocaram a senha temporária | servidor (webhook e `/api/senha`) |
 | `chapter_progress`, `checklist_progress` | progresso | a própria aluna |
 | `saved_scripts` | roteiros salvos | a própria aluna |
-| `success_cases` | mural de resultados | a própria aluna (todas leem) |
+| `success_cases` | mural de resultados (vídeo do TikTok e depoimento; o nome vem da conta) | a própria aluna, até 10 por dia (todas leem); fixar no topo só a admin |
 | `entitlements` | quem tem acesso liberado | webhook da compra (`origem = 'compra'`) ou função `resgatar_codigo` (via `POST /api/acesso`) |
 | `access_codes` | códigos de compra | só service role (painel do Supabase) |
 | `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
@@ -277,7 +284,7 @@ Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql
 3. A resposta é `201 { email, senhaTemporaria }`. **O envio da senha à aluna ainda não existe:** quando houver um serviço de e-mail, ele entra nessa rota.
 4. A aluna entra em `/entrar` com o e-mail e a senha temporária, e o app pede a senha nova (mínimo de 6 caracteres). Até ela trocar, toda rota de conteúdo responde 403.
 5. **A senha temporária vale 24 horas** (`VALIDADE_SENHA_TEMPORARIA_MIN`, contados pelo relógio do banco). Depois disso, o app mostra "Sua senha temporária expirou" e não deixa trocar. Para gerar outra, chame o webhook de novo com o mesmo e-mail: ele cria uma senha nova, com mais 24 horas, e a antiga para de valer.
-6. Depois, a aluna muda nome, e-mail e senha em **Minha conta** (`/app/conta`, pelo cartão no rodapé do menu). E-mail e senha pedem a senha atual; o e-mail novo entra já confirmado.
+6. Depois, a aluna muda nome, e-mail e senha em **Minha conta** (`/app/conta`, pelo cartão no rodapé do menu). E-mail e senha pedem a senha atual; o e-mail novo entra já confirmado. Ali ela também põe o **TikTok** (o `@` ou o link do perfil), sem pedir senha: no mural, o nome dela vira link para esse perfil.
 7. A troca (`POST /api/senha`) apaga a linha da aluna em `senhas_temporarias` e derruba as sessões abertas. A tela entra de novo sozinha com a senha nova. Daí em diante, `GET /api/acesso` responde só `{ "acesso": true }`, sem campo de senha, e o JWT nunca carrega nada sobre isso.
 
 Respostas do webhook: `201` conta criada (ou senha temporária renovada) · `400` e-mail inválido · `401` segredo ausente ou errado · `403` `Origin` fora da lista · `409` a aluna já definiu a própria senha · `500` segredo não configurado ou falha.
@@ -335,7 +342,7 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 | E-mails de recuperação/link mágico disparados por qualquer um | Os modelos não têm link nem código (`supabase/templates/sem-link.html`). |
 | Usar o Supabase direto com a chave pública | Data API e realtime desligados; storage sem política (listar volta vazio, enviar dá 403); admin dá 403; 10 logins a cada 5 min por IP. |
 | Embutir o app em outro site (clickjacking) | `frame-ancestors 'none'` e `X-Frame-Options: DENY`. |
-| Link malicioso nos casos de sucesso | O banco só aceita `https://` em `midia_url`. |
+| Link malicioso no mural | O servidor e o banco só aceitam link de vídeo do TikTok em `midia_url`, e o vídeo toca no player oficial. |
 | Redirecionar para site falso após o login | `?de=` só aceita caminhos que começam com `/app`. |
 
 Os cabeçalhos ficam em `src/lib/seguranca.ts`. **Ao embutir um player ou chamar um serviço externo novo, libere o domínio ali** (`frame-src` ou `connect-src`), senão o navegador bloqueia.

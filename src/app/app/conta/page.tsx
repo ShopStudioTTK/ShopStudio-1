@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { KeyRound, Loader2, Mail, UserRound, type LucideIcon } from "lucide-react";
+import { AtSign, KeyRound, Loader2, Mail, UserRound, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,7 +61,7 @@ const Cartao = ({
   </form>
 );
 
-/** Nome, e-mail e senha da aluna. E-mail e senha pedem a senha atual (o servidor confere). */
+/** Nome, TikTok, e-mail e senha da aluna. E-mail e senha pedem a senha atual (o servidor confere). */
 const Conta = () => {
   const router = useRouter();
   const { user, signOut } = useAuth();
@@ -70,9 +71,16 @@ const Conta = () => {
   const [senhaAtual, setSenhaAtual] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
-  const [salvando, setSalvando] = useState<"nome" | "email" | "senha" | null>(null);
+  const [salvando, setSalvando] = useState<"nome" | "tiktok" | "email" | "senha" | null>(null);
+  // O TikTok não está no token: vem do servidor. Enquanto ela não digita, o campo mostra o salvo.
+  const perfil = useQuery({
+    queryKey: ["conta", user?.id],
+    enabled: Boolean(user?.id),
+    queryFn: () => api<{ tiktok: string | null }>("/api/conta"),
+  });
+  const [tiktok, setTiktok] = useState<string | null>(null);
 
-  const salvar = async (qual: "nome" | "email" | "senha", body: Record<string, string>, ok: string) => {
+  const salvar = async (qual: "nome" | "tiktok" | "email" | "senha", body: Record<string, string>, ok: string) => {
     setSalvando(qual);
     try {
       await api("/api/conta", { method: "PATCH", body });
@@ -84,6 +92,7 @@ const Conta = () => {
     // Nome: renova o token para os metadados novos. E-mail/senha: entra de novo (a troca da senha
     // derruba as sessões e o token antigo ainda leva o e-mail velho).
     if (qual === "nome") await supabase.auth.refreshSession();
+    else if (qual === "tiktok") void perfil.refetch();
     else {
       const { error } = await supabase.auth.signInWithPassword({
         email: body.email ?? user?.email ?? "",
@@ -109,7 +118,7 @@ const Conta = () => {
           Minha conta
         </h1>
         <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
-          Seu nome, o e-mail com que você entra e a sua senha.
+          Seu nome, o seu TikTok, o e-mail com que você entra e a sua senha.
         </p>
       </header>
 
@@ -124,6 +133,27 @@ const Conta = () => {
           }}
         >
           <Campo id="nome" rotulo="Seu nome" required maxLength={80} value={nome} onChange={(e) => setNome(e.target.value)} autoComplete="name" />
+        </Cartao>
+
+        <Cartao
+          icone={AtSign}
+          titulo="TikTok"
+          texto="No mural, quem tocar no seu nome vai para o seu perfil."
+          salvando={salvando === "tiktok"}
+          onSubmit={async () => {
+            if (await salvar("tiktok", { tiktok: tiktok ?? perfil.data?.tiktok ?? "" }, "TikTok salvo.")) setTiktok(null);
+          }}
+        >
+          <Campo
+            id="tiktok"
+            rotulo="Seu perfil no TikTok"
+            maxLength={200}
+            placeholder="@seuusuario ou o link do perfil"
+            value={tiktok ?? perfil.data?.tiktok ?? ""}
+            onChange={(e) => setTiktok(e.target.value)}
+            autoComplete="off"
+          />
+          <p className="text-[12.5px] text-muted-foreground">Deixe vazio e salve para tirar o link.</p>
         </Cartao>
 
         <Cartao

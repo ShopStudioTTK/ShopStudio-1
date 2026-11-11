@@ -295,14 +295,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "created_at": string,"email": string | null,"id": string,"nome": string | null
+                    "created_at": string,"email": string | null,"id": string,"nome": string | null,"tiktok": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"email"?: string | null,"id": string,"nome"?: string | null
+                    "created_at"?: string,"email"?: string | null,"id": string,"nome"?: string | null,"tiktok"?: string | null
                   }
                   Update: {
-                    "created_at"?: string,"email"?: string | null,"id"?: string,"nome"?: string | null
+                    "created_at"?: string,"email"?: string | null,"id"?: string,"nome"?: string | null,"tiktok"?: string | null
                   }
                   Relationships: [
                     

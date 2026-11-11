@@ -8,8 +8,8 @@ vi.mock("@/lib/db", async () => {
 vi.mock("@/lib/supabase/admin", async () => (await import("../../../apoio/db-falso")).adminFalso);
 vi.mock("@/lib/access", () => ({ temAcesso: () => true }));
 
-import { conferirSenha, getUser, naTabela, reiniciarDb, updateUserById } from "../../../apoio/db-falso";
-import { PATCH } from "@/app/api/conta/route";
+import { conferirSenha, getUser, naTabela, reiniciarDb, responderCom, updateUserById } from "../../../apoio/db-falso";
+import { GET, PATCH } from "@/app/api/conta/route";
 
 const req = (body: unknown) =>
   new Request("http://x/api/conta", {
@@ -90,5 +90,36 @@ describe("PATCH /api/conta", () => {
     expect((await PATCH(req({ senha: "velha1", senhaAtual: "velha1" }))).status).toBe(400);
     updateUserById.mockResolvedValue({ data: { user: null }, error: { code: "unexpected_failure", message: "x" } });
     expect((await PATCH(req({ senha: "nova123", senhaAtual: "velha1" }))).status).toBe(500);
+  });
+});
+
+describe("TikTok da aluna", () => {
+  it("salva o link limpo no perfil, sem pedir a senha e sem mexer no login", async () => {
+    expect((await PATCH(req({ tiktok: "@ana.shop", user_id: "u2" }))).status).toBe(204);
+    expect(conferirSenha).not.toHaveBeenCalled();
+    expect(updateUserById).not.toHaveBeenCalled();
+    const c = naTabela("profiles").at(-1)!;
+    expect(c.valores).toContain("https://www.tiktok.com/@ana.shop");
+    expect(c.valores[0]).toBe("u1");
+    expect(c.sql).toContain("on conflict (id) do update set tiktok = excluded.tiktok");
+  });
+
+  it("vazio tira o link", async () => {
+    expect((await PATCH(req({ tiktok: "  " }))).status).toBe(204);
+    expect(naTabela("profiles").at(-1)!.valores).toContain(null);
+  });
+
+  it("link inválido → 400, sem gravar", async () => {
+    const res = await PATCH(req({ tiktok: "https://instagram.com/ana" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.message).toBe("Cole o link do seu perfil no TikTok (ou o @ do seu usuário).");
+    expect(naTabela("profiles")).toHaveLength(0);
+  });
+
+  it("GET devolve o TikTok da conta logada", async () => {
+    responderCom([["from public.entitlements", [{}]], ["from public.profiles", [{ tiktok: "https://www.tiktok.com/@ana" }]]]);
+    const res = await GET(new Request("http://x/api/conta?user_id=u2", { headers: { Authorization: "Bearer tok" } }));
+    expect(await res.json()).toEqual({ tiktok: "https://www.tiktok.com/@ana" });
+    expect(naTabela("profiles")[0].valores).toEqual(["u1"]);
   });
 });

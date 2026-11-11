@@ -8,10 +8,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { CartaoDaExpert } from "@/components/fichas-da-expert";
+import { Confirmacao } from "@/components/confirmacao";
 import { FORMATOS, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
 import { CREDITOS_KEY, useCreditos } from "@/hooks/use-creditos";
 import { useAuth } from "@/hooks/use-auth";
+import { useGuardaDeSaida } from "@/hooks/use-guarda-de-saida";
 import { api } from "@/lib/api-cliente";
+import { sair } from "@/lib/saida";
 import { cn } from "@/lib/utils";
 import type { FichasDoRoteiro } from "@/lib/fichas-tipos";
 
@@ -233,6 +236,9 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
   const [formato, setFormato] = useState<string>(inicial?.formato ?? FORMATO_PADRAO);
   const [result, setResult] = useState<ScriptResult | null>(null);
   const [savedProduto, setSavedProduto] = useState("");
+  // O roteiro na tela já está na biblioteca (salvo agora ou aberto de lá)?
+  const [salvo, setSalvo] = useState(false);
+  const [apagando, setApagando] = useState<RoteiroSalvo | null>(null);
   const resultadoRef = useRef<HTMLDivElement>(null);
   const jaGerou = useRef(false);
 
@@ -255,6 +261,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
     },
     onSuccess: (data) => {
       setResult(data);
+      setSalvo(false);
       setSavedProduto(produto);
       requestAnimationFrame(() => resultadoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
     },
@@ -279,6 +286,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
       });
     },
     onSuccess: () => {
+      setSalvo(true);
       toast.success("Roteiro salvo na sua biblioteca.");
       void queryClient.invalidateQueries({ queryKey: ["saved-scripts", user?.id] });
     },
@@ -290,7 +298,11 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["saved-scripts", user?.id] });
     },
+    onError: (error: Error) => toast.error(error.message),
   });
+
+  // Roteiro gerado e ainda fora da biblioteca: sair da tela pergunta se ela quer salvar antes.
+  const guarda = useGuardaDeSaida(Boolean(result) && !salvo);
 
   const podeGerar = produto.trim().length >= 2 && !generate.isPending && !creditos.esgotado;
 
@@ -464,12 +476,16 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
               <li key={script.id} className="group relative rounded-[22px] border border-border bg-card p-4 transition-all hover:-translate-y-0.5 hover:border-rose/40 hover:shadow-soft">
                 <button
                   type="button"
-                  onClick={() => {
-                    setResult(script.conteudo);
-                    setSavedProduto(script.produto);
-                    if (script.formato) setFormato(script.formato);
-                    requestAnimationFrame(() => resultadoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
-                  }}
+                  onClick={() =>
+                    // abrir outro roteiro tira da tela o que não foi salvo
+                    sair(() => {
+                      setResult(script.conteudo);
+                      setSalvo(true);
+                      setSavedProduto(script.produto);
+                      if (script.formato) setFormato(script.formato);
+                      requestAnimationFrame(() => resultadoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+                    })
+                  }
                   className="block w-full pr-7 text-left"
                 >
                   <span className="rounded-full bg-rose-soft px-2.5 py-0.5 text-[11px] font-semibold text-rose">
@@ -487,7 +503,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
                 </button>
                 <button
                   type="button"
-                  onClick={() => remove.mutate(script.id)}
+                  onClick={() => setApagando(script)}
                   className="absolute right-3 top-3 text-muted-foreground opacity-60 transition-all hover:text-destructive group-hover:opacity-100"
                   aria-label={`Excluir ${script.produto}`}
                 >
@@ -502,6 +518,45 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
           </p>
         )}
       </section>
+
+      <Confirmacao
+        aberta={guarda.aberta}
+        titulo="Salvar o roteiro antes de sair?"
+        descricao="Ele ainda não está na sua biblioteca. Se você sair sem salvar, ele se perde."
+        onFechar={guarda.ficar}
+      >
+        <Button onClick={() => void guarda.sair(() => save.mutateAsync())} disabled={save.isPending}>
+          {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          Salvar e sair
+        </Button>
+        <Button variant="outline" onClick={() => void guarda.sair()} disabled={save.isPending}>
+          Sair sem salvar
+        </Button>
+        <Button variant="ghost" onClick={guarda.ficar}>
+          Continuar aqui
+        </Button>
+      </Confirmacao>
+
+      <Confirmacao
+        aberta={apagando !== null}
+        titulo="Apagar este roteiro?"
+        descricao={`“${apagando?.produto ?? ""}” sai da sua biblioteca, e não dá para desfazer.`}
+        onFechar={() => setApagando(null)}
+      >
+        <Button
+          variant="destructive"
+          onClick={() => {
+            if (apagando) remove.mutate(apagando.id);
+            setApagando(null);
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Apagar
+        </Button>
+        <Button variant="ghost" onClick={() => setApagando(null)}>
+          Cancelar
+        </Button>
+      </Confirmacao>
     </div>
   );
 };

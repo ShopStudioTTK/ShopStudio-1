@@ -133,6 +133,111 @@ Medido com as 50 fichas: "garrafa térmica", "escova alisadora" e "air fryer 4 l
 
 **Limite conhecido:** se a aluna fecha a aba no meio do stream, o fim não roda e fica só o 1 crédito reservado (o custo também não é registrado, como antes).
 
+## 2026-11-11: Mural das alunas: só vídeo do TikTok, nome da conta e fixar só da admin
+
+**Pedido:** testar o mural no navegador. O teste mostrou que ele funcionava, mas:
+- qualquer aluna podia fixar no topo;
+- o link do Drive, que o próprio formulário sugeria, dava imagem quebrada;
+- o cartão só com texto tinha um bloco vazio;
+- os cartões esticavam até a altura do maior;
+- apagar não pedia confirmação;
+- o resultado ficava em caixa alta;
+- o nome era livre, e não havia limite por dia.
+
+**Decisões da dona:**
+- fixar só a admin;
+- sem imagem: só vídeo do TikTok, tocando como nos Campeões;
+- cartões com altura parecida;
+- apagar pede confirmação;
+- resultado legível;
+- 10 por dia;
+- o nome é o da conta, e a aluna não preenche.
+
+**Como ficou:**
+- `POST /api/resultados`:
+  - o nome vem do token (`nomeDoPerfil`, ou "Aluna do Shop Studio");
+  - o `destaque` não vem mais da aluna;
+  - o vídeo passa por `resolverUrlDoTiktok`, que saiu da rota dos Campeões para `src/lib/video.ts`, então o link curto do celular também vale;
+  - exige depoimento ou vídeo;
+  - o resultado vai até 80 caracteres;
+  - o limite de 10 por dia é contado no próprio insert.
+- `PATCH /api/resultados` com `admin()` fixa e desafixa qualquer cartão.
+- Migration `20261111010000_mural_so_tiktok`: o banco só aceita vídeo do TikTok em `midia_url`. Ela é `not valid`, então os prints antigos ficam e a tela mostra só o texto deles.
+- **Tela:**
+  - todo cartão tem o tamanho do player do TikTok (9:16, até 320 px), em 3 colunas como nos Campeões. O vídeo usa o `VideoEmbed`; o depoimento sem vídeo vai num quadro escuro, centralizado, com a letra maior para texto curto e "Ler mais" para o longo;
+  - o resultado aparece em rosa, sem caixa alta;
+  - a admin vê o alfinete e o "Fixado";
+  - apagar usa o `Confirmacao`;
+  - o formulário mostra "Vai aparecer como <nome>", com link para Minha conta.
+
+**Verificado:**
+- Testes (rota nova em `tests/app/api/resultados/route.test.ts`), lint e build.
+- A restrição foi conferida no Postgres local numa transação desfeita. O `migration up` recusou porque o banco local tem a migration dos créditos, de outra branch; ela entra quando as branches se juntarem.
+- No navegador (Chrome headless, build em `localhost:3005`, três contas de teste apagadas no fim):
+  - o nome vem da conta, e sem nome aparece "Aluna do Shop Studio";
+  - o formulário não tem o "Fixar", nem o campo de nome, nem a opção de print;
+  - envio vazio e link de imagem são recusados, e a 11ª publicação do dia dá o aviso do limite;
+  - vídeo com query é aceito, e as publicações só com texto aparecem;
+  - apagar: "Cancelar" mantém e "Apagar" tira;
+  - a aluna B só tem lixeira no dela e não tem o alfinete;
+  - a admin fixa (vai para o topo com "Fixado") e desafixa;
+  - o print antigo aparece só com o texto;
+  - os cartões ficam entre 547 e 646 px de altura;
+  - a 375 px, sem rolagem lateral.
+**Ajuste depois de a dona ver com 10 publicações de teste:**
+- tudo menor, com até 4 cartões por linha em tela larga (a partir de 1280 px) e até 280 px no celular;
+- o resultado virou o título do cartão; embaixo dele, o depoimento e, por último, o nome da aluna, pequeno.
+
+Medido: a 1440 px, 4 por linha com 241 px de largura (alturas entre 464 e 593); a 1280 px, 4 por linha com 213 px; a 375 px, 1 por linha com 280 px, sem rolagem lateral.
+
+**Depois, também a pedido da dona:**
+- Nos cartões sem vídeo, o resultado (título) fica dentro do quadro, em cima do depoimento. Nos com vídeo, continua embaixo do vídeo.
+- **TikTok da aluna:** Minha conta ganhou o cartão "TikTok".
+  - Ela cola o `@` ou o link do perfil; `perfilDoTiktok` limpa para `https://www.tiktok.com/@usuário`, e o banco só aceita esse formato.
+  - Não pede senha, porque não é login, e vazio tira o link.
+  - Fica em `profiles.tiktok` (migration `20261111020000_perfil_tiktok`), fora dos metadados que viajam no JWT; o `GET /api/conta` devolve o link para a tela.
+  - No mural, o `GET` faz `left join` em `profiles`, e o nome da aluna vira link para o TikTok dela, em outra aba. Quem não pôs fica sem link. O perfil só aparece porque ela escolheu pôr.
+- **No navegador** (contas de teste):
+  - em Minha conta, o link do Instagram foi recusado e "@tiktok" foi salvo como o link limpo, que continua lá depois de recarregar;
+  - no mural, os 3 nomes da Camila viraram link e os de quem não pôs ficaram sem;
+  - o título aparece dentro do quadro sem vídeo e embaixo do vídeo;
+  - a 375 px, sem rolagem lateral.
+- Banco local: a cópia do arquivo da migration dos créditos voltou à pasta só para o `migration up` rodar e foi apagada em seguida. Os tipos receberam só a coluna `tiktok`, sem a tabela dos créditos, que é de outra branch.
+
+- **Não conferido:** o vídeo tocando. No Chrome automatizado, o player do TikTok responde "Server error", mesmo com o vídeo de exemplo da documentação dele (o oEmbed responde 200). É o mesmo player dos Campeões, já visto funcionando num navegador normal.
+
+## 2026-11-11: Roteiro não salvo pergunta antes de sair; apagar pede confirmação
+
+**Pedido:** na tela de roteiros, ao sair com um roteiro gerado, um pop-up pergunta se ela quer salvar antes; ao apagar um roteiro, outro pergunta se é isso mesmo. E limpar os estados ao sair de cada página.
+
+**Limpar estados:** não foi feito, de propósito. No React 18/19, a página desmonta ao navegar e o estado vai junto (o aviso de "update em componente desmontado" saiu no React 18). O Next só preserva páginas escondidas (`<Activity>`) com `cacheComponents`, que está desligado desde a migração. O que precisa de cleanup são recursos externos (listeners, timers, a inscrição do login), e todos já tinham. O stream do assistente continua até o fim se a aluna sai no meio, de propósito: cortar faria o servidor não registrar o custo.
+
+**Decisões da dona:** o pop-up de saída só aparece com um roteiro gerado e não salvo, e oferece salvar antes. **Decisões minhas:** depois de salvar não pergunta; enquanto o roteiro está sendo escrito também não; "Outra versão" continua sem perguntar; abrir outro roteiro da biblioteca pergunta (o não salvo sairia da tela); o mural fica como está.
+
+**Como ficou:**
+- `useGuardaDeSaida(ativa)`: enquanto ativa, liga a guarda de `src/lib/saida.ts` e escuta três coisas:
+  - **cliques em links:** em captura no `document`, só com `preventDefault`. O `onClick` do `Link` ainda roda (o menu do celular fecha) e ele não navega porque vê o `defaultPrevented`;
+  - **voltar:** uma entrada extra no histórico com a mesma URL. O voltar cai nela, a tela continua e pergunta. Na saída, `history.go(-2)`. O `pushState` passa pelo do Next 16, que copia o estado interno dele, então o Next não recarrega a página;
+  - **`beforeunload`:** recarregar ou fechar a aba.
+- Saindo por link, o destino entra com `router.replace` no lugar da entrada extra. Se ela salva e fica, a entrada extra sai (`history.back()`), senão o voltar "não faria nada" uma vez. Um contador segura o StrictMode do dev, que monta duas vezes.
+- "Salvar e sair" espera o salvamento. Se ele falhar, o erro aparece e o pop-up continua aberto.
+- `Confirmacao`: Radix Dialog (já instalado), que prende o foco e fecha com Esc. No celular os botões ficam empilhados, com o principal embaixo.
+- Teste da lógica em `tests/lib/saida.test.ts` (qual clique é saída e a guarda).
+
+**Verificado no navegador** (Chrome headless pelo Playwright, build em `localhost:3005`, conta de teste apagada no fim; a resposta da `/api/roteiro` veio de um roteiro real gravado antes, para não chamar a IA a cada cenário). 26 cenários, todos certos e sem erro no console:
+- sem roteiro, o menu sai direto;
+- com roteiro: menu, Esc e "Continuar aqui" (fica, com o roteiro), "Sair sem salvar" (vai, e o voltar volta ao gerador vazio);
+- botão voltar: pergunta sem sair, pergunta de novo e sai para a página anterior;
+- aba "Ganchos" com "Salvar e sair": salva e troca de aba;
+- depois de salvar, um voltar só já sai;
+- recarregar mostra o aviso do navegador;
+- abrir outro roteiro da biblioteca pergunta, e o aberto de lá sai sem perguntar;
+- apagar: "Cancelar" mantém e "Apagar" tira;
+- "Sair da conta" pergunta;
+- a 375 px, a barra de baixo e o menu lateral perguntam, e o menu fecha.
+
+**Visto e deixado:** com o pop-up aberto, o Radix trava a rolagem do `body`, e o menu lateral `sticky` aparece deslocado atrás do fundo escurecido (a mesma armadilha do `overflow: hidden` do CLAUDE.md). Só acontece com o pop-up aberto, coberto pelo desfoque.
+
 ## 2026-11-10: Fichas no prompt: copiar a intenção, não a frase
 
 **Pedido:** depois do teste do rascunho, a dona pediu que a IA copie a intenção da ficha, e não o texto.
