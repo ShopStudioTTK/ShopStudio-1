@@ -3,14 +3,24 @@ import { db } from "@/lib/db";
 import { EMAIL, SENHA_MAX, SENHA_MIN, senhaValida, texto } from "@/lib/entrada";
 import { nomeDoPerfil } from "@/lib/nome";
 import { conferirSenha, createAdminClient } from "@/lib/supabase/admin";
+import { perfilDoTiktok } from "@/lib/video";
 
 export const runtime = "nodejs";
+
+/** O que a tela não tem no token: o TikTok da aluna (fica em `profiles`, fora do JWT). */
+export async function GET(req: Request) {
+  const auth = await autenticar(req, "conta", "Faça login.");
+  if (auth instanceof Response) return auth;
+  const [perfil] = await db()`select tiktok from public.profiles where id = ${auth.userId}`;
+  return Response.json({ tiktok: perfil?.tiktok ?? null });
+}
 
 /**
  * Configurações da aluna: nome, e-mail e senha, sempre da conta do token. E-mail e senha são o
  * login, então só mudam com a senha atual: um token roubado sozinho não toma a conta. O e-mail
  * novo entra já confirmado (os modelos de e-mail do Supabase não têm link). Trocar a senha
- * derruba as sessões abertas: a tela entra de novo (src/app/app/conta/page.tsx).
+ * derruba as sessões abertas: a tela entra de novo (src/app/app/conta/page.tsx). O TikTok (link do
+ * perfil, que o mural liga ao nome dela) só vai para `profiles`, sem senha: não é login.
  */
 export async function PATCH(req: Request) {
   const auth = await autenticar(req, "conta", "Faça login.");
@@ -26,7 +36,23 @@ export async function PATCH(req: Request) {
   const senha = corpo.senha;
   if (senha !== undefined && !senhaValida(senha))
     return erro(`A senha precisa ter de ${SENHA_MIN} a ${SENHA_MAX} caracteres.`, 400);
-  if (nome === undefined && email === undefined && senha === undefined) return erro("Nada para mudar.", 400);
+  // Vazio tira o link; outro valor precisa ser um perfil do TikTok.
+  let tiktok: string | null | undefined;
+  if (corpo.tiktok !== undefined) {
+    const valor = typeof corpo.tiktok === "string" ? corpo.tiktok.trim() : "";
+    tiktok = valor ? perfilDoTiktok(valor) : null;
+    if (valor && !tiktok) return erro("Cole o link do seu perfil no TikTok (ou o @ do seu usuário).", 400);
+  }
+  if (nome === undefined && email === undefined && senha === undefined && tiktok === undefined)
+    return erro("Nada para mudar.", 400);
+
+  if (tiktok !== undefined) {
+    await db()`
+      insert into public.profiles (id, email, nome, tiktok)
+      values (${userId}, ${user.email ?? null}, ${nomeDoPerfil(user.user_metadata)}, ${tiktok})
+      on conflict (id) do update set tiktok = excluded.tiktok`;
+    if (nome === undefined && email === undefined && senha === undefined) return new Response(null, { status: 204 });
+  }
 
   if (email !== undefined || senha !== undefined) {
     const atual = corpo.senhaAtual;

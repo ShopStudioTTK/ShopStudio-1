@@ -9,7 +9,7 @@ vi.mock("@/lib/supabase/admin", async () => (await import("../../../apoio/db-fal
 vi.mock("@/lib/access", () => ({ temAcesso: () => true }));
 
 import { getUser, naTabela, reiniciarDb, responderCom } from "../../../apoio/db-falso";
-import { DELETE, PATCH, POST } from "@/app/api/resultados/route";
+import { DELETE, GET, PATCH, POST } from "@/app/api/resultados/route";
 
 const ID = "11111111-2222-3333-4444-555555555555";
 const VIDEO = "https://www.tiktok.com/@ana/video/7106594312292453675";
@@ -116,5 +116,17 @@ describe("DELETE /api/resultados", () => {
     responderCom([["from public.entitlements", [{}]], ["delete from public.success_cases", [{}]]]);
     expect((await DELETE(req("DELETE", undefined, `/api/resultados?id=${ID}`))).status).toBe(204);
     expect(naTabela("success_cases").at(-1)!.valores).toEqual([ID, "u1"]);
+  });
+});
+
+describe("GET /api/resultados", () => {
+  it("leva o TikTok de quem publicou (para o nome virar link), sem o user_id", async () => {
+    responderCom([
+      ["from public.entitlements", [{}]],
+      ["from public.success_cases", [{ id: ID, user_id: "u2", aluna: "Bia", tiktok: "https://www.tiktok.com/@bia" }]],
+    ]);
+    const { casos } = await (await GET(req("GET"))).json();
+    expect(casos).toEqual([{ id: ID, aluna: "Bia", tiktok: "https://www.tiktok.com/@bia", minha: false }]);
+    expect(naTabela("success_cases")[0].sql).toContain("left join public.profiles p on p.id = c.user_id");
   });
 });

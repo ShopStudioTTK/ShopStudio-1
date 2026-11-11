@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pin, PinOff, Plus, Quote, Trash2, Trophy } from "lucide-react";
+import { ExternalLink, Loader2, Pin, PinOff, Plus, Quote, Trash2, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { Confirmacao } from "@/components/confirmacao";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ type Case = {
   texto: string | null;
   midia_url: string | null;
   destaque: boolean;
+  /** Perfil do TikTok de quem publicou (Minha conta): o nome vira link. */
+  tiktok: string | null;
   created_at: string;
 };
 
@@ -35,7 +37,7 @@ const labelClass = "text-[12px] uppercase tracking-[0.14em] text-muted-foregroun
 /** O mesmo tamanho do player do TikTok: todos os cartões ficam com a mesma altura. No celular, até 280 px. */
 const QUADRO = "mx-auto w-full max-w-[280px] aspect-[9/16]";
 // ponytail: "ler mais" por contagem de caracteres, não pela altura renderizada; medir se errar muito.
-const CORTE_QUADRO = 240;
+const CORTE_QUADRO = 200;
 const CORTE_LEGENDA = 110;
 
 /** Depoimento cortado, com "Ler mais" quando passa do tamanho. */
@@ -211,39 +213,59 @@ const Results = () => {
                   <div className={cn(QUADRO, "hero-surface relative flex flex-col overflow-hidden rounded-2xl p-5 text-cream")}>
                     <span className="grain absolute inset-0 opacity-30" aria-hidden="true" />
                     <Quote className="relative h-5 w-5 shrink-0 text-rose" aria-hidden="true" />
-                    {/* texto curto: maior e no meio do quadro, para não sobrar um vazio escuro */}
                     <div className="relative mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto">
-                      {/* my-auto e não justify-center: aberto pelo "Ler mais", o texto não é cortado no topo */}
-                      <div className="my-auto">
-                      {item.texto ? (
-                        <Depoimento
-                          texto={item.texto}
-                          corte={CORTE_QUADRO}
-                          className={cn(
-                            "font-display leading-snug text-cream/95",
-                            item.texto.length < 90 ? "text-[21px]" : item.texto.length < 180 ? "text-[17px]" : "text-[15px]",
-                          )}
-                        />
-                      ) : (
-                        <p className="font-display text-[19px] leading-snug text-cream/95">{item.resultado}</p>
-                      )}
+                      {/* no meio do quadro, para não sobrar um vazio escuro; my-auto e não justify-center:
+                          aberto pelo "Ler mais", o texto não é cortado no topo */}
+                      <div className="my-auto space-y-2.5">
+                        {item.resultado ? (
+                          <p className="font-display text-[17px] font-semibold leading-snug text-cream">{item.resultado}</p>
+                        ) : null}
+                        {item.texto ? (
+                          <Depoimento
+                            texto={item.texto}
+                            corte={CORTE_QUADRO}
+                            className={cn(
+                              "font-display leading-snug text-cream/80",
+                              item.texto.length < 90 ? "text-[18px]" : item.texto.length < 160 ? "text-[15.5px]" : "text-[14px]",
+                            )}
+                          />
+                        ) : null}
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* o resultado é o título; embaixo, o depoimento (dos cartões com vídeo) e quem publicou */}
                 <div className="space-y-1 px-0.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 font-display text-[15px] font-semibold leading-snug">
-                      {item.resultado ?? item.aluna}
+                  {/* com vídeo, o resultado e o depoimento vêm embaixo; sem vídeo, já estão no quadro */}
+                  {video && item.resultado ? (
+                    <p className="font-display text-[15px] font-semibold leading-snug">{item.resultado}</p>
+                  ) : null}
+                  {video && item.texto ? (
+                    <Depoimento texto={item.texto} corte={CORTE_LEGENDA} className="text-[13px] leading-relaxed text-foreground/75" />
+                  ) : null}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="flex min-w-0 items-center gap-1.5 text-[12.5px]">
+                      {item.tiktok ? (
+                        <a
+                          href={item.tiktok}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex min-w-0 items-center gap-1 font-semibold text-foreground/80 transition-colors hover:text-rose"
+                          title={`Ver o TikTok de ${item.aluna}`}
+                        >
+                          <span className="truncate">{item.aluna}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        </a>
+                      ) : (
+                        <span className="truncate text-muted-foreground">{item.aluna}</span>
+                      )}
                       {item.destaque ? (
-                        <span className="chip ml-1.5 px-2 py-0.5 align-middle text-[10.5px]" data-ativo="true">
+                        <span className="chip shrink-0 px-2 py-0.5 text-[10.5px]" data-ativo="true">
                           Fixado
                         </span>
                       ) : null}
                     </p>
-                    <div className="-mr-1 -mt-0.5 flex shrink-0 items-center">
+                    <div className="-mr-1 flex shrink-0 items-center">
                       {isAdmin ? (
                         <button
                           type="button"
@@ -269,10 +291,6 @@ const Results = () => {
                       ) : null}
                     </div>
                   </div>
-                  {video && item.texto ? (
-                    <Depoimento texto={item.texto} corte={CORTE_LEGENDA} className="text-[13px] leading-relaxed text-foreground/75" />
-                  ) : null}
-                  {item.resultado ? <p className="text-[12px] text-muted-foreground">{item.aluna}</p> : null}
                 </div>
               </li>
             );

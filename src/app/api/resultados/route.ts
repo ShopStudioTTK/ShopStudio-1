@@ -12,13 +12,17 @@ const RESULTADOS_POR_DIA = 10;
 const RESULTADO_MAX = 80;
 const SEM_NOME = "Aluna do Shop Studio";
 
-/** Mural de resultados: todas as alunas veem todos os casos, mas não quem publicou (só "é meu"). */
+/**
+ * Mural de resultados: todas as alunas veem todos os casos, mas não o user_id de quem publicou (só
+ * "é meu"). O TikTok da autora (o que ela pôs em Minha conta) vai junto, para o nome virar link.
+ */
 export async function GET(req: Request) {
   const auth = await autenticar(req, "resultados", "Faça login.");
   if (auth instanceof Response) return auth;
   const linhas = await db()`
-    select id, user_id, aluna, resultado, texto, midia_url, destaque, created_at
-    from public.success_cases order by destaque desc, created_at desc`;
+    select c.id, c.user_id, c.aluna, c.resultado, c.texto, c.midia_url, c.destaque, c.created_at, p.tiktok
+    from public.success_cases c left join public.profiles p on p.id = c.user_id
+    order by c.destaque desc, c.created_at desc`;
   const casos = linhas.map(({ user_id, ...caso }) => ({ ...caso, minha: user_id === auth.userId }));
   return Response.json({ casos });
 }

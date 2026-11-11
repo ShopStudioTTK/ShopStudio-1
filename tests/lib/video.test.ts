@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { caminhoNoBucket, validadeDaUrlAssinada } from "@/lib/video";
+import { caminhoNoBucket, perfilDoTiktok, validadeDaUrlAssinada } from "@/lib/video";
 
 describe("caminhoNoBucket", () => {
   it("extrai o caminho de um link público do bucket de vídeos", () => {
@@ -22,5 +22,17 @@ describe("validadeDaUrlAssinada", () => {
 
   it("cai em 1 h quando falta, é inválido, zero ou negativo", () => {
     for (const v of [undefined, "", "abc", "0", "-60", "1.5"]) expect(validadeDaUrlAssinada(v), String(v)).toBe(3600);
+  });
+});
+
+describe("perfilDoTiktok", () => {
+  it("aceita @usuário, usuário solto ou o link do perfil, e devolve o link limpo", () => {
+    for (const v of ["@ana.shop_1", "ana.shop_1", " https://www.tiktok.com/@ana.shop_1?lang=pt-BR ", "tiktok.com/@ana.shop_1", "https://www.tiktok.com/@ana.shop_1/video/123"])
+      expect(perfilDoTiktok(v)).toBe("https://www.tiktok.com/@ana.shop_1");
+  });
+
+  it("recusa outro site, usuário inválido ou link sem perfil", () => {
+    for (const v of ["https://instagram.com/@ana", "@a", "@ana com espaço", "https://www.tiktok.com/discover/x", "javascript:alert(1)", "@" + "a".repeat(25), ""])
+      expect(perfilDoTiktok(v)).toBeNull();
   });
 });

@@ -134,6 +134,14 @@ describe("cada conta só vê e mexe no que é dela", () => {
     expect(await (await acesso.GET(req("/api/acesso"))).json()).not.toHaveProperty("admin");
   });
 
+  it("conta: o TikTok lido e gravado é sempre o da conta logada", async () => {
+    await conta.GET(req("/api/conta?user_id=u2"));
+    expect(naTabela("profiles")[0].valores).toEqual(["u1"]);
+    await conta.PATCH(req("/api/conta", "PATCH", { tiktok: "@ana", user_id: OUTRA, id: OUTRA }));
+    expect(naTabela("profiles")[1].valores[0]).toBe("u1");
+    expect(naTabela("profiles")[1].valores).not.toContain(OUTRA);
+  });
+
   it("conta: muda a conta logada e confere a senha dela, nunca a do id mandado no corpo", async () => {
     conferirSenha.mockResolvedValue("ok");
     updateUserById.mockResolvedValue({ data: {}, error: null });

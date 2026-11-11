@@ -117,3 +117,19 @@ export async function resolverUrlDoTiktok(url: string): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * Perfil da aluna no TikTok: aceita `@usuário`, o usuário solto ou um link do TikTok com `/@usuário`
+ * e devolve `https://www.tiktok.com/@usuário`. Usuário do TikTok: 2 a 24 letras, números, `_` e `.`.
+ */
+export const perfilDoTiktok = (valor: string): string | null => {
+  const v = valor.trim();
+  const usuario = /^@?[\w.]+$/.test(v)
+    ? v.replace(/^@/, "")
+    : (() => {
+        const u = comoUrl(v);
+        if (!u || u.protocol !== "https:" || !["www.tiktok.com", "tiktok.com"].includes(u.hostname)) return null;
+        return u.pathname.match(/^\/@([^/]+)/)?.[1] ?? null;
+      })();
+  return usuario && /^[\w.]{2,24}$/.test(usuario) ? `https://www.tiktok.com/@${usuario}` : null;
+};
