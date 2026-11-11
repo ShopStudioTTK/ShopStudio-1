@@ -31,6 +31,22 @@ describe("prompts", () => {
     expect(METHOD).toContain("O meio paga o que o gancho prometeu");
     expect(METHOD).toContain("Marca concorrente nunca");
   });
+  it("ganchos variados: um de cada ângulo do método, e o público não se repete em todos (feedback de 2026-11-11)", () => {
+    expect(SYSTEM_PROMPT).toContain("um de cada ângulo do método");
+    expect(SYSTEM_PROMPT).toMatch(/curiosidade, problema, transformação, choque, prova social/);
+    expect(METHOD).toContain("No máximo 1 dos 5 ganchos cita o público pelo nome");
+  });
+  it("não inventa detalhe do produto: cor, tamanho, preço e promoção só se a aluna informou", () => {
+    expect(METHOD).toContain("Só cite característica que esteja no que a aluna preencheu");
+    expect(METHOD).toMatch(/cor, tamanho, variação/);
+    expect(METHOD).not.toContain("se ainda tiver nesse preço, aproveita");
+    expect(METHOD).toContain("só se a aluna informou promoção ou estoque");
+  });
+  it("resultado como experiência dela, nunca garantia para quem assiste", () => {
+    expect(METHOD).toContain("Resultado como experiência");
+    expect(METHOD).toMatch(/"garantido", "100%", "nunca mais"/);
+    expect(METHOD).toContain("prova que aparece no vídeo");
+  });
   it("SYSTEM_PROMPT diz Shop Studio", () => {
     expect(SYSTEM_PROMPT).toContain("Shop Studio");
     expect(SYSTEM_PROMPT).not.toContain("Club");

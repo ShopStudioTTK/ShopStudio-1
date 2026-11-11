@@ -4,6 +4,35 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-11: Gerador de roteiros: ganchos variados, sem inventar detalhe e sem garantir resultado
+
+**Pedido:** feedback de quem testou, num roteiro de "escova de cabelo", para "loira com cabelo embolado", com o benefício "parar de quebrar os fios":
+- 4 dos 5 ganchos falavam de "cabelo loiro embolado";
+- o roteiro citava "as cores disponíveis" e "se ainda tiver nesse preço", que a aluna não informou;
+- o roteiro garantia resultado ("o nó solta sem puxar").
+
+O primeiro ponto do feedback (fichas parecidas de outro produto) já estava resolvido pelos limiares 0,70 / 0,80. A correção sugerida para ele, gerar o embedding com produto + público + benefício, **não** foi feita: a ficha é indexada só com "produto — tipo", e juntar o público e o benefício na busca da aluna derrubaria a semelhança até do produto certo.
+
+**Parte era do nosso prompt:** o "se ainda tiver nesse preço, aproveita" estava no próprio método, como exemplo de escassez. O "uma prova concreta" da solução empurrava o modelo a afirmar resultado. O "5 ganchos diferentes" não exigia ângulos diferentes.
+
+**O que mudou** (só o texto de `src/lib/roteiro.ts`; mudar o prompt zera o cache uma vez):
+- **Ganchos:** um de cada ângulo do método, nesta ordem: curiosidade, problema, transformação, choque, prova social. No máximo 1 dos 5 cita o público pelo nome. O gancho do roteiro continua sendo um dos 5, como desenhado: é o que faz a troca no 5×5 funcionar. Por isso **não** atendemos o "nenhum repita o gancho principal".
+- **Nada inventado:** só cita característica que esteja no que a aluna preencheu. Nada de cor, tamanho, variação, kit, material, preço, promoção, frete, estoque, tempo de uso ou número. O CTA usa "confere o preço no carrinho", e a escassez só aparece se ela informou promoção ou estoque.
+- **Resultado como experiência:** primeira pessoa, no que ela sentiu ou viu ("no meu cabelo soltou fácil"), nunca garantia para quem assiste. Proibidos "garantido", "100%", "nunca mais", "acaba com", "elimina", "de vez" e "definitivo". A prova da solução é o que aparece no vídeo (o produto em uso).
+- Na primeira versão, o exemplo "testei por uma semana" foi copiado nos 5 roteiros e ainda inventava tempo de uso. O exemplo saiu, e a regra proíbe inventar tempo, número ou resultado que ela não contou.
+
+**Medido** com a OpenRouter de verdade: o mesmo pedido do feedback, 5 roteiros por rodada, com a conta de admin de teste, apagada no fim.
+
+| | Antes | Depois |
+|---|---|---|
+| Detalhe inventado (cor, "nesse preço"…) | 7 | 0 |
+| Resultado afirmado como certo | 9 | 2 |
+| Ganchos com "loira/embolado" | 15/25 | 11/25 ("loira" pelo nome, no máximo 1 por roteiro) |
+| Tempo de uso inventado nos ganchos | – | 0 |
+| Garantias ("100%", "nunca mais"…) | 0 | 0 |
+
+Nos ganchos de cada roteiro aparecem, em ordem, os 5 ângulos ("Descobri por que…", "Meu cabelo embolava…", "Antes eu puxava o nó, agora…", "Joguei fora a escova antiga…", "Olha a prova: essa escova passando no nó…"). O gatilho que a IA escolhe para o roteiro continua sendo, quase sempre, "problema": é o que mais combina com o benefício "parar de quebrar".
+
 ## 2026-11-11: Créditos, pop-ups do roteiro e mural juntos na main (local)
 
 **Pedido:** juntar tudo na `main` local antes de subir para produção.
