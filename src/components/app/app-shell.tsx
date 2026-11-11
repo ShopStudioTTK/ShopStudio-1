@@ -26,6 +26,7 @@ import { useChapterProgress } from "@/hooks/use-progress";
 import { chapters } from "@/content/chapters";
 import type { ReactNode } from "react";
 import { nomeDoPerfil } from "@/lib/nome";
+import { sair } from "@/lib/saida";
 import { cn } from "@/lib/utils";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
@@ -161,10 +162,12 @@ const AppShell = ({ children }: { children: ReactNode }) => {
   const fecharMenu = () => setMenuAberto(false);
   const nome = nomeDoPerfil(user?.user_metadata);
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.replace("/");
-  };
+  // Com roteiro não salvo na tela, passa pela guarda de saída (lib/saida).
+  const handleSignOut = () =>
+    sair(async () => {
+      await signOut();
+      router.replace("/");
+    });
 
   const progressoTrilha = (
     <span className="rounded-full bg-secondary px-2 py-0.5 text-[10.5px] font-semibold text-foreground/60">
