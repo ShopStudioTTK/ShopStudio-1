@@ -40,7 +40,12 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 - Testes, lint e build.
 - SQL no Postgres local, com rollback: com 39,5 gastos, a reserva não volta linha; a semana nova começa em 1; o teto segura em 40; uma quarta-feira como `semana` é recusada; `authenticated` sem permissão.
 - No build em `localhost:3005`, com a OpenRouter de verdade (conta de teste apagada no fim): 40 → 39 depois de uma pergunta → 38 depois de um roteiro (1.416 tokens). Com 39,5 gastos, `restantes: 0.5`, e a pergunta deu 429 sem gastar. Como admin, `ilimitado: true`, e a pergunta não mexeu no saldo.
-- **Não conferido no navegador:** o aviso e o travamento nas duas telas.
+- **No navegador** (Chrome headless pelo Playwright, build em `localhost:3005`, conta de teste apagada no fim; console sem erro):
+  - com 40 restantes, nenhum aviso no assistente nem no gerador;
+  - com 9, "Restam 9 créditos nesta semana. Renova no domingo." embaixo do campo do assistente e do botão "Criar meu roteiro", com os dois ativos;
+  - com 0,5, "Seus créditos da semana acabaram. Domingo tem mais." e o campo e o botão travados;
+  - o aviso acompanha o uso real: 8 → 7 depois de uma pergunta e 7 → 6 depois de um roteiro, sem recarregar;
+  - a 375 px, sem rolagem lateral nas duas telas.
 
 **Limite conhecido:** se a aluna fecha a aba no meio do stream, o fim não roda e fica só o 1 crédito reservado (o custo também não é registrado, como antes).
 
