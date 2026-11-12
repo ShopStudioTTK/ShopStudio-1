@@ -41,7 +41,7 @@ export function linhasDaPlanilha(texto: string): LinhaLida[] {
   const lidas: LinhaLida[] = [];
   linhas.forEach((bruta, i) => {
     if (!bruta.trim()) return;
-    const celulas = bruta.split("\t").map((c) => c.trim().replace(/^"(.*)"$/s, "$1").trim());
+    const celulas = bruta.split("\t").map((c) => c.trim().replace(/^"([\s\S]*)"$/, "$1").trim());
     if (i === 0 && ehCabecalho(celulas)) return;
     const linha = i + 1;
     if (celulas.length < COLUNAS.length) {
