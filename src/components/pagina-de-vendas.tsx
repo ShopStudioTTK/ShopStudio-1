@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, Check, GraduationCap, Loader2, Sparkles } from "lucide-react";
 import { Wordmark } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -128,26 +128,47 @@ export const PaginaDeVendas = () => {
             <p className="mt-3 text-[14.5px] leading-relaxed text-muted-foreground">
               Quem já é aluna pode levar só a ferramenta. Quem ainda não é, leva o curso junto por um pouco mais.
             </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-2">
-              <button
-                type="button"
-                className="chip px-5 py-2.5 text-[14px]"
-                data-ativo={etapa.tipo === "email" || etapa.tipo === "conferido"}
-                onClick={() => {
-                  setErro(null);
-                  setEtapa({ tipo: "email" });
-                }}
-              >
-                Sim, já sou aluna
-              </button>
-              <button
-                type="button"
-                className="chip px-5 py-2.5 text-[14px]"
-                data-ativo={etapa.tipo === "nao-aluna"}
-                onClick={() => setEtapa({ tipo: "nao-aluna" })}
-              >
-                Ainda não
-              </button>
+            <div className="mx-auto mt-7 grid max-w-md gap-3 sm:grid-cols-2">
+              {(
+                [
+                  ["sim", "Sim, já sou aluna", "Conferir meu e-mail", GraduationCap],
+                  ["nao", "Ainda não", "Ver o combo com o curso", Sparkles],
+                ] as const
+              ).map(([id, rotulo, sub, Icone]) => {
+                const ativo = id === "sim" ? etapa.tipo === "email" || etapa.tipo === "conferido" : etapa.tipo === "nao-aluna";
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={ativo}
+                    onClick={() => {
+                      setErro(null);
+                      setEtapa(id === "sim" ? { tipo: "email" } : { tipo: "nao-aluna" });
+                    }}
+                    className={cn(
+                      "group flex items-center gap-3 rounded-2xl border-2 px-4 py-3.5 text-left shadow-soft transition-all",
+                      "hover:-translate-y-0.5 hover:shadow-editorial focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-2",
+                      ativo
+                        ? "border-rose bg-gradient-pop text-cream shadow-glow"
+                        : "border-rose/40 bg-card text-foreground hover:border-rose",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+                        ativo ? "bg-white/20" : "bg-rose-soft text-rose",
+                      )}
+                    >
+                      <Icone className="h-5 w-5" />
+                    </span>
+                    <span className="flex-1">
+                      <span className="block text-[15px] font-semibold leading-tight">{rotulo}</span>
+                      <span className={cn("mt-0.5 block text-[12.5px]", ativo ? "text-cream/80" : "text-muted-foreground")}>{sub}</span>
+                    </span>
+                    <ArrowRight className={cn("h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5", ativo ? "" : "text-rose")} />
+                  </button>
+                );
+              })}
             </div>
 
             {etapa.tipo === "email" || etapa.tipo === "conferido" ? (
