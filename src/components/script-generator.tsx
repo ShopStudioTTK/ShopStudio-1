@@ -246,7 +246,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
   const jaGerou = useRef(false);
 
   const savedQuery = useRoteirosSalvos();
-  const creditos = useCreditos();
+  const creditos = useCreditos("roteiro");
 
   const generate = useMutation({
     mutationFn: async () => {

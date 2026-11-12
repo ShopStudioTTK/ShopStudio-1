@@ -178,7 +178,7 @@ describe("POST /api/roteiro", () => {
     expect(await msg(res)).toBe("A resposta da IA veio em formato inesperado. Tente de novo.");
     // a IA respondeu (o custo fica registrado), mas a aluna não recebeu roteiro: o crédito volta
     expect(gravou("update")?.valores).toEqual([12000, 900, 11000, 0.0007, "r1"]);
-    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
+    expect(creditos("update")[0].valores).toEqual(["u1", semanaSP(), "roteiro"]);
   });
 
   it("200 chama a OpenRouter uma vez e devolve o JSON", async () => {
@@ -219,7 +219,7 @@ describe("POST /api/roteiro", () => {
     const res = await POST(req());
     expect(res.status).toBe(502);
     expect(await msg(res)).toBe("A resposta da IA veio cortada. Tente de novo.");
-    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
+    expect(creditos("update")[0].valores).toEqual(["u1", semanaSP(), "roteiro"]);
   });
 
   it("a persona entra no prompt vinda do código, sem consulta ao banco (ai_config saiu em 2026-11-12)", async () => {
@@ -234,7 +234,7 @@ describe("POST /api/roteiro", () => {
     responderCom(regras({ semCredito: true }));
     const res = await POST(req());
     expect(res.status).toBe(429);
-    expect(await msg(res)).toBe("Seus créditos da semana acabaram. Domingo tem mais.");
+    expect(await msg(res)).toBe("Seus 7 roteiros da semana acabaram. Domingo tem mais.");
     expect(gravou("insert")).toBeUndefined();
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -244,22 +244,21 @@ describe("POST /api/roteiro", () => {
     expect(res.status).toBe(200);
     expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null]);
     expect(gravou("update")?.valores).toEqual([12000, 900, 11000, 0.0007, "r1"]);
-    expect(creditos("insert")[0].valores).toEqual(["u1", semanaSP(), 40]);
+    expect(creditos("insert")[0].valores).toEqual(["u1", semanaSP(), "roteiro", 7]);
     // 900 tokens de saída: fica no 1 crédito reservado
     expect(creditos("update")).toHaveLength(0);
   });
 
-  it("roteiro maior cobra meio crédito a mais", async () => {
+  it("roteiro grande também gasta só 1", async () => {
     vi.mocked(fetch).mockResolvedValue(ia('{"ganchos":["a"]}', 2410));
     expect((await POST(req())).status).toBe(200);
-    expect(creditos("update")[0].valores).toEqual([40, 0.5, "u1", semanaSP()]);
+    expect(creditos("update")).toHaveLength(0);
   });
-
   it("geração que falhou não gasta crédito", async () => {
     vi.mocked(fetch).mockRejectedValue(new Error("net"));
     await POST(req());
     expect(gravou("delete")?.valores).toEqual(["r1"]);
-    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
+    expect(creditos("update")[0].valores).toEqual(["u1", semanaSP(), "roteiro"]);
   });
 
   describe("fichas da expert", () => {

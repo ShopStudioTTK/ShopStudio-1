@@ -28,7 +28,7 @@ const Assistant = () => {
   const pathname = usePathname();
   const { session } = useAuth();
   const { messages, isLoading, error, podeTentarDeNovo, tentarDeNovo, sendMessage, reset } = useAiChat(chapter?.slug);
-  const { pronto: contagemPronta, esgotado, aviso } = useCreditos();
+  const { pronto: contagemPronta, esgotado, aviso } = useCreditos("assistente");
   const [input, setInput] = useState("");
   const trechoEnviado = useRef(false);
   // A resposta só puxa a tela para baixo se ela já estava no fim; se subiu para ler, fica onde está.

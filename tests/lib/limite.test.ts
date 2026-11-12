@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   AVISO_COM_RESTANTES,
-  CREDITOS_POR_SEMANA,
+  LIMITE_SEMANAL,
   inicioDoDiaSP,
   mensagemDeCreditos,
-  precoEmCreditos,
   semanaSP,
   semCreditos,
 } from "@/lib/limite";
@@ -31,45 +30,29 @@ describe("semanaSP", () => {
   });
 });
 
-describe("precoEmCreditos", () => {
-  it("pergunta: 1 até 600 tokens, +0,5 a cada 600 a mais, teto de 2", () => {
-    expect(precoEmCreditos("assistente", 280)).toBe(1);
-    expect(precoEmCreditos("assistente", 600)).toBe(1);
-    expect(precoEmCreditos("assistente", 601)).toBe(1.5);
-    expect(precoEmCreditos("assistente", 1200)).toBe(1.5);
-    expect(precoEmCreditos("assistente", 1201)).toBe(2);
-    expect(precoEmCreditos("assistente", 4000)).toBe(2);
-  });
-  it("roteiro: 1 até 2.000 tokens, +0,5 a cada 1.000 a mais, teto de 2", () => {
-    expect(precoEmCreditos("roteiro", 1500)).toBe(1);
-    expect(precoEmCreditos("roteiro", 2000)).toBe(1);
-    expect(precoEmCreditos("roteiro", 2410)).toBe(1.5);
-    expect(precoEmCreditos("roteiro", 3001)).toBe(2);
-    expect(precoEmCreditos("roteiro", 9000)).toBe(2);
-  });
-  it("sem a contagem de tokens, cobra 1", () => {
-    expect(precoEmCreditos("assistente", undefined)).toBe(1);
-    expect(precoEmCreditos("roteiro", null)).toBe(1);
+describe("limites semanais", () => {
+  it("15 perguntas e 7 roteiros por semana, saldos separados; cada pedido gasta 1", () => {
+    expect(LIMITE_SEMANAL).toEqual({ assistente: 15, roteiro: 7 });
+    expect(AVISO_COM_RESTANTES).toEqual({ assistente: 4, roteiro: 2 });
   });
 });
 
 describe("mensagemDeCreditos", () => {
-  it("40 por semana; escondida enquanto restam mais de 10", () => {
-    expect(CREDITOS_POR_SEMANA).toBe(40);
-    expect(AVISO_COM_RESTANTES).toBe(10);
-    expect(mensagemDeCreditos(40)).toBeNull();
-    expect(mensagemDeCreditos(10.5)).toBeNull();
+  it("escondida enquanto sobra bastante", () => {
+    expect(mensagemDeCreditos("assistente", 15)).toBeNull();
+    expect(mensagemDeCreditos("assistente", 5)).toBeNull();
+    expect(mensagemDeCreditos("roteiro", 3)).toBeNull();
   });
-  it("a partir de 10 restantes, mostra o saldo com vírgula", () => {
-    expect(mensagemDeCreditos(10)).toBe("Restam 10 créditos nesta semana. Renova no domingo.");
-    expect(mensagemDeCreditos(2.5)).toBe("Restam 2,5 créditos nesta semana. Renova no domingo.");
-    expect(mensagemDeCreditos(1.5)).toBe("Resta 1,5 crédito nesta semana. Renova no domingo.");
-    expect(mensagemDeCreditos(1)).toBe("Resta 1 crédito nesta semana. Renova no domingo.");
+  it("perto do fim, diz quanto resta de cada tipo", () => {
+    expect(mensagemDeCreditos("assistente", 4)).toBe("Restam 4 perguntas nesta semana. Renova no domingo.");
+    expect(mensagemDeCreditos("assistente", 1)).toBe("Resta 1 pergunta nesta semana. Renova no domingo.");
+    expect(mensagemDeCreditos("roteiro", 2)).toBe("Restam 2 roteiros nesta semana. Renova no domingo.");
+    expect(mensagemDeCreditos("roteiro", 1)).toBe("Resta 1 roteiro nesta semana. Renova no domingo.");
   });
-  it("abaixo de 1 crédito, acabou (uma ação precisa de pelo menos 1)", () => {
+  it("acabou", () => {
     expect(semCreditos(1)).toBe(false);
-    expect(semCreditos(0.5)).toBe(true);
-    expect(mensagemDeCreditos(0.5)).toBe("Seus créditos da semana acabaram. Domingo tem mais.");
-    expect(mensagemDeCreditos(0)).toBe("Seus créditos da semana acabaram. Domingo tem mais.");
+    expect(semCreditos(0)).toBe(true);
+    expect(mensagemDeCreditos("assistente", 0)).toBe("Suas 15 perguntas da semana acabaram. Domingo tem mais.");
+    expect(mensagemDeCreditos("roteiro", 0)).toBe("Seus 7 roteiros da semana acabaram. Domingo tem mais.");
   });
 });

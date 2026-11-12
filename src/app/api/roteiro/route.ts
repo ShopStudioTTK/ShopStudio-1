@@ -1,7 +1,6 @@
 import {
   autorizar,
   chamarOpenRouter,
-  cobrarCreditos,
   devolverCredito,
   ehAdmin,
   erro,
@@ -98,7 +97,6 @@ export async function POST(req: Request) {
     await devolverCredito(reserva);
     return erro((e as Error).message, 502);
   }
-  await cobrarCreditos(reserva, payload?.usage?.completion_tokens);
   const gatilho = gatilhoDaIa(roteiro.gatilho, gatilhos);
   const mesmoJeito = await buscarDoMesmoJeito(input.formato, gatilho, parecidas.map((f) => f.id)).catch((e) => {
     console.error("roteiro: falha ao buscar fichas do mesmo jeito", e);

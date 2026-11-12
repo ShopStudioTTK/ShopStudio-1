@@ -81,7 +81,7 @@ describe("POST /api/assistente", () => {
     responderCom([["from public.entitlements", [{}]]]);
     const res = await POST(req());
     expect(res.status).toBe(429);
-    expect(await msg(res)).toBe("Seus créditos da semana acabaram. Domingo tem mais.");
+    expect(await msg(res)).toBe("Suas 15 perguntas da semana acabaram. Domingo tem mais.");
     expect(gravou("insert")).toBeUndefined();
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -89,8 +89,8 @@ describe("POST /api/assistente", () => {
   it("reserva 1 crédito da aluna logada nesta semana, só se ainda couber no total", async () => {
     await (await POST(req({ messages: conversa, user_id: "u2" }))).text();
     const [reserva] = creditos("insert");
-    expect(reserva.valores).toEqual(["u1", semanaSP(), 40]);
-    expect(reserva.sql).toContain("on conflict (user_id, semana) do update set gastos = creditos_semana.gastos + 1");
+    expect(reserva.valores).toEqual(["u1", semanaSP(), "assistente", 15]);
+    expect(reserva.sql).toContain("on conflict (user_id, semana, rota) do update set gastos = creditos_semana.gastos + 1");
     expect(reserva.sql).toContain("where creditos_semana.gastos + 1 <= ?");
   });
 
@@ -102,8 +102,8 @@ describe("POST /api/assistente", () => {
     expect(await res.text()).toBe(sse);
     await new Promise((r) => setTimeout(r, 0));
     expect(gravou("update")?.valores).toEqual([90000, 800, 89000, 0.0081, "p1"]);
-    // 800 tokens de saída = 1,5 crédito: +0,5 sobre a reserva, com teto no total
-    expect(creditos("update")[0].valores).toEqual([40, 0.5, "u1", semanaSP()]);
+    // cada pergunta gasta 1, do tamanho que for: nada além da reserva
+    expect(creditos("update")).toHaveLength(0);
   });
 
   it("resposta dentro do preço base não mexe mais no saldo", async () => {
@@ -139,7 +139,7 @@ describe("POST /api/assistente", () => {
     const res = await POST(req());
     expect(res.status).toBe(500);
     expect(fetch).not.toHaveBeenCalled();
-    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
+    expect(creditos("update")[0].valores).toEqual(["u1", semanaSP(), "assistente"]);
   });
 
   it("título do capítulo vem do conteúdo pelo slug, nunca do texto enviado pelo navegador", async () => {
@@ -186,7 +186,7 @@ describe("POST /api/assistente", () => {
     expect(res.status).toBe(502);
     expect(await msg(res)).toBe("sem créditos");
     expect(gravou("delete")?.valores).toEqual(["p1"]);
-    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
+    expect(creditos("update")[0].valores).toEqual(["u1", semanaSP(), "assistente"]);
   });
 
   it("provedor caiu no meio (erro, cortada, interrompida ou vazia): o crédito volta e nada mais é cobrado", async () => {
@@ -206,7 +206,7 @@ describe("POST /api/assistente", () => {
         String(url).endsWith("/embeddings") ? new Response(JSON.stringify({ data: [{ embedding: vetor }] })) : new Response(corpo));
       await (await POST(req())).text();
       await new Promise((r) => setTimeout(r, 0));
-      expect(creditos("update").map((c) => c.valores)).toEqual([[40, -1, "u1", semanaSP()]]);
+      expect(creditos("update").map((c) => c.valores)).toEqual([["u1", semanaSP(), "assistente"]]);
     }
   });
 
@@ -216,7 +216,7 @@ describe("POST /api/assistente", () => {
     expect(res.status).toBe(502);
     expect(await msg(res)).toBe("Não consegui responder agora. Tente de novo.");
     expect(gravou("delete")?.valores).toEqual(["p1"]);
-    expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
+    expect(creditos("update")[0].valores).toEqual(["u1", semanaSP(), "assistente"]);
   });
 });
 
