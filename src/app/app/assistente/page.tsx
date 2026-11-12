@@ -9,6 +9,7 @@ import { useAiChat } from "@/hooks/use-ai-chat";
 import { useAuth } from "@/hooks/use-auth";
 import { useCreditos } from "@/hooks/use-creditos";
 import { getChapter } from "@/content/chapters";
+import { pertoDoFim } from "@/lib/rolagem";
 import { cn, partesNegrito } from "@/lib/utils";
 
 const suggestions = [
@@ -29,11 +30,23 @@ const Assistant = () => {
   const { messages, isLoading, error, podeTentarDeNovo, tentarDeNovo, sendMessage, reset } = useAiChat(chapter?.slug);
   const { pronto: contagemPronta, esgotado, aviso } = useCreditos();
   const [input, setInput] = useState("");
-  const bottomRef = useRef<HTMLDivElement>(null);
   const trechoEnviado = useRef(false);
+  // A resposta só puxa a tela para baixo se ela já estava no fim; se subiu para ler, fica onde está.
+  const seguindo = useRef(true);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const aoRolar = () => {
+      seguindo.current = pertoDoFim({ altura: document.documentElement.scrollHeight, janela: innerHeight, rolagem: scrollY });
+    };
+    addEventListener("scroll", aoRolar, { passive: true });
+    return () => removeEventListener("scroll", aoRolar);
+  }, []);
+
+  // Até o fundo de verdade (a caixa de digitar fica abaixo da conversa) e sem animação: com o
+  // scrollIntoView suave num marcador acima da caixa, cada pedaço da resposta puxava a tela ~190 px
+  // para cima de quem tinha descido até o fim, e a tela ficava pulando.
+  useEffect(() => {
+    if (seguindo.current) scrollTo({ top: document.documentElement.scrollHeight });
   }, [messages]);
 
   // Trecho selecionado no capítulo: vira a primeira pergunta, uma vez só.
@@ -52,6 +65,7 @@ const Assistant = () => {
   const handleSend = (value?: string) => {
     const text = (value ?? input).trim();
     if (!text || esgotado) return;
+    seguindo.current = true;
     void sendMessage(text);
     setInput("");
   };
@@ -152,7 +166,6 @@ const Assistant = () => {
             </div>
           ))
         )}
-        <div ref={bottomRef} />
       </div>
 
       {error ? (
@@ -162,7 +175,10 @@ const Assistant = () => {
         >
           <p>{error}</p>
           {podeTentarDeNovo ? (
-            <Button variant="outline" size="sm" onClick={tentarDeNovo} disabled={isLoading || esgotado} className="shrink-0">
+            <Button variant="outline" size="sm" onClick={() => {
+                seguindo.current = true;
+                tentarDeNovo();
+              }} disabled={isLoading || esgotado} className="shrink-0">
               <RotateCcw className="h-3.5 w-3.5" />
               Tentar de novo
             </Button>
