@@ -156,7 +156,7 @@ describe("POST /api/assistente", () => {
     const body = JSON.parse(String(init?.body));
     expect(body.stream).toBe(true);
     expect(body.usage).toEqual({ include: true });
-    expect(body.provider).toEqual({ order: ["morph/fp8", "deepinfra/fp8"], quantizations: ["fp8"] });
+    expect(body.provider).toEqual({ order: ["deepinfra/fp8", "morph/fp8"], quantizations: ["fp8"] });
     expect(body.model).toBe("modelo/teste");
     expect(body.messages[0].content).toContain('capítulo "Mentalidade de Shop Girl"');
     expect(body.messages.slice(1)).toEqual(conversa);
@@ -174,7 +174,7 @@ describe("POST /api/assistente", () => {
     await POST(req());
     const body = JSON.parse(String(chat()[1]?.body));
     expect(body.model).toBe("modelo/teste@preset/voz-teste");
-    expect(body.provider).toEqual({ order: ["morph/fp8", "deepinfra/fp8"], quantizations: ["fp8"] });
+    expect(body.provider).toEqual({ order: ["deepinfra/fp8", "morph/fp8"], quantizations: ["fp8"] });
     expect(body.messages[0].content).not.toContain("fala gnt");
     expect(body.messages[0].content).toContain("### Frete");
   });
@@ -199,6 +199,27 @@ describe("POST /api/assistente", () => {
     expect(await msg(res)).toBe("sem créditos");
     expect(gravou("delete")?.valores).toEqual(["p1"]);
     expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
+  });
+
+  it("provedor caiu no meio (erro, cortada, interrompida ou vazia): o crédito volta e nada mais é cobrado", async () => {
+    for (const corpo of [
+      'data: {"error":{"code":504,"message":"Provider returned error"},"choices":[{"delta":{"content":""},"finish_reason":"error"}]}\n\ndata: [DONE]\n\n',
+      'data: {"choices":[{"delta":{"content":"Oi"},"finish_reason":"length"}]}\n\ndata: {"choices":[],"usage":{"completion_tokens":4000}}\n\ndata: [DONE]\n\n',
+      'data: {"choices":[{"delta":{"content":"Oi pela met"}}]}\n\n',
+      "data: [DONE]\n\n",
+    ]) {
+      reiniciarDb();
+      responderCom([
+        ["from public.entitlements", [{}]],
+        ["insert into public.creditos_semana", [{ gastos: 5 }]],
+        ["insert into public.ai_perguntas", [{ id: "p1" }]],
+      ]);
+      vi.mocked(fetch).mockImplementation(async (url) =>
+        String(url).endsWith("/embeddings") ? new Response(JSON.stringify({ data: [{ embedding: vetor }] })) : new Response(corpo));
+      await (await POST(req())).text();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(creditos("update").map((c) => c.valores)).toEqual([[40, -1, "u1", semanaSP()]]);
+    }
   });
 
   it("502 quando a chamada falha na rede e a pergunta não conta", async () => {
