@@ -13,6 +13,10 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 **Como ficou:**
 - **`CartaoDeCredito`**: fica embaixo de "Criar meu roteiro" e em cima do campo do assistente, sempre visível, porque a aluna vê antes de gastar. Ele diz "Cada roteiro usa 1 crédito. Você ainda tem N créditos nesta semana.". Perto do fim, o cartão fica rosa e mostra o aviso de antes ("Restam 4 perguntas nesta semana. Renova no domingo."). A admin não vê o cartão.
 - **Decisão minha:** o cartão fica fixo na tela, e não num pop-up a cada pergunta, para não travar a conversa no chat.
+- **Ajuste (mesmo dia):** a dona não via o cartão porque estava logada com uma conta admin, e a primeira versão o escondia para admin. Agora:
+  - o cartão aparece para todo mundo (para admin, "Sua conta é admin: créditos ilimitados." e ∞);
+  - ele ficou mais visível, com fundo rosa e o número grande à direita ("5 de 7");
+  - ganhou o `ContadorDeCreditos` ao lado do logo: "12 perguntas · 5 roteiros" no menu, só os ícones no menu estreito e no topo do celular.
 - **Música viral:** sai das escolhas do gerador e do Studio (`FORMATOS_DA_ALUNA`), e o `?formato=Música viral` na URL é ignorado. O resto continua igual, para voltar fácil: o prompt, as fichas da admin, o filtro dos Roteiros expert e os roteiros salvos nesse formato.
 
 **Verificado:**

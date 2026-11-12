@@ -23,6 +23,7 @@ export const useCreditos = (tipo: TipoDeCredito) => {
     pronto: query.isSuccess,
     /** null = carregando ou admin (ilimitado). */
     restantes: restantes ?? null,
+    ilimitado: Boolean(query.data?.ilimitado),
     esgotado: restantes != null && semCreditos(restantes),
     aviso: restantes != null ? mensagemDeCreditos(tipo, restantes) : null,
   };
