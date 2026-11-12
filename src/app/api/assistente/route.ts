@@ -12,6 +12,7 @@ import {
   reservarChamada,
 } from "@/lib/api-auth";
 import { buildAssistantSystemPrompt, sanitizeMessages } from "@/lib/assistente";
+import { guardarNaConversa } from "@/lib/conversas";
 import { PERSONA } from "@/lib/persona";
 import { uuid } from "@/lib/entrada";
 import { blocoDaExpert, consultarExpert, registrarNaFila } from "@/lib/treinamento";
@@ -95,8 +96,13 @@ export async function POST(req: Request) {
       );
     if (!completa) return devolverCredito(reserva);
     if (!conversa) return;
-    await registrarNaFila({ userId, conversa, contexto: anteriores, pergunta, respostaIa: fim.texto, vetor: expert.vetor })
-      .catch((e) => console.error("assistente: falha ao gravar na fila de treinamento", e));
+    await Promise.all([
+      registrarNaFila({ userId, conversa, contexto: anteriores, pergunta, respostaIa: fim.texto, vetor: expert.vetor })
+        .catch((e) => console.error("assistente: falha ao gravar na fila de treinamento", e)),
+      // Histórico da aluna (Conversas anteriores): só resposta completa entra.
+      guardarNaConversa({ userId, conversa, pergunta, resposta: fim.texto })
+        .catch((e) => console.error("assistente: falha ao gravar no histórico", e)),
+    ]);
   });
   after(terminou.catch((e) => console.error("assistente: falha no fim do stream", e)));
 

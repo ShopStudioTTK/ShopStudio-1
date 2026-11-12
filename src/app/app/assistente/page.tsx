@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUp, Loader2, RotateCcw, Sparkles } from "lucide-react";
 import { Confirmacao } from "@/components/confirmacao";
+import { ConversasAnteriores } from "@/components/conversas-anteriores";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAiChat } from "@/hooks/use-ai-chat";
@@ -29,7 +30,8 @@ const Assistant = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { session } = useAuth();
-  const { messages, isLoading, error, podeTentarDeNovo, tentarDeNovo, sendMessage, reset } = useAiChat(chapter?.slug);
+  const { messages, isLoading, error, podeTentarDeNovo, tentarDeNovo, sendMessage, reset, abrir, conversaAtual } =
+    useAiChat(chapter?.slug);
   const { pronto: contagemPronta, esgotado, aviso } = useCreditos("assistente");
   // Com a IA escrevendo, sair da página pergunta antes (o F5 retoma; sair pelo app perde a resposta).
   const guarda = useGuardaDeSaida(isLoading);
@@ -87,7 +89,15 @@ const Assistant = () => {
             enrolação.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ConversasAnteriores
+            desabilitado={isLoading}
+            onAbrir={(conversa) => {
+              seguindo.current = true;
+              abrir(conversa);
+            }}
+            onApagou={(id) => id === conversaAtual() && reset()}
+          />
           <Button variant="ghost" size="sm" onClick={reset} disabled={messages.length === 0}>
             <RotateCcw className="h-3.5 w-3.5" />
             Nova conversa

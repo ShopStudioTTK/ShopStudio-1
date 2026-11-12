@@ -14,6 +14,9 @@ export type ChatMessage = {
   isStreaming?: boolean;
 };
 
+/** Lista de "Conversas anteriores" (react-query). */
+export const CONVERSAS_KEY = "conversas";
+
 const FALHA = "Não consegui responder agora. Tente de novo.";
 const FALHA_DA_IA =
   "A assistente não conseguiu responder agora (o servidor da IA ficou instável). Toque em “Tentar de novo” para reenviar sua última mensagem.";
@@ -155,6 +158,7 @@ export const useAiChat = (capitulo?: string) => {
         finishLast(completa);
         setIsLoading(false);
         void queryClient.invalidateQueries({ queryKey: [CREDITOS_KEY] });
+        if (completa) void queryClient.invalidateQueries({ queryKey: [CONVERSAS_KEY] });
       }
     },
     [capitulo, isLoading, session?.access_token, queryClient],
@@ -201,6 +205,21 @@ export const useAiChat = (capitulo?: string) => {
     void enviar(semResposta, messages.slice(0, -1));
   }, [enviar, messages, semResposta]);
 
+  /** Abre uma conversa do histórico para ler e continuar: as perguntas novas entram nela. */
+  const abrir = useCallback((conversa: { id: string; mensagens: { role: ChatMessage["role"]; content: string }[] }) => {
+    abortRef.current?.abort();
+    vez.current++;
+    conversaRef.current = conversa.id;
+    pedidoRef.current = null;
+    setMessages(conversa.mensagens.map((m) => ({ id: crypto.randomUUID(), role: m.role, content: m.content })));
+    setError(null);
+    setSemResposta(null);
+    setIsLoading(false);
+  }, []);
+
+  /** Id da conversa na tela (null antes da primeira pergunta). Para quem apaga saber se apagou a aberta. */
+  const conversaAtual = useCallback(() => conversaRef.current, []);
+
   const reset = useCallback(() => {
     abortRef.current?.abort();
     vez.current++;
@@ -212,5 +231,5 @@ export const useAiChat = (capitulo?: string) => {
     setIsLoading(false);
   }, []);
 
-  return { messages, isLoading, error, podeTentarDeNovo: !!semResposta, tentarDeNovo, sendMessage, reset };
+  return { messages, isLoading, error, podeTentarDeNovo: !!semResposta, tentarDeNovo, sendMessage, reset, abrir, conversaAtual };
 };

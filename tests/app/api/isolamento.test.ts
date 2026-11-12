@@ -11,6 +11,7 @@ vi.mock("@/lib/access", () => ({ temAcesso: () => true }));
 import { conferirSenha, createSignedUrls, getUser, naTabela, reiniciarDb, responderCom, updateUserById } from "../../apoio/db-falso";
 import * as acesso from "@/app/api/acesso/route";
 import * as conta from "@/app/api/conta/route";
+import * as conversas from "@/app/api/conversas/route";
 import * as creditos from "@/app/api/creditos/route";
 import * as ganchos from "@/app/api/ganchos/route";
 import * as notaDoGancho from "@/app/api/ganchos/nota/route";
@@ -64,6 +65,17 @@ describe("cada conta só vê e mexe no que é dela", () => {
     for (const body of [{ tipo: "x", chave: "a", feito: true }, { tipo: "capitulo", chave: "", feito: true }, { tipo: "capitulo", chave: "a" }])
       expect((await progresso.POST(req("/api/progresso", "POST", body))).status).toBe(400);
     expect(naTabela("chapter_progress")).toHaveLength(0);
+  });
+
+  it("conversas: lista, abre e apaga só as da aluna logada", async () => {
+    await conversas.GET(req(`/api/conversas?user_id=${OUTRA}`));
+    await conversas.GET(req(`/api/conversas?id=${ID}&user_id=${OUTRA}`));
+    await conversas.DELETE(req(`/api/conversas?id=${ID}`, "DELETE", { user_id: OUTRA }));
+    const [lista, uma, apaga] = naTabela("conversas");
+    expect(lista.valores).toEqual(["u1"]);
+    expect(uma.valores).toEqual(["u1", ID]);
+    expect(apaga.valores).toEqual(["u1", ID]);
+    for (const c of [lista, uma, apaga]) expect(c.sql).toContain("where user_id = ?");
   });
 
   it("pedidos: retoma só pedido da aluna logada", async () => {
