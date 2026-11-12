@@ -4,6 +4,34 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: Conversas anteriores no assistente; "Outra versão" avisa do crédito
+
+**Pedido:** no gerador, o hover do "Outra versão" deve deixar claro que gasta outro crédito. No assistente, se as perguntas já estavam guardadas, dar um histórico para a aluna voltar e ver a conversa; se não, criar isso.
+
+**Estavam guardadas, mas não serviam de histórico:**
+- `treinamento` (fila da expert) tem a pergunta e a resposta da IA, mas a admin reescreve a pergunta de forma genérica e descarta itens, e a fila é separada da aluna de propósito.
+- `ai_perguntas` guarda só a última pergunta de cada chamada, sem a resposta e sem ligar as perguntas da mesma conversa.
+
+**Como ficou:**
+- Tabela `conversas` (migration `20261112060000`), só da aluna. O servidor acrescenta pergunta + resposta no fim de cada resposta completa (`guardarNaConversa`), com o `user_id` do token. Rotas `GET`/`DELETE /api/conversas`.
+- Botão **"Conversas anteriores"** ("Histórico" no celular, onde os dois botões não cabiam numa linha), num painel lateral: as 30 mais recentes, abrir (e continuar perguntando na mesma conversa), apagar com confirmação. Travado enquanto a IA escreve.
+- **"Outra versão":** tooltip "Gera um roteiro novo e usa mais 1 crédito (1 dos seus 7 roteiros da semana)."
+- **Decisões da dona:** histórico próprio, com apagar. **Minhas:** 30 na lista e todas guardadas; o mesmo painel no computador e no celular (no lugar do menu suspenso proposto, para ter um componente só); o histórico começa agora, sem trazer as conversas antigas da fila (podem ter sido editadas pela admin).
+
+**Verificado:**
+- Testes (682), lint e build.
+- No navegador (build em `localhost:3005`, OpenRouter de verdade, contas de teste apagadas), 14 cenários certos, console sem erro:
+  - o hover do "Outra versão" mostra o aviso;
+  - a lista começa vazia e depois mostra 2 conversas, a mais recente primeiro;
+  - abrir traz as 4 mensagens, e uma pergunta nova entra na mesma conversa, que sobe para o topo sem duplicar;
+  - o F5 com a conversa aberta mantém tudo, e reabrir pela lista traz as 6 mensagens do banco;
+  - apagar pede confirmação, e apagar a conversa aberta limpa a tela;
+  - o botão trava com a IA escrevendo;
+  - a conta B vê só a lista dela;
+  - a 375 px, a lista ocupa a tela.
+
+**Produção:** a migration vai antes do deploy (sem ela, o assistente responde igual, mas a lista dá erro).
+
 ## 2026-11-12: IA escrevendo: perguntar antes de sair e retomar no F5
 
 **Pedido:** no gerador e no assistente, quem saía ou dava F5 durante a geração não via o resultado, mas a chamada era processada e o crédito, gasto. A dona quer que a tela pergunte antes de sair, avisando que o resultado se perde, e que o F5 continue de onde parou.

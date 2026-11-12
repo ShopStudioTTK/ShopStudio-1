@@ -155,6 +155,8 @@ docs/superpowers/             design e plano da migração do Enter
 - **Créditos:** cada pergunta gasta 1 das 15 da semana (ver [Créditos semanais](#créditos-semanais)).
 - **IA escrevendo:** sair pelo app enquanto a resposta chega pergunta antes ("A resposta ainda está sendo escrita", **Continuar aqui** ou **Sair mesmo assim**; a pergunta já foi descontada). No F5, o navegador mostra o aviso dele, e a tela **retoma**: a conversa volta e a resposta aparece inteira quando fica pronta (ver [Retomar depois do F5](#retomar-depois-do-f5)).
 
+- **Conversas anteriores:** o botão ao lado de "Nova conversa" ("Histórico" no celular) abre as 30 conversas mais recentes da aluna, com o título (a primeira pergunta) e a data. Tocar abre a conversa, e ela continua perguntando ali mesmo; abrir não gasta crédito. A lixeira apaga (com confirmação). Cada resposta completa é gravada na tabela `conversas`, só dela e separada da fila de treinamento da expert (`GET`/`DELETE /api/conversas`). Apagar do histórico não tira a pergunta da fila da expert. O histórico começou em 2026-11-12.
+
 ### Créditos semanais
 
 Cada aluna tem, por semana, **15 perguntas** ao assistente e **7 roteiros** no gerador. São dois saldos separados: acabar os roteiros não trava as perguntas. **Cada pedido gasta 1**, do tamanho que for. A semana começa **no domingo à 0h de Brasília**, e o que sobrou não acumula. Admin não gasta créditos. Os números ficam em `LIMITE_SEMANAL` (`src/lib/limite.ts`).
