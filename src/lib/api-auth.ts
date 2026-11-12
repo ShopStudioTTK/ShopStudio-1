@@ -100,8 +100,8 @@ export async function admin(req: Request, rotulo: string): Promise<Logada | Resp
 }
 
 /**
- * Provedores do modelo DeepSeek v4.1 Flash: Morph primeiro (mais barato em fp8, cache confiável
- * nos testes), DeepInfra de reserva. Só fp8: as versões fp4 respondem pior.
+ * Provedores do modelo DeepSeek v4.1 Flash: DeepInfra primeiro e Morph de reserva (a ordem foi
+ * invertida em 2026-11-12; antes era Morph primeiro). Só fp8: as versões fp4 respondem pior.
  * Revisar ao trocar OPENROUTER_MODEL — outros modelos têm outros provedores.
  */
 export const PROVEDORES = { order: ["deepinfra/fp8", "morph/fp8"], quantizations: ["fp8"] };

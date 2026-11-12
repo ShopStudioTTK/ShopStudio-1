@@ -4,6 +4,18 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: Assistente avisa quando o provedor cai e oferece "Tentar de novo"
+
+**Pedido:** os provedores do DeepSeek (Morph e DeepInfra) devolveram 504 e 499, e o assistente simplesmente não respondeu: a bolha "Pensando" sumia sem aviso. A dona quer uma mensagem e um botão para a aluna reenviar a última mensagem.
+
+**Causa:** com o stream já aberto, a OpenRouter avisa a queda com um evento de erro (`finish_reason: "error"`) ou corta o stream. O `use-ai-chat.ts` só tratava o erro HTTP e o evento `error`, e mostrava o texto técnico do provedor. Um stream que acabava vazio ou sem `finish_reason` só tirava a bolha, sem mensagem nenhuma. Do lado do servidor, o crédito era cobrado mesmo assim.
+
+**Como ficou:**
+- **Tela (`use-ai-chat.ts` + `assistente/page.tsx`):** a resposta só vale se o stream terminar com `finish_reason: "stop"` e trouxer texto. Contam como falha um 5xx, a rede caída, um evento de erro, um stream cortado e um stream vazio. Nesses casos, a meia resposta sai da tela, a pergunta da aluna fica e aparece o aviso com o botão **"Tentar de novo"** (`tentarDeNovo`), que reenvia a pergunta sem duplicar a bolha. Um 4xx (login, acesso, créditos) mostra a mensagem do servidor, sem botão, porque repetir não adianta.
+- **Servidor (`/api/assistente`):** no fim do stream, uma resposta que não terminou em `stop` ou veio vazia devolve o crédito (`devolverCredito`). O custo continua registrado em `ai_perguntas`.
+- **Limite conhecido:** se a conexão com a OpenRouter quebrar sem fechar o stream, o `flush` do `comRegistroDeUso` não roda e o crédito não volta.
+- **Provedores:** o commit `8313008` (na `main`) pôs a DeepInfra antes da Morph. Os testes e o comentário de `PROVEDORES` foram atualizados para essa ordem.
+
 ## 2026-11-11: Gerador de roteiros na voz da Ana, regras por formato, preço opcional e exemplos fixos
 
 **Pedido:** um segundo feedback trouxe um prompt inteiro "na voz da Ana" e três ajustes de código.

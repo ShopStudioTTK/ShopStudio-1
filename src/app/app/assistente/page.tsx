@@ -26,7 +26,7 @@ const Assistant = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { session } = useAuth();
-  const { messages, isLoading, error, sendMessage, reset } = useAiChat(chapter?.slug);
+  const { messages, isLoading, error, podeTentarDeNovo, tentarDeNovo, sendMessage, reset } = useAiChat(chapter?.slug);
   const { pronto: contagemPronta, esgotado, aviso } = useCreditos();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -156,9 +156,18 @@ const Assistant = () => {
       </div>
 
       {error ? (
-        <p className="mb-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-[13px] text-destructive">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-[13px] text-destructive"
+        >
+          <p>{error}</p>
+          {podeTentarDeNovo ? (
+            <Button variant="outline" size="sm" onClick={tentarDeNovo} disabled={isLoading || esgotado} className="shrink-0">
+              <RotateCcw className="h-3.5 w-3.5" />
+              Tentar de novo
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="sticky bottom-0 -mx-1 border-t border-border bg-background/95 px-1 pb-2 pt-4 backdrop-blur">

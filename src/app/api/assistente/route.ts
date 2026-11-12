@@ -3,6 +3,7 @@ import {
   autorizar,
   chamarOpenRouter,
   cobrarCreditos,
+  devolverCredito,
   configDaIA,
   ehAdmin,
   erro,
@@ -78,10 +79,13 @@ export async function POST(req: Request) {
 
   const corpo = comRegistroDeUso(response.body, async (uso, fim) => {
     await registrarCusto(reserva.id, uso);
+    // Só resposta completa ("stop") conta. Se o provedor cai no meio (504, 499) ou a resposta vem
+    // cortada ou vazia, a tela pede para tentar de novo, então o crédito volta. Uma resposta assim
+    // também não entra na fila de treinamento, para meia resposta nunca ser aprovada como exemplo.
+    // ponytail: se o stream de cima quebrar (conexão caída), o flush não roda e o crédito não volta.
+    if (!fim.texto.trim() || fim.finishReason !== "stop") return devolverCredito(reserva);
     await cobrarCreditos(reserva, uso?.completion_tokens);
-    // A conversa vai para a fila de treinamento da expert. Só resposta completa ("stop"): cortada,
-    // com erro ou interrompida não entra, para meia resposta nunca ser aprovada como exemplo.
-    if (!conversa || !fim.texto.trim() || fim.finishReason !== "stop") return;
+    if (!conversa) return;
     await registrarNaFila({ userId, conversa, contexto: anteriores, pergunta, respostaIa: fim.texto, vetor: expert.vetor })
       .catch((e) => console.error("assistente: falha ao gravar na fila de treinamento", e));
   });
