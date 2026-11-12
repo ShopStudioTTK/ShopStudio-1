@@ -25,10 +25,10 @@ type Guardada = { conversa: string | null; messages: ChatMessage[]; pedido: stri
 class SemRepetir extends Error {}
 
 export const useAiChat = (capitulo?: string) => {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const queryClient = useQueryClient();
   // Depois do F5, a conversa volta (o AppShell só monta no navegador, então o sessionStorage existe).
-  const [guardada] = useState(() => lembrado<Guardada>("assistente"));
+  const [guardada] = useState(() => lembrado<Guardada>("assistente", user?.id));
   const [messages, setMessages] = useState<ChatMessage[]>(guardada?.messages ?? []);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,15 +40,18 @@ export const useAiChat = (capitulo?: string) => {
   // Pedido que a IA está respondendo: com ele, o F5 retoma a resposta (GET /api/pedidos).
   const pedidoRef = useRef<string | null>(null);
   const retomou = useRef(false);
+  // Muda a cada "Nova conversa": a resposta retomada que chega depois disso é de outra conversa e é ignorada.
+  const vez = useRef(0);
 
   // Guarda a conversa a cada mudança (sem a bolha que ainda está chegando).
   useEffect(() => {
-    lembrar("assistente", {
+    if (!user?.id) return;
+    lembrar("assistente", user.id, {
       conversa: conversaRef.current,
       messages: messages.filter((m) => !m.isStreaming),
       pedido: pedidoRef.current,
     } satisfies Guardada);
-  }, [messages]);
+  }, [messages, user?.id]);
   // Saiu da página pelo app (link, voltar, depois de confirmar): a conversa vai embora, como antes.
   // O F5 não desmonta, então ela fica para a volta.
   useEffect(() => () => esquecer("assistente"), []);
@@ -164,20 +167,24 @@ export const useAiChat = (capitulo?: string) => {
     const ultima = guardada?.messages.at(-1);
     if (!pedido || retomou.current || ultima?.role !== "user") return;
     retomou.current = true;
+    const minha = vez.current;
     pedidoRef.current = pedido;
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", content: "", isStreaming: true }]);
     setIsLoading(true);
     let completa = false;
     esperarPedido<{ texto: string }>(pedido)
       .then(({ texto }) => {
+        if (vez.current !== minha) return;
         patchLast((m) => ({ ...m, content: texto }));
         completa = true;
       })
       .catch(() => {
+        if (vez.current !== minha) return;
         setError(FALHA_DA_IA);
         setSemResposta(ultima.content);
       })
       .finally(() => {
+        if (vez.current !== minha) return;
         pedidoRef.current = null;
         finishLast(completa);
         setIsLoading(false);
@@ -196,6 +203,7 @@ export const useAiChat = (capitulo?: string) => {
 
   const reset = useCallback(() => {
     abortRef.current?.abort();
+    vez.current++;
     conversaRef.current = null;
     pedidoRef.current = null;
     setMessages([]);

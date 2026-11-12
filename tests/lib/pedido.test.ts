@@ -37,18 +37,33 @@ describe("lembrar / lembrado / esquecer", () => {
       setItem: (k: string, v: string) => void loja.set(k, v),
       removeItem: (k: string) => void loja.delete(k),
     });
-    lembrar("roteiro", { id: ID });
-    expect(lembrado("roteiro")).toEqual({ id: ID });
-    expect(lembrado("assistente")).toBeNull();
+    lembrar("roteiro", "u1", { id: ID });
+    expect(lembrado("roteiro", "u1")).toEqual({ id: ID });
+    expect(lembrado("assistente", "u1")).toBeNull();
     esquecer("roteiro");
-    expect(lembrado("roteiro")).toBeNull();
+    expect(lembrado("roteiro", "u1")).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it("a sessão caiu e outra conta entrou na mesma aba: não vê o que era da outra, e isso é apagado", () => {
+    const loja = new Map<string, string>();
+    vi.stubGlobal("sessionStorage", {
+      getItem: (k: string) => loja.get(k) ?? null,
+      setItem: (k: string, v: string) => void loja.set(k, v),
+      removeItem: (k: string) => void loja.delete(k),
+    });
+    lembrar("assistente", "u1", { messages: ["segredo"] });
+    expect(lembrado("assistente", "u2")).toBeNull();
+    expect(loja.size).toBe(0);
+    lembrar("assistente", "u1", { messages: ["segredo"] });
+    expect(lembrado("assistente", undefined)).toBeNull();
     vi.unstubAllGlobals();
   });
 
   it("sem sessionStorage (bloqueado, servidor): não quebra", () => {
     vi.stubGlobal("sessionStorage", undefined);
-    expect(() => lembrar("roteiro", 1)).not.toThrow();
-    expect(lembrado("roteiro")).toBeNull();
+    expect(() => lembrar("roteiro", "u1", 1)).not.toThrow();
+    expect(lembrado("roteiro", "u1")).toBeNull();
     expect(() => esquecer("roteiro")).not.toThrow();
     vi.unstubAllGlobals();
   });

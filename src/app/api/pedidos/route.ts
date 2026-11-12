@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     const [linha] = await db()`
       select resultado, created_at < now() - interval '90 seconds' as vencido
       from public.ai_perguntas where user_id = ${auth.userId} and pedido = ${id}`;
-    if (!linha) return erro("Não consegui recuperar esse pedido. Tente de novo.", 404);
+    if (!linha) return erro("Esse pedido não chegou a ser feito, e nenhum crédito foi usado. Tente de novo.", 404);
     const resultado = linha.resultado as { status: number; corpo: unknown } | null;
     if (resultado) return Response.json(resultado.corpo, { status: resultado.status });
     if (linha.vencido) return erro("A IA não terminou a tempo. Tente de novo.", 504);

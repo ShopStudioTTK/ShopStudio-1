@@ -6,15 +6,20 @@ type Tipo = "roteiro" | "assistente";
 const chave = (tipo: Tipo) => `shopstudio:pedido:${tipo}`;
 
 // sessionStorage pode faltar ou estar bloqueado: aí só não retoma.
-export const lembrar = (tipo: Tipo, valor: unknown) => {
+// Vai junto o id da conta: se a sessão cai e outra conta entra na mesma aba, ela não vê o que era da outra.
+export const lembrar = (tipo: Tipo, userId: string, valor: unknown) => {
   try {
-    sessionStorage.setItem(chave(tipo), JSON.stringify(valor));
+    sessionStorage.setItem(chave(tipo), JSON.stringify({ userId, valor }));
   } catch {}
 };
 
-export const lembrado = <T>(tipo: Tipo): T | null => {
+/** O que esta conta guardou; o de outra conta é apagado. */
+export const lembrado = <T>(tipo: Tipo, userId: string | undefined): T | null => {
   try {
-    return JSON.parse(sessionStorage.getItem(chave(tipo)) ?? "null") as T | null;
+    const guardado = JSON.parse(sessionStorage.getItem(chave(tipo)) ?? "null") as { userId: string; valor: T } | null;
+    if (guardado && guardado.userId === userId) return guardado.valor;
+    sessionStorage.removeItem(chave(tipo));
+    return null;
   } catch {
     return null;
   }

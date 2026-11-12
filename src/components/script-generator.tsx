@@ -236,7 +236,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
   const { user } = useAuth();
   const queryClient = useQueryClient();
   // Roteiro pedido antes do F5 (sendo escrito ou já pronto e não salvo): volta para a tela.
-  const [pendente] = useState(() => lembrado<PedidoDeRoteiro>("roteiro"));
+  const [pendente] = useState(() => lembrado<PedidoDeRoteiro>("roteiro", user?.id));
   const [produto, setProduto] = useState(pendente?.produto ?? inicial?.produto ?? "");
   const [publico, setPublico] = useState(pendente?.publico ?? inicial?.publico ?? "");
   const [beneficio, setBeneficio] = useState(pendente?.beneficio ?? "");
@@ -251,6 +251,9 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
   const resultadoRef = useRef<HTMLDivElement>(null);
   const jaGerou = useRef(false);
   const retomou = useRef(false);
+  // Pedido cujo roteiro a tela espera. Abrir outro da biblioteca no meio (depois de confirmar)
+  // o abandona: o que chegar depois não toma o lugar do aberto.
+  const [esperado, setEsperado] = useState<string | null>(pendente?.id ?? null);
 
   const savedQuery = useRoteirosSalvos();
   const creditos = useCreditos("roteiro");
@@ -262,7 +265,8 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
       if (!token) throw new Error("Faça login para gerar roteiros.");
       // Com o id no sessionStorage, o F5 retoma: o servidor termina sozinho e guarda o roteiro.
       const pedido: PedidoDeRoteiro = { id: crypto.randomUUID(), produto, publico, beneficio, preco, formato };
-      lembrar("roteiro", pedido);
+      if (user?.id) lembrar("roteiro", user.id, pedido);
+      setEsperado(pedido.id);
       const res = await fetch("/api/roteiro", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -275,9 +279,9 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
         esquecer("roteiro");
         throw new Error(json.error?.message ?? "Não consegui gerar o roteiro.");
       }
-      return json as ScriptResult;
+      return { id: pedido.id, roteiro: json as ScriptResult };
     },
-    onSuccess: (data) => mostrar(data),
+    onSuccess: ({ id, roteiro }) => id === esperado && mostrar(roteiro),
     onError: (error: Error) => toast.error(error.message),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: [CREDITOS_KEY] }),
   });
@@ -285,14 +289,15 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
   // Depois do F5: espera o roteiro que o servidor terminou (ou ainda termina) sem ela na página.
   const retomar = useMutation({
     mutationFn: (id: string) => esperarPedido<ScriptResult>(id),
-    onSuccess: (data) => mostrar(data),
-    onError: (error: Error) => {
+    onSuccess: (data, id) => id === esperado && mostrar(data),
+    onError: (error: Error, id) => {
+      if (id !== esperado) return;
       esquecer("roteiro");
       toast.error(error.message);
     },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: [CREDITOS_KEY] }),
   });
-  const escrevendo = generate.isPending || retomar.isPending;
+  const escrevendo = (generate.isPending || retomar.isPending) && esperado !== null;
 
   function mostrar(data: ScriptResult) {
     setResult(data);
@@ -538,6 +543,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
                     // abrir outro roteiro tira da tela o que não foi salvo
                     sair(() => {
                       esquecer("roteiro");
+                      setEsperado(null);
                       setResult(script.conteudo);
                       setSalvo(true);
                       setSavedProduto(script.produto);
