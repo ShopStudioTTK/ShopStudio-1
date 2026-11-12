@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Loader2, Plus, RefreshCw, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { Check, Copy, Loader2, Plus, RefreshCw, Sparkles, Tag, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { CartaoDaExpert } from "@/components/fichas-da-expert";
 import { Confirmacao } from "@/components/confirmacao";
-import { FORMATOS, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
+import { duracaoDoFormato, FORMATOS, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
 import { CREDITOS_KEY, useCreditos } from "@/hooks/use-creditos";
 import { useAuth } from "@/hooks/use-auth";
 import { useGuardaDeSaida } from "@/hooks/use-guarda-de-saida";
@@ -63,10 +63,10 @@ const fields: { key: "ganchos" | "problemas" | "solucoes" | "ctas"; label: strin
 ];
 
 const etapas = [
-  { key: "gancho", label: "Gancho", tempo: "0–3s" },
-  { key: "problema", label: "Problema", tempo: "até 15s" },
-  { key: "solucao", label: "Solução", tempo: "até 45s" },
-  { key: "cta", label: "CTA", tempo: "até 60s" },
+  { key: "gancho", label: "Gancho" },
+  { key: "problema", label: "Problema" },
+  { key: "solucao", label: "Solução" },
+  { key: "cta", label: "CTA" },
 ] as const;
 
 const copiar = async (texto: string, ok = "Copiado.") => {
@@ -105,7 +105,8 @@ const Frase = ({ texto, numero }: { texto: string; numero: number }) => {
 };
 
 /** Roteiro pronto + 5×5, como a aluna vê. Também é a prévia do rascunho da ficha (treinamento). */
-export const PreviaDoRoteiro = ({ titulo, result }: { titulo: string; result: ScriptResult }) => (
+/** `formato` dá a duração: a Música viral é curta e sem fala; os outros, de 30 a 60 s. */
+export const PreviaDoRoteiro = ({ titulo, result, formato }: { titulo: string; result: ScriptResult; formato: string }) => (
   <>
     {result.roteiro ? (
       <div className="hero-surface relative overflow-hidden rounded-[30px] p-6 text-cream shadow-editorial sm:p-8">
@@ -118,7 +119,7 @@ export const PreviaDoRoteiro = ({ titulo, result }: { titulo: string; result: Sc
         <div className="relative flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
-              <Sparkles className="h-3 w-3" /> Roteiro pronto · 30 a 60s
+              <Sparkles className="h-3 w-3" /> Roteiro pronto · {duracaoDoFormato(formato).total}
             </p>
             <h2 className="mt-3 font-display text-[28px] font-semibold leading-[1.05] tracking-tight sm:text-[34px]">
               {titulo}
@@ -155,7 +156,7 @@ export const PreviaDoRoteiro = ({ titulo, result }: { titulo: string; result: Sc
               </span>
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cream/65">
-                  {etapa.label} · {etapa.tempo}
+                  {etapa.label} · {duracaoDoFormato(formato).etapas[etapa.key]}
                 </p>
                 <p className="mt-1 text-[15px] leading-relaxed text-cream">{result.roteiro?.[etapa.key]}</p>
               </div>
@@ -233,6 +234,8 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
   const [produto, setProduto] = useState(inicial?.produto ?? "");
   const [publico, setPublico] = useState(inicial?.publico ?? "");
   const [beneficio, setBeneficio] = useState("");
+  // Opcional: só com ele o roteiro fala de preço.
+  const [preco, setPreco] = useState("");
   const [formato, setFormato] = useState<string>(inicial?.formato ?? FORMATO_PADRAO);
   const [result, setResult] = useState<ScriptResult | null>(null);
   const [savedProduto, setSavedProduto] = useState("");
@@ -253,7 +256,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
       const res = await fetch("/api/roteiro", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ produto, publico, beneficio, formato }),
+        body: JSON.stringify({ produto, publico, beneficio, formato, preco }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error?.message ?? "Não consegui gerar o roteiro.");
@@ -337,7 +340,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
             </div>
           ) : null}
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <Label htmlFor="publico" className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground/60">2</span>
@@ -364,6 +367,23 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
                 rows={1}
                 className="mt-2.5 min-h-11 rounded-2xl bg-secondary/50 text-[14px] focus-visible:bg-card"
               />
+            </div>
+            <div>
+              <Label htmlFor="preco" className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground/60">
+                  <Tag className="h-2.5 w-2.5" />
+                </span>
+                Preço <span className="font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Input
+                id="preco"
+                value={preco}
+                maxLength={40}
+                onChange={(event) => setPreco(event.target.value)}
+                placeholder="Ex.: R$ 59,90"
+                className="mt-2.5 h-11 rounded-2xl bg-secondary/50 focus-visible:bg-card"
+              />
+              <p className="mt-1.5 text-[11.5px] text-muted-foreground">Só com o preço o roteiro fala de valor.</p>
             </div>
           </div>
 
@@ -423,7 +443,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
 
       {result ? (
         <section ref={resultadoRef} className="scroll-mt-24 space-y-5">
-          <PreviaDoRoteiro titulo={savedProduto || produto} result={result} />
+          <PreviaDoRoteiro titulo={savedProduto || produto} result={result} formato={formato} />
 
           <CartaoDaExpert
             titulo="A Ana já fez roteiro de produtos parecidos"
