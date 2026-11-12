@@ -20,16 +20,19 @@ import { consultas, getUser, reiniciarDb, responderCom } from "../../apoio/db-fa
 const modulos = import.meta.glob<Record<string, unknown>>("../../../src/app/api/**/route.ts", { eager: true });
 const SO_LOGIN = new Set(["perfil POST", "acesso GET", "acesso POST", "senha POST"]);
 const WEBHOOK = new Set(["webhook/conta POST", "webhook/applyfy POST"]);
+/** Públicas de propósito, sem login (página de vendas): só respondem sim/não, sem dado da aluna. */
+const PUBLICA = new Set(["checkout/aluna POST"]);
 /** Só admin: aluna com acesso, mas fora de `admins`, leva 403 sem tocar na tabela da rota. */
 const ADMIN = new Set([
   "treinamento GET", "treinamento POST", "treinamento PATCH", "treinamento DELETE",
   "campeoes POST", "campeoes DELETE", "nichos POST", "nichos DELETE", "ganchos PATCH", "ganchos DELETE",
   "fichas GET", "fichas POST", "fichas PATCH", "fichas DELETE", "gatilhos GET", "gatilhos POST", "resultados PATCH", "fichas/reindexar POST",
+  "frases-musica GET", "frases-musica POST", "frases-musica DELETE", "alunas-curso GET", "alunas-curso POST",
 ]);
-const DE_ALUNA_COM_ACESSO = (h: { nome: string }) => !SO_LOGIN.has(h.nome) && !WEBHOOK.has(h.nome);
+const DE_ALUNA_COM_ACESSO = (h: { nome: string }) => !SO_LOGIN.has(h.nome) && !WEBHOOK.has(h.nome) && !PUBLICA.has(h.nome);
 const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
-const handlers = Object.entries(modulos).flatMap(([arquivo, mod]) => {
+const todas = Object.entries(modulos).flatMap(([arquivo, mod]) => {
   const rota = arquivo.replace(/^.*src\/app\/api\//, "").replace(/\/route\.ts$/, "");
   return METODOS.filter((m) => typeof mod[m] === "function").map((m) => ({
     nome: `${rota} ${m}`,
@@ -44,6 +47,8 @@ const handlers = Object.entries(modulos).flatMap(([arquivo, mod]) => {
       ),
   }));
 });
+
+const handlers = todas.filter((h) => !PUBLICA.has(h.nome));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -77,6 +82,15 @@ describe("toda rota da API", () => {
 
   it("inclui o webhook (senão as exceções acima protegem uma rota que não existe)", () => {
     expect(handlers.map((h) => h.nome)).toEqual(expect.arrayContaining([...WEBHOOK, ...SO_LOGIN, ...ADMIN]));
+    expect(todas.map((h) => h.nome)).toEqual(expect.arrayContaining([...PUBLICA]));
+  });
+
+  it("as públicas não leem token nem tocam em tabela de aluna", async () => {
+    for (const h of todas.filter((x) => PUBLICA.has(x.nome))) {
+      await h.chamar(null);
+      expect(getUser).not.toHaveBeenCalled();
+      expect(consultas.every((c) => c.sql.includes("public.alunas_curso"))).toBe(true);
+    }
   });
 
   // só as consultas do acesso em si
@@ -86,7 +100,7 @@ describe("toda rota da API", () => {
   it.each(handlers.filter((h) => ADMIN.has(h.nome)))("$nome: aluna com acesso, fora de admins → 403", async ({ chamar }) => {
     responderCom([["from public.entitlements", [{}]]]);
     expect((await chamar("Bearer tok")).status).toBe(403);
-    expect(consultas.some((c) => /public\.(treinamento|campeoes|nichos|fichas_roteiro|gatilhos|success_cases)/.test(c.sql))).toBe(false);
+    expect(consultas.some((c) => /public\.(treinamento|campeoes|nichos|fichas_roteiro|gatilhos|success_cases|frases_musica|alunas_curso)/.test(c.sql))).toBe(false);
   });
 
   it.each(handlers.filter(DE_ALUNA_COM_ACESSO))("$nome: sem acesso → 403", async ({ chamar }) => {

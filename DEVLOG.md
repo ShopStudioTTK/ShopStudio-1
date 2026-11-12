@@ -4,6 +4,23 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: Música viral (sem fala) de volta e página de vendas /checkout
+
+**Pedido:**
+- Música viral com saída própria: só a frase na tela e a cena sugerida (5 por vez, cada uma de um tipo), sem gancho, problema, solução, CTA nem entonação. Os exemplos vêm só da planilha "Banco de Frases - Música Viral", nunca dos roteiros falados.
+- Página pública `shopstudio.app.br/checkout` com as duas ofertas (curso + Shop Studio, R$ 247; só o Shop Studio, R$ 197). "Já é aluna?" → e-mail → se estiver na lista do curso, mostra o checkout de R$ 197; se não, destaca o combo. **Não é trava:** qualquer pessoa pode comprar só a ferramenta.
+
+**Como ficou:**
+- **Banco de frases** (`frases_musica`): a admin cola as linhas da planilha em Treinamento → Música viral (colunas Categoria · Produto · Frase na tela · Tipo de frase · Cena sugerida). Repetida (mesmo produto + frase) não entra de novo.
+- **Gerador:** a Música viral volta para `FORMATOS_DA_ALUNA`. Com ela, o formulário pede só o produto, e `/api/roteiro` segue um ramo próprio (`src/lib/musica.ts`): prompt curto, sem dossiê nem fichas faladas, até 24 exemplos do banco (parecidos primeiro, depois um de cada tipo). Gasta 1 crédito de roteiro e devolve o crédito se a IA não mandar frases válidas.
+- **Alunas do curso** (`alunas_curso`): entram por import da admin (Treinamento → Alunas do curso, cola qualquer texto com e-mails) e pelo webhook da Applyfy quando o produto está em `APPLYFY_PRODUTOS_CURSO`. O combo vai também em `APPLYFY_PRODUTO_IDS` para liberar o Shop Studio.
+- **`POST /api/checkout/aluna`**: pública, responde só `{ aluna: true | false }`. Decisão minha: sem limite de chamadas (risco aceito: dá para testar e-mails um por um; a resposta é só sim/não).
+- **Checkout:** links (`<a>`) para a Applyfy, vindos de `NEXT_PUBLIC_CHECKOUT_FERRAMENTA_URL` e `NEXT_PUBLIC_CHECKOUT_COMBO_URL`. Sem formulário, por causa do CSP `form-action 'self'`.
+
+**Verificado:** só a sintaxe (transpilação do TypeScript) e a lógica pura de `frases-musica` e `alunas-curso` rodada à parte. Testes, lint e build **não** rodaram aqui (sem rede para instalar as dependências): rodar `pnpm test && pnpm lint && pnpm build` antes de subir.
+
+---
+
 ## 2026-11-12: Cartão "1 crédito por ação" e Música viral fora da tela da aluna
 
 **Pedido (para subir para produção antes dos créditos comprados):**

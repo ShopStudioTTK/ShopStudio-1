@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { supabase } from "@/integrations/supabase/client";
 import { CartaoDaExpert } from "@/components/fichas-da-expert";
 import { Confirmacao } from "@/components/confirmacao";
-import { duracaoDoFormato, FORMATOS_DA_ALUNA, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
+import { duracaoDoFormato, FORMATO_MUSICA, FORMATOS_DA_ALUNA, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
 import { CartaoDeCredito } from "@/components/cartao-de-credito";
 import { CREDITOS_KEY, useCreditos } from "@/hooks/use-creditos";
 import { useAuth } from "@/hooks/use-auth";
@@ -21,6 +21,7 @@ import { esperarPedido, esquecer, lembrado, lembrar } from "@/lib/pedido";
 import { sair } from "@/lib/saida";
 import { cn } from "@/lib/utils";
 import type { FichasDoRoteiro } from "@/lib/fichas-tipos";
+import type { FraseDeMusica } from "@/lib/frases-musica";
 
 /** undefined some no JSON: o campo não chega ao servidor. */
 const semFichas = (r: ScriptResult | null): ScriptResult | null => r && { ...r, fichas: undefined };
@@ -37,6 +38,8 @@ export type ScriptResult = {
   /** Só no rascunho da ficha da admin. */
   tipo?: string;
   explicacao?: Partial<Record<"gancho" | "problema" | "solucao" | "cta", { porque?: string; entonacao?: string }>>;
+  /** Música viral (sem fala): só frases de tela + cena, sem roteiro falado. */
+  frases?: FraseDeMusica[];
   /** Cartões das fichas da Ana: só na resposta do gerador, nunca no roteiro salvo. */
   fichas?: FichasDoRoteiro;
 };
@@ -105,6 +108,71 @@ const Frase = ({ texto, numero }: { texto: string; numero: number }) => {
         </span>
       </button>
     </li>
+  );
+};
+
+/** Música viral: as frases de tela, cada uma com o tipo e a cena sugerida, para copiar. */
+export const PreviaDasFrases = ({ titulo, frases }: { titulo: string; frases: FraseDeMusica[] }) => {
+  const [copiada, setCopiada] = useState<number | null>(null);
+  const copiar = async (texto: string, i: number | null) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiada(i);
+      toast.success(i === null ? "Frases copiadas." : "Frase copiada.");
+      setTimeout(() => setCopiada(null), 1500);
+    } catch {
+      toast.error("Não consegui copiar. Selecione e copie na mão.");
+    }
+  };
+  return (
+    <div className="space-y-4">
+      <div className="hero-surface relative overflow-hidden rounded-[30px] p-6 text-cream shadow-editorial sm:p-8">
+        <div className="grain absolute inset-0 opacity-20" aria-hidden="true" />
+        <div className="relative flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em]">
+              <Sparkles className="h-3 w-3" /> Música viral · sem fala
+            </p>
+            <h2 className="mt-3 font-display text-[28px] font-semibold leading-[1.05] tracking-tight sm:text-[34px]">{titulo}</h2>
+            <p className="mt-2 max-w-md text-[13.5px] leading-relaxed text-cream/80">
+              Escolha uma frase, grave a cena, coloque um som em alta e escreva a frase na tela.
+            </p>
+          </div>
+          <Button
+            variant="cream"
+            size="sm"
+            onClick={() => copiar(frases.map((f) => `${f.frase}\nCena: ${f.cena}`).join("\n\n"), null)}
+          >
+            <Copy className="h-3.5 w-3.5" /> Copiar todas
+          </Button>
+        </div>
+      </div>
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {frases.map((f, i) => (
+          <li key={`${i}-${f.frase}`} className="rounded-[24px] border border-border bg-card p-5 shadow-soft">
+            <div className="flex items-start justify-between gap-3">
+              {f.tipo ? (
+                <span className="rounded-full bg-rose-soft px-2.5 py-0.5 text-[11px] font-semibold text-rose">{f.tipo}</span>
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                onClick={() => copiar(f.frase, i)}
+                className="text-muted-foreground transition-colors hover:text-foreground"
+                aria-label={`Copiar a frase "${f.frase}"`}
+              >
+                {copiada === i ? <Check className="h-4 w-4 text-rose" /> : <Copy className="h-4 w-4" />}
+              </button>
+            </div>
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Frase na tela</p>
+            <p className="mt-1 font-display text-[19px] font-semibold leading-snug">{f.frase}</p>
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Cena sugerida</p>
+            <p className="mt-1 text-[13.5px] leading-snug text-foreground/80">🎬 {f.cena}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 };
 
@@ -246,6 +314,8 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
   // Opcional: só com ele o roteiro fala de preço.
   const [preco, setPreco] = useState(pendente?.preco ?? "");
   const [formato, setFormato] = useState<string>(pendente?.formato ?? inicial?.formato ?? FORMATO_PADRAO);
+  // Música viral (sem fala): só o produto importa; a saída são frases de tela + cena.
+  const ehMusica = formato === FORMATO_MUSICA;
   const [result, setResult] = useState<ScriptResult | null>(null);
   const [savedProduto, setSavedProduto] = useState("");
   // O roteiro na tela já está na biblioteca (salvo agora ou aberto de lá)?
@@ -386,6 +456,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
             </div>
           ) : null}
 
+          {ehMusica ? null : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <Label htmlFor="publico" className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
@@ -432,12 +503,13 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
               <p className="mt-1.5 text-[11.5px] text-muted-foreground">Só com o preço o roteiro fala de valor.</p>
             </div>
           </div>
+          )}
 
           <p className="mt-6 flex items-center gap-2 text-[13px] font-semibold text-foreground">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground/60">4</span>
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground/60">{ehMusica ? 2 : 4}</span>
             Escolha o formato
           </p>
-          <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-5">
             {FORMATOS_DA_ALUNA.map((option) => {
               const ativo = formato === option.id;
               return (
@@ -463,9 +535,15 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
             })}
           </div>
 
+          {ehMusica ? (
+            <p className="mt-3 text-[12.5px] leading-relaxed text-muted-foreground">
+              Sem fala: você recebe 5 frases para a tela, cada uma de um tipo, com a cena para gravar.
+            </p>
+          ) : null}
+
           <Button type="submit" variant="pop" size="lg" className="mt-7 w-full sm:w-auto" disabled={!podeGerar}>
             {escrevendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-            {escrevendo ? "Escrevendo seu roteiro…" : "Criar meu roteiro"}
+            {escrevendo ? (ehMusica ? "Criando suas frases…" : "Escrevendo seu roteiro…") : ehMusica ? "Criar minhas frases" : "Criar meu roteiro"}
           </Button>
           <CartaoDeCredito tipo="roteiro" className="mt-3 sm:max-w-md" />
         </form>
@@ -479,12 +557,16 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
               <div key={f.key} className="h-44 animate-pulse rounded-[24px] border border-border bg-card" />
             ))}
           </div>
-          <p className="text-center text-[13px] text-muted-foreground">Montando gancho, problema, solução e CTA…</p>
+          <p className="text-center text-[13px] text-muted-foreground">{ehMusica ? "Pensando nas frases e nas cenas…" : "Montando gancho, problema, solução e CTA…"}</p>
         </div>
       ) : null}
 
       {result ? (
         <section ref={resultadoRef} className="scroll-mt-24 space-y-5">
+          {result.frases?.length ? (
+            <PreviaDasFrases titulo={savedProduto || produto} frases={result.frases} />
+          ) : (
+            <>
           <PreviaDoRoteiro titulo={savedProduto || produto} result={result} formato={formato} />
 
           <CartaoDaExpert
@@ -501,6 +583,8 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
             formato={formato}
             gatilho={result.gatilho ?? ""}
           />
+            </>
+          )}
 
           <div className="glass sticky bottom-24 z-20 flex flex-wrap items-center gap-2 rounded-[22px] border border-border p-2.5 shadow-editorial lg:bottom-4">
             <Input
@@ -563,9 +647,9 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
                     {script.formato ?? "Roteiro"}
                   </span>
                   <p className="mt-2.5 truncate font-display text-[17px] font-semibold leading-snug">{script.produto}</p>
-                  {script.conteudo?.roteiro?.gancho ? (
+                  {script.conteudo?.roteiro?.gancho || script.conteudo?.frases?.[0]?.frase ? (
                     <p className="mt-1 line-clamp-2 text-[12.5px] leading-snug text-muted-foreground">
-                      “{script.conteudo.roteiro.gancho}”
+                      “{script.conteudo.roteiro?.gancho || script.conteudo.frases?.[0]?.frase}”
                     </p>
                   ) : null}
                   <p className="mt-2 text-[11.5px] text-muted-foreground/80">

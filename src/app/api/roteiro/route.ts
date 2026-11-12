@@ -13,6 +13,9 @@ import {
 import { blocoDasFichas, buscarDoMesmoJeito, buscarParecidas, gatilhoDaIa, listarExemplosFixos, listarGatilhos } from "@/lib/fichas";
 import type { FichaCartao, Gatilho } from "@/lib/fichas-tipos";
 import { uuid } from "@/lib/entrada";
+import { FORMATO_MUSICA } from "@/content/formatos";
+import { frasesDaIa, type ExemploDeMusica } from "@/lib/frases-musica";
+import { buildMusicaPrompt, buildMusicaUser, listarFrasesDeMusica } from "@/lib/musica";
 import { buildSystemPrompt, buildUserPrompt, extractScriptJson, RASCUNHO_BLOCK } from "@/lib/roteiro";
 
 export const runtime = "nodejs";
@@ -53,8 +56,63 @@ export async function POST(req: Request) {
     return Response.json(corpo, { status });
   };
 
+  // Música viral (sem fala): só frases de tela + cena, com exemplos só do banco da Música viral.
+  // Gasta 1 crédito de roteiro, como os outros formatos.
+  const musica = async () => {
+    const banco = await listarFrasesDeMusica().catch((e): ExemploDeMusica[] => {
+      console.error("roteiro: falha ao ler as frases da música viral", e);
+      return [];
+    });
+    let response: Response;
+    try {
+      response = await chamarOpenRouter(apiKey, {
+        model,
+        messages: [
+          { role: "system", content: buildMusicaPrompt(banco, input.produto) },
+          { role: "user", content: buildMusicaUser(input.produto) },
+        ],
+        stream: false,
+        temperature: 0.9,
+        max_tokens: 1200,
+        reasoning: { enabled: false },
+      });
+    } catch (e) {
+      console.error("roteiro: falha na chamada à OpenRouter (música)", e);
+      await descontar();
+      return erro("Não consegui criar as frases agora.", 502);
+    }
+    if (!response.ok) {
+      const parsed = await response.json().catch(() => null);
+      console.error("roteiro: OpenRouter respondeu (música)", response.status, parsed?.error?.message);
+      await descontar();
+      return erro(parsed?.error?.message || "Não consegui criar as frases agora.", 502);
+    }
+    const payload = await response.json().catch(() => null);
+    await registrarCusto(reserva.id, payload?.usage);
+    if (payload?.choices?.[0]?.finish_reason === "length") {
+      await devolverCredito(reserva);
+      return responder({ error: { message: "A resposta da IA veio cortada. Tente de novo." } }, 502);
+    }
+    const texto = String(payload?.choices?.[0]?.message?.content ?? "");
+    let frases: ReturnType<typeof frasesDaIa> = [];
+    try {
+      const inicio = texto.indexOf("{");
+      const fim = texto.lastIndexOf("}");
+      frases = frasesDaIa(JSON.parse(texto.slice(inicio, fim + 1))?.frases);
+    } catch {
+      frases = [];
+    }
+    if (!frases.length) {
+      console.error("roteiro: frases inválidas na resposta da IA (música)");
+      await devolverCredito(reserva);
+      return responder({ error: { message: "A IA não devolveu as frases certinho. Tente de novo." } }, 502);
+    }
+    return responder({ formato: FORMATO_MUSICA, frases });
+  };
+
   // Vai até o fim mesmo se a aluna sair ou der F5: o crédito já foi reservado e o resultado fica guardado.
   const trabalho = (async () => {
+    if (input.formato === FORMATO_MUSICA) return musica();
     // Opcionais: fichas da expert (parecidas e fixas) e gatilhos. Falha em qualquer um = roteiro como antes.
     const [parecidas, gatilhos, fixas] = await Promise.all([
       buscarParecidas(input.produto),
