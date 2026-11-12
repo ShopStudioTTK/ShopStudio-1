@@ -14,6 +14,7 @@ import * as conta from "@/app/api/conta/route";
 import * as creditos from "@/app/api/creditos/route";
 import * as ganchos from "@/app/api/ganchos/route";
 import * as notaDoGancho from "@/app/api/ganchos/nota/route";
+import * as pedidos from "@/app/api/pedidos/route";
 import * as perfil from "@/app/api/perfil/route";
 import * as progresso from "@/app/api/progresso/route";
 import * as resultados from "@/app/api/resultados/route";
@@ -63,6 +64,11 @@ describe("cada conta só vê e mexe no que é dela", () => {
     for (const body of [{ tipo: "x", chave: "a", feito: true }, { tipo: "capitulo", chave: "", feito: true }, { tipo: "capitulo", chave: "a" }])
       expect((await progresso.POST(req("/api/progresso", "POST", body))).status).toBe(400);
     expect(naTabela("chapter_progress")).toHaveLength(0);
+  });
+
+  it("pedidos: retoma só pedido da aluna logada", async () => {
+    await pedidos.GET(req(`/api/pedidos?id=${ID}&user_id=${OUTRA}`));
+    expect(naTabela("ai_perguntas")[0].valores).toEqual(["u1", ID]);
   });
 
   it("roteiros salvos: lista, salva e apaga só os da aluna", async () => {

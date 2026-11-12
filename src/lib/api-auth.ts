@@ -133,7 +133,8 @@ export const creditosRestantes = async (userId: string): Promise<Record<TipoDeCr
 /**
  * Reserva 1 crédito da semana do tipo da rota (numa consulta só, que só soma se ainda couber no
  * limite dela) e grava a chamada em ai_perguntas. Cada pedido gasta 1, do tamanho que for.
- * Admin (`ilimitada`) não mexe em créditos.
+ * Admin (`ilimitada`) não mexe em créditos. `pedido` (uuid do navegador) é o que a tela usa para
+ * retomar a resposta depois do F5 (GET /api/pedidos).
  */
 export async function reservarChamada(
   userId: string,
@@ -141,6 +142,7 @@ export async function reservarChamada(
   ilimitada: boolean,
   pergunta: string,
   capitulo: string | null = null,
+  pedido: string | null = null,
 ): Promise<Reserva | Response> {
   const reserva: Reserva = { id: "", userId, rota, semana: ilimitada ? null : semanaSP() };
   if (reserva.semana) {
@@ -159,8 +161,8 @@ export async function reservarChamada(
   }
   try {
     const [{ id }] = await db()`
-      insert into public.ai_perguntas (user_id, rota, pergunta, capitulo)
-      values (${userId}, ${rota}, ${pergunta}, ${capitulo}) returning id`;
+      insert into public.ai_perguntas (user_id, rota, pergunta, capitulo, pedido)
+      values (${userId}, ${rota}, ${pergunta}, ${capitulo}, ${pedido}) returning id`;
     return { ...reserva, id };
   } catch (e) {
     console.error(`${rota}: falha ao gravar chamada`, e);
@@ -184,6 +186,14 @@ export const liberarChamada = async (r: Reserva) => {
   await devolverCredito(r);
   await db()`delete from public.ai_perguntas where id = ${r.id}`;
 };
+
+/** Guarda o que a rota devolveu à aluna, para ela retomar depois do F5 (GET /api/pedidos). */
+export async function guardarResultado(id: string, status: number, corpo: unknown) {
+  // como texto, e o banco converte; senão o driver grava o JSON como string
+  await db()`
+    update public.ai_perguntas set resultado = ${JSON.stringify({ status, corpo })}::text::jsonb
+    where id = ${id}`.catch((e) => console.error("falha ao guardar o resultado do pedido", e));
+}
 
 export async function registrarCusto(id: string, uso: Uso | null | undefined) {
   if (!uso) return;

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+// after(): o trabalho segue mesmo sem a aluna. Aqui só se confere que a rota o entrega.
+const tarefas: unknown[] = [];
+vi.mock("next/server", () => ({ after: (t: unknown) => void tarefas.push(t) }));
 
 vi.mock("@/lib/db", async () => {
   const b = await import("../../../apoio/db-falso");
@@ -242,11 +245,41 @@ describe("POST /api/roteiro", () => {
   it("grava a geração como rota roteiro e registra tokens e custo", async () => {
     const res = await POST(req({ produto: "Sérum" }));
     expect(res.status).toBe(200);
-    expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null]);
+    expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null, null]);
     expect(gravou("update")?.valores).toEqual([12000, 900, 11000, 0.0007, "r1"]);
     expect(creditos("insert")[0].valores).toEqual(["u1", semanaSP(), "roteiro", 7]);
     // 900 tokens de saída: fica no 1 crédito reservado
     expect(creditos("update")).toHaveLength(0);
+  });
+
+  describe("retomar depois do F5 (pedido)", () => {
+    const PEDIDO = "77777777-2222-3333-4444-555555555555";
+    const resultado = () => naTabela("ai_perguntas").find((c) => c.sql.includes("set resultado"));
+
+    it("grava o id do pedido e, no fim, o que a aluna recebeu; o trabalho vai para o after()", async () => {
+      tarefas.length = 0;
+      const res = await POST(req({ produto: "Sérum", pedido: PEDIDO }));
+      expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null, PEDIDO]);
+      expect(tarefas).toHaveLength(1);
+      const corpo = await res.json();
+      expect(resultado()?.valores).toEqual([JSON.stringify({ status: 200, corpo }), "r1"]);
+      expect(resultado()?.sql).toContain("?::text::jsonb");
+    });
+
+    it("erro depois da IA (cortada) também fica guardado, com o status", async () => {
+      vi.mocked(fetch).mockResolvedValue(
+        new Response(JSON.stringify({ choices: [{ finish_reason: "length", message: { content: "{" } }] })),
+      );
+      const res = await POST(req({ produto: "Sérum", pedido: PEDIDO }));
+      expect(res.status).toBe(502);
+      expect(JSON.parse(resultado()!.valores[0] as string)).toEqual({ status: 502, corpo: await res.json() });
+    });
+
+    it("sem pedido (ou com id malformado), não guarda resultado", async () => {
+      await POST(req({ produto: "Sérum", pedido: "x" }));
+      expect(gravou("insert")?.valores.at(-1)).toBeNull();
+      expect(resultado()).toBeUndefined();
+    });
   });
 
   it("roteiro grande também gasta só 1", async () => {
@@ -321,7 +354,7 @@ describe("POST /api/roteiro", () => {
       vi.mocked(fetch).mockResolvedValue(ia('{"ganchos":["a"]}', 2410));
       const res = await POST(req());
       expect(res.status).toBe(200);
-      expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null]);
+      expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null, null]);
       expect(naTabela("creditos_semana")).toHaveLength(0);
     });
 

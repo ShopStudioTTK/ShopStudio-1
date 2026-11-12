@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { getChapter } from "@/content/chapters";
 import {
   autorizar,
@@ -5,6 +6,7 @@ import {
   devolverCredito,
   ehAdmin,
   erro,
+  guardarResultado,
   liberarChamada,
   registrarCusto,
   reservarChamada,
@@ -30,6 +32,8 @@ export async function POST(req: Request) {
   const chapterTitle = typeof body?.capitulo === "string" ? getChapter(body.capitulo)?.title : undefined;
   // Id da conversa gerado pelo navegador; só vale junto com o userId do token (ver registrarNaFila).
   const conversa = uuid(body?.conversa);
+  // Id do pedido, para a tela retomar a resposta depois do F5 (GET /api/pedidos).
+  const pedido = uuid(body?.pedido);
   const perguntas = turns.filter((t) => t.role === "user").map((t) => t.content);
   const pergunta = perguntas.at(-1)!;
   const anteriores = perguntas.slice(0, -1);
@@ -39,7 +43,7 @@ export async function POST(req: Request) {
     console.error("assistente: falha ao ler admins", e);
     return false;
   });
-  const reserva = await reservarChamada(userId, "assistente", adm, turns.at(-1)!.content, chapterTitle ?? null);
+  const reserva = await reservarChamada(userId, "assistente", adm, turns.at(-1)!.content, chapterTitle ?? null, pedido);
   if (reserva instanceof Response) return reserva;
   const descontar = () => liberarChamada(reserva);
 
@@ -76,17 +80,25 @@ export async function POST(req: Request) {
     return erro(parsed?.error?.message || "Não consegui responder agora. Tente de novo.", 502);
   }
 
-  const corpo = comRegistroDeUso(response.body, async (uso, fim) => {
+  // A resposta é lida até o fim mesmo se a aluna sair ou der F5 (after), e fica guardada para ela retomar.
+  const { corpo, terminou } = comRegistroDeUso(response.body, async (uso, fim) => {
     await registrarCusto(reserva.id, uso);
     // Só resposta completa ("stop") conta. Se o provedor cai no meio (504, 499) ou a resposta vem
     // cortada ou vazia, a tela pede para tentar de novo, então o crédito volta. Uma resposta assim
     // também não entra na fila de treinamento, para meia resposta nunca ser aprovada como exemplo.
-    // ponytail: se o stream de cima quebrar (conexão caída), o flush não roda e o crédito não volta.
-    if (!fim.texto.trim() || fim.finishReason !== "stop") return devolverCredito(reserva);
+    const completa = Boolean(fim.texto.trim()) && fim.finishReason === "stop";
+    if (pedido)
+      await guardarResultado(
+        reserva.id,
+        completa ? 200 : 502,
+        completa ? { texto: fim.texto } : { error: { message: "Não consegui responder agora. Tente de novo." } },
+      );
+    if (!completa) return devolverCredito(reserva);
     if (!conversa) return;
     await registrarNaFila({ userId, conversa, contexto: anteriores, pergunta, respostaIa: fim.texto, vetor: expert.vetor })
       .catch((e) => console.error("assistente: falha ao gravar na fila de treinamento", e));
   });
+  after(terminou.catch((e) => console.error("assistente: falha no fim do stream", e)));
 
   return new Response(corpo, {
     headers: {

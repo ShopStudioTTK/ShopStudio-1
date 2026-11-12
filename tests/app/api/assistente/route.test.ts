@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+// after(): a leitura do stream segue mesmo sem a aluna. Aqui só se confere que a rota a entrega.
+const tarefas: unknown[] = [];
+vi.mock("next/server", () => ({ after: (t: unknown) => void tarefas.push(t) }));
 vi.mock("@/lib/conhecimento/material", () => ({ DOSSIE: "D", TRANSCRICAO: "T" }));
 
 vi.mock("@/lib/db", async () => {
@@ -98,7 +101,7 @@ describe("POST /api/assistente", () => {
     const res = await POST(req({ messages: conversa, capitulo: "mentalidade-de-shop-girl" }));
     expect(res.status).toBe(200);
     expect(res.headers.get("X-Perguntas-Restantes")).toBeNull();
-    expect(gravou("insert")?.valores).toEqual(["u1", "assistente", "Como pedir amostra?", "Mentalidade de Shop Girl"]);
+    expect(gravou("insert")?.valores).toEqual(["u1", "assistente", "Como pedir amostra?", "Mentalidade de Shop Girl", null]);
     expect(await res.text()).toBe(sse);
     await new Promise((r) => setTimeout(r, 0));
     expect(gravou("update")?.valores).toEqual([90000, 800, 89000, 0.0081, "p1"]);
@@ -208,6 +211,49 @@ describe("POST /api/assistente", () => {
       await new Promise((r) => setTimeout(r, 0));
       expect(creditos("update").map((c) => c.valores)).toEqual([["u1", semanaSP(), "assistente"]]);
     }
+  });
+
+  describe("retomar depois do F5 (pedido)", () => {
+    const PEDIDO = "77777777-2222-3333-4444-555555555555";
+    const resultado = () => naTabela("ai_perguntas").find((c) => c.sql.includes("set resultado"));
+
+    it("grava o id do pedido e, no fim do stream, a resposta inteira; a leitura vai para o after()", async () => {
+      tarefas.length = 0;
+      const res = await POST(req({ messages: conversa, pedido: PEDIDO }));
+      expect(gravou("insert")?.valores.at(-1)).toBe(PEDIDO);
+      expect(tarefas).toHaveLength(1);
+      await tarefas[0];
+      expect(resultado()?.valores).toEqual([JSON.stringify({ status: 200, corpo: { texto: "Oi" } }), "p1"]);
+      await res.text();
+    });
+
+    it("a aluna saiu no meio (stream cancelado): a resposta é lida até o fim e guardada", async () => {
+      tarefas.length = 0;
+      const res = await POST(req({ messages: conversa, pedido: PEDIDO }));
+      await res.body!.cancel();
+      await tarefas[0];
+      expect(JSON.parse(resultado()!.valores[0] as string)).toEqual({ status: 200, corpo: { texto: "Oi" } });
+      expect(creditos("update")).toHaveLength(0);
+    });
+
+    it("resposta cortada fica guardada como falha (502), e o crédito volta", async () => {
+      tarefas.length = 0;
+      vi.mocked(fetch).mockImplementation(async (url) =>
+        String(url).endsWith("/embeddings")
+          ? new Response(JSON.stringify({ data: [{ embedding: vetor }] }))
+          : new Response('data: {"choices":[{"delta":{"content":"Oi pela met"}}]}\n\n'));
+      await POST(req({ messages: conversa, pedido: PEDIDO }));
+      await tarefas[0];
+      expect(JSON.parse(resultado()!.valores[0] as string).status).toBe(502);
+      expect(creditos("update")).toHaveLength(1);
+    });
+
+    it("sem pedido, não guarda resultado", async () => {
+      tarefas.length = 0;
+      await POST(req());
+      await tarefas[0];
+      expect(resultado()).toBeUndefined();
+    });
   });
 
   it("502 quando a chamada falha na rede e a pergunta não conta", async () => {
