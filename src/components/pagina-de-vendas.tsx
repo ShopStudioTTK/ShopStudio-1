@@ -128,7 +128,7 @@ export const PaginaDeVendas = () => {
             <p className="mt-3 text-[14.5px] leading-relaxed text-muted-foreground">
               Quem já é aluna pode levar só a ferramenta. Quem ainda não é, leva o curso junto por um pouco mais.
             </p>
-            <div className="mx-auto mt-7 grid max-w-md gap-3 sm:grid-cols-2">
+            <div className="mx-auto mt-7 grid w-full max-w-2xl gap-3 sm:grid-cols-2">
               {(
                 [
                   ["sim", "Sim, já sou aluna", "Conferir meu e-mail", GraduationCap],
@@ -146,7 +146,7 @@ export const PaginaDeVendas = () => {
                       setEtapa(id === "sim" ? { tipo: "email" } : { tipo: "nao-aluna" });
                     }}
                     className={cn(
-                      "group flex items-center gap-3 rounded-2xl border-2 px-4 py-3.5 text-left shadow-soft transition-all",
+                      "group flex min-h-[76px] items-center gap-4 rounded-2xl border-2 px-5 py-4 text-left shadow-soft transition-all",
                       "hover:-translate-y-0.5 hover:shadow-editorial focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose focus-visible:ring-offset-2",
                       ativo
                         ? "border-rose bg-gradient-pop text-cream shadow-glow"
@@ -161,9 +161,9 @@ export const PaginaDeVendas = () => {
                     >
                       <Icone className="h-5 w-5" />
                     </span>
-                    <span className="flex-1">
-                      <span className="block text-[15px] font-semibold leading-tight">{rotulo}</span>
-                      <span className={cn("mt-0.5 block text-[12.5px]", ativo ? "text-cream/80" : "text-muted-foreground")}>{sub}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block whitespace-nowrap text-[16px] font-semibold leading-tight">{rotulo}</span>
+                      <span className={cn("mt-1 block whitespace-nowrap text-[13px]", ativo ? "text-cream/80" : "text-muted-foreground")}>{sub}</span>
                     </span>
                     <ArrowRight className={cn("h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5", ativo ? "" : "text-rose")} />
                   </button>
