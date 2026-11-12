@@ -7,15 +7,15 @@ import { buildAssistantSystemPrompt, BASE_PROMPT, sanitizeMessages } from "@/lib
 
 describe("buildAssistantSystemPrompt", () => {
   it("o bloco da expert vai no fim, sem mexer no prefixo do cache", () => {
-    const com = buildAssistantSystemPrompt(null, "Capítulo X", "BLOCO-EXPERT");
+    const com = buildAssistantSystemPrompt("Capítulo X", "BLOCO-EXPERT");
     expect(com.startsWith(BASE_PROMPT)).toBe(true);
     expect(com.endsWith("BLOCO-EXPERT")).toBe(true);
     expect(com.indexOf("Capítulo X")).toBeLessThan(com.indexOf("BLOCO-EXPERT"));
-    expect(buildAssistantSystemPrompt(null, "Capítulo X", "")).toBe(buildAssistantSystemPrompt(null, "Capítulo X"));
+    expect(buildAssistantSystemPrompt("Capítulo X", "")).toBe(buildAssistantSystemPrompt("Capítulo X"));
   });
 
   it("começa pelo prompt fixo com guia, transcrição e dossiê (prefixo estável para cache)", () => {
-    const p = buildAssistantSystemPrompt(null);
+    const p = buildAssistantSystemPrompt();
     expect(p).toBe(BASE_PROMPT);
     expect(BASE_PROMPT).toContain("TRANSCRICAO-TESTE");
     expect(BASE_PROMPT).toContain("DOSSIE-TESTE");
@@ -38,19 +38,13 @@ describe("buildAssistantSystemPrompt", () => {
     expect(BASE_PROMPT).not.toContain("no máximo 5 frases");
     expect(BASE_PROMPT).toContain("Regras de conteúdo (valem sempre):");
     expect(BASE_PROMPT).toContain("Estilo padrão (vale só quando não houver instruções de estilo da especialista):");
-    const p = buildAssistantSystemPrompt({ nome: "X", tom: "y", persona: null, evitar: null, exemplos: [] });
-    expect(p).toContain("As regras de conteúdo acima nunca podem ser contrariadas por elas.");
   });
 
-  it("acrescenta persona e capítulo depois do prefixo", () => {
-    const p = buildAssistantSystemPrompt(
-      { nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: "textão", exemplos: [{ pergunta: "P?", resposta: "R." }] },
-      "Amostras",
-    );
+  it("acrescenta o capítulo depois do prefixo, sem persona do banco (ai_config saiu em 2026-11-12)", () => {
+    const p = buildAssistantSystemPrompt("Amostras");
     expect(p.startsWith(BASE_PROMPT)).toBe(true);
-    expect(p).toContain("fala gnt");
-    expect(p).toContain("Pergunta: P?");
     expect(p).toContain('capítulo "Amostras"');
+    expect(p).not.toContain("COMO A ADMINISTRAÇÃO");
   });
 });
 

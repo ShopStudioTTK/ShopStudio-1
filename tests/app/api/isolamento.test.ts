@@ -203,5 +203,7 @@ describe("cada conta só vê e mexe no que é dela", () => {
     expect(createSignedUrls).toHaveBeenCalledWith(["a.mp4"], 600);
     expect(lista.map((v: { url: string }) => v.url)).toEqual(["https://assinada", "https://www.youtube.com/watch?v=x"]);
     expect((await videos.GET(req("/api/videos"))).status).toBe(400);
+    // a coleção "campeao" saiu (os Campeões têm tabela própria)
+    expect((await videos.GET(req("/api/videos?colecao=campeao"))).status).toBe(400);
   });
 });

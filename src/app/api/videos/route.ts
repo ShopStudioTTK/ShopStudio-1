@@ -6,7 +6,7 @@ import { BUCKET_VIDEOS, caminhoNoBucket, validadeDaUrlAssinada } from "@/lib/vid
 export const runtime = "nodejs";
 
 /**
- * Vídeos de um capítulo (?capitulo=<slug>) ou dos campeões (?colecao=campeao).
+ * Vídeos de um capítulo (?capitulo=<slug>). Os Campeões têm tabela e rota próprias (/api/campeoes).
  * Arquivo do bucket (privado) sai com URL assinada; a validade vem de VIDEO_URL_VALIDADE_SEGUNDOS.
  * Dentro desse prazo a URL pode ser repassada: prazo menor = menos tempo de link vazado.
  */
@@ -16,13 +16,8 @@ export async function GET(req: Request) {
 
   const params = new URL(req.url).searchParams;
   const capitulo = params.get("capitulo");
-  const sql = db();
-  const linhas = capitulo
-    ? await sql`select id, chapter_slug, colecao, titulo, descricao, url, ordem, updated_at from public.chapter_videos where chapter_slug = ${capitulo} order by ordem, updated_at`
-    : params.get("colecao") === "campeao"
-      ? await sql`select id, chapter_slug, colecao, titulo, descricao, url, ordem, updated_at from public.chapter_videos where colecao = 'campeao' order by ordem, updated_at`
-      : null;
-  if (!linhas) return erro("Pedido inválido.", 400);
+  if (!capitulo) return erro("Pedido inválido.", 400);
+  const linhas = await db()`select id, chapter_slug, titulo, descricao, url, ordem, updated_at from public.chapter_videos where chapter_slug = ${capitulo} order by ordem, updated_at`;
 
   const caminhos = linhas.map((v) => caminhoNoBucket(v.url)).filter((c): c is string => c !== null);
   let assinadas = new Map<string, string>();

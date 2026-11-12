@@ -76,13 +76,14 @@ describe("prompts", () => {
     expect(SYSTEM_PROMPT).not.toContain("Club");
   });
   it("sem treino: SYSTEM_PROMPT + dossiê, com o formato JSON por último", () => {
-    const p = buildSystemPrompt(null);
+    const p = buildSystemPrompt();
     expect(p.startsWith(SYSTEM_PROMPT)).toBe(true);
+    expect(p).not.toContain("TOM DE VOZ DEFINIDO PELA ADMINISTRAÇÃO");
     expect(p).toContain("DOSSIE-TESTE");
     expect(p.indexOf("DOSSIE-TESTE")).toBeLessThan(p.lastIndexOf("APENAS com o objeto JSON"));
   });
   it("o bloco das fichas vem depois do dossiê e antes do lembrete final", () => {
-    const p = buildSystemPrompt(null, "BLOCO-FICHAS");
+    const p = buildSystemPrompt("BLOCO-FICHAS");
     expect(p.indexOf("BLOCO-FICHAS")).toBeGreaterThan(p.indexOf("DOSSIE-TESTE"));
     expect(p.indexOf("BLOCO-FICHAS")).toBeLessThan(p.lastIndexOf("Lembrete:"));
     expect(p.startsWith(SYSTEM_PROMPT)).toBe(true);

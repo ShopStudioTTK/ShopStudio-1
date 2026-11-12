@@ -119,19 +119,6 @@ export const chamarOpenRouter = (apiKey: string, body: object) =>
 
 export type Rota = "assistente" | "roteiro";
 
-type ConfigDaIA = { nome: string | null; tom: string | null; persona: string | null; evitar: string | null; exemplos: string | null };
-
-/** Persona da IA. É opcional: se a leitura falhar, a IA segue sem ela. */
-export async function configDaIA(): Promise<ConfigDaIA | null> {
-  try {
-    const [config] = await db()`select nome, tom, persona, evitar, exemplos from public.ai_config where id = 'default'`;
-    return (config ?? null) as ConfigDaIA | null;
-  } catch (e) {
-    console.error("falha ao ler a configuração da IA", e);
-    return null;
-  }
-}
-
 /** Reserva de uma chamada de IA. `semana` nula = admin, sem créditos. */
 export type Reserva = { id: string; userId: string; rota: Rota; semana: string | null };
 

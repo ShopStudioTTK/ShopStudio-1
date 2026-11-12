@@ -2,7 +2,6 @@ import {
   autorizar,
   chamarOpenRouter,
   cobrarCreditos,
-  configDaIA,
   devolverCredito,
   ehAdmin,
   erro,
@@ -45,9 +44,8 @@ export async function POST(req: Request) {
   if (reserva instanceof Response) return reserva;
   const descontar = () => liberarChamada(reserva);
 
-  // Opcionais: config, base, fichas da expert (parecidas e fixas) e gatilhos. Falha em qualquer um = roteiro como antes.
-  const [config, parecidas, gatilhos, fixas] = await Promise.all([
-    configDaIA(),
+  // Opcionais: fichas da expert (parecidas e fixas) e gatilhos. Falha em qualquer um = roteiro como antes.
+  const [parecidas, gatilhos, fixas] = await Promise.all([
     buscarParecidas(input.produto),
     listarGatilhos().catch((e): Gatilho[] => {
       console.error("roteiro: falha ao ler os gatilhos", e);
@@ -64,7 +62,7 @@ export async function POST(req: Request) {
     response = await chamarOpenRouter(apiKey, {
       model,
       messages: [
-        { role: "system", content: buildSystemPrompt(config, blocoDasFichas(parecidas, gatilhos, fixas) + (rascunho ? RASCUNHO_BLOCK : "")) },
+        { role: "system", content: buildSystemPrompt(blocoDasFichas(parecidas, gatilhos, fixas) + (rascunho ? RASCUNHO_BLOCK : "")) },
         { role: "user", content: buildUserPrompt(input) },
       ],
       stream: false,

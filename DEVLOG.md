@@ -4,6 +4,18 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: Saem a persona `ai_config` e os vídeos "campeão" do `chapter_videos`
+
+**Pedido:** a dona perguntou se o `ai_config` (uma linha só, lida em toda pergunta e todo roteiro) precisava ficar no banco, e se o `chapter_videos` estava em uso.
+
+**`ai_config` (decisão: remover):**
+- No assistente, com `OPENROUTER_PRESET`, a persona já não entrava no prompt: a consulta era jogada fora.
+- No gerador, ela entrava como "TOM DE VOZ DEFINIDO PELA ADMINISTRAÇÃO", em estilo de conversa de WhatsApp ("gnt", "pq", emoji, 2 ou 3 frases). Isso competia com a voz da Ana para vídeo falado (2026-11-11).
+- Saíram `configDaIA`, o parâmetro `config` de `buildAssistantSystemPrompt` e `buildSystemPrompt` e o bloco da persona. A migration `20261112030000_remove_ai_config` apaga a tabela.
+- **Efeito:** sem o preset, o assistente usa o estilo padrão do `BASE_PROMPT` (que não mudou, então o cache segue). No roteiro, a voz fica só com as regras da Ana e as fichas de exemplo fixo.
+
+**`chapter_videos` (decisão: só tirar o código morto):** a página do capítulo continua mostrando os vídeos cadastrados pelo painel. Saiu a coleção "campeão" (`?colecao=campeao` e `useChampionVideos`), sem uso desde que os Campeões ganharam tabela própria. A coluna `colecao` ficou no banco, sem uso.
+
 ## 2026-11-12: Sai a tabela `ai_knowledge`
 
 **Pedido:** a dona viu a tabela vazia e pediu para tirar tudo relacionado a ela.
