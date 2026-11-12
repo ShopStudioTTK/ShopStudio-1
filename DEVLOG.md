@@ -4,6 +4,32 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: Créditos por tipo: 15 perguntas e 7 roteiros por semana
+
+**Pedido:** o projeto mudou de dono no GitHub (`ShopStudioTTK/ShopStudio-1`) e no Supabase. No lugar do saldo único de 40 créditos, a dona quer dois saldos semanais: 15 perguntas ao assistente e 7 roteiros. Cada pedido gasta 1, do tamanho que for (o meio crédito a mais pelos tokens saiu). Admin continua ilimitada. Ela escolheu a contagem simples entre as duas opções, porque é fácil de a aluna entender quanto resta.
+
+**Como ficou:**
+- `LIMITE_SEMANAL = { assistente: 15, roteiro: 7 }` e `AVISO_COM_RESTANTES = { assistente: 4, roteiro: 2 }` (`src/lib/limite.ts`). `precoEmCreditos` e `cobrarCreditos` saíram.
+- Migration `20261112040000_creditos_por_tipo`: coluna `rota` (`assistente | roteiro`), chave `user_id` + `semana` + `rota`, e `gastos` vira inteiro. As linhas antigas somavam os dois tipos e não dá para separar, então são apagadas: a semana em que isso entrar começa cheia para todas.
+- `reservarChamada` reserva 1 do tipo da rota, com o limite dele, numa consulta só. `devolverCredito` tira 1 do mesmo tipo. `creditosRestantes` devolve os dois saldos.
+- **Tela:** `useCreditos("assistente")` no assistente e `useCreditos("roteiro")` no gerador. As mensagens são "Restam 4 perguntas nesta semana. Renova no domingo.", "Resta 1 roteiro…", "Suas 15 perguntas da semana acabaram. Domingo tem mais." e "Seus 7 roteiros da semana acabaram…".
+
+**Verificado:**
+- Testes (634), lint e build.
+- SQL no Postgres local, numa transação desfeita: de 8 roteiros, 7 reservados; com os roteiros esgotados, a pergunta ainda passa; a devolução tira 1 só dos roteiros.
+- No navegador (build em `localhost:3005`, conta de teste apagada no fim), com 11 perguntas e 7 roteiros gastos:
+  - o assistente mostrou "Restam 4 perguntas" com o campo ativo;
+  - o gerador mostrou "Seus 7 roteiros da semana acabaram" com o botão travado;
+  - a API recusou o 8º roteiro com 429;
+  - console sem erro.
+
+**Produção:** a migration vai junto com o deploy, porque o código antigo e o novo usam chaves diferentes na tabela.
+
+**Ao subir (2026-11-12):**
+- A branch foi atualizada com a `main`. A devolução de crédito do "Tentar de novo" (PR #14) agora tira 1 do tipo da rota.
+- A migration, criada como `…010000`, passou a `20261112040000`, para ficar depois das que já estavam em produção (`…020000` e `…030000`) e o `db push` não pedir `--include-all`.
+- A primeira versão trazia uma reformatação da página do assistente que cortava o texto "Sem promessa de ganhos, sem enrolação". Ficou de fora: só entrou o `useCreditos("assistente")`.
+
 ## 2026-11-12: Assistente: a tela pulava ao descer durante a resposta
 
 **Pedido:** na página do assistente, se a aluna descia enquanto a IA respondia, a tela "bugava".

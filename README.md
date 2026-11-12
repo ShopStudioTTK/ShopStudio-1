@@ -152,26 +152,19 @@ docs/superpowers/             design e plano da migração do Enter
 - Cada pergunta envia ao modelo as regras, o **resumo dos 12 capítulos**, a **transcrição das aulas** e o **dossiê da especialista** (~78 mil tokens). Junto vão a persona (`PERSONA`, em `src/lib/persona.ts`) e as últimas 12 mensagens da conversa.
 - A IA usa primeiro o material e cita a aula e o minuto ("Aula 7, 3:12"). Quando o material não cobre o assunto, ela responde mesmo assim com o que se sabe em geral e diz que aquela parte não está nas aulas. Não abre com "o material não cobre", não atribui à Ana o que não é dela e não dá número, prazo ou regra inventados como certos. A resposta chega aos poucos (SSE).
 - **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. Nesse caso, a `PERSONA` não vai, para as duas não brigarem. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
-- **Créditos:** cada pergunta gasta créditos da semana (ver [Créditos semanais](#créditos-semanais)).
+- **Créditos:** cada pergunta gasta 1 das 15 da semana (ver [Créditos semanais](#créditos-semanais)).
 
 ### Créditos semanais
 
-Cada aluna tem **40 créditos por semana**, para o assistente e o gerador juntos. Não há mais limite por dia. A semana começa **no domingo à 0h de Brasília**, e o que sobrou não acumula. Admin não gasta créditos.
+Cada aluna tem, por semana, **15 perguntas** ao assistente e **7 roteiros** no gerador. São dois saldos separados: acabar os roteiros não trava as perguntas. **Cada pedido gasta 1**, do tamanho que for. A semana começa **no domingo à 0h de Brasília**, e o que sobrou não acumula. Admin não gasta créditos. Os números ficam em `LIMITE_SEMANAL` (`src/lib/limite.ts`).
 
-- **Preço**, pelos tokens de saída (o que a IA escreveu mais o raciocínio). O material é igual para todas e fica em cache, por isso não entra na conta:
-
-  | | 1 crédito até | +0,5 a cada | Teto |
-  |---|---|---|---|
-  | Pergunta | 600 tokens | 600 a mais | 2 |
-  | Roteiro | 2.000 tokens | 1.000 a mais | 2 |
-
-  Medido em 2026-11-11 (9 perguntas e 11 roteiros): uma pergunta típica tem ~280 tokens de saída (90% abaixo de ~480), e um roteiro típico ~1.500 (90% abaixo de ~2.000). Quase tudo custa 1. Os números ficam em `PRECO` (`src/lib/limite.ts`); recalibre com uso real pelos `tokens_saida` de `ai_perguntas`.
-- **Como conta:** a chamada reserva 1 crédito antes da IA, numa consulta só na tabela `creditos_semana`, que só soma se ainda couber nos 40. Sem saldo, a resposta é 429 "Seus créditos da semana acabaram. Domingo tem mais.". No fim, soma o que o preço real passou de 1, sem passar de 40. Se a IA falhar, ou se o roteiro vier cortado ou fora do formato, o crédito volta.
-- **Na tela:** nada enquanto restam mais de 10. Com 10 ou menos aparece "Restam N créditos nesta semana. Renova no domingo.", e abaixo de 1 crédito o assistente e o botão de criar roteiro travam.
+- **Como conta:** o pedido reserva 1 do saldo do tipo dele antes da IA, numa consulta só na tabela `creditos_semana` (uma linha por aluna, semana e tipo), que só soma se ainda couber no limite. Sem saldo, a resposta é 429 ("Suas 15 perguntas da semana acabaram. Domingo tem mais." ou "Seus 7 roteiros da semana acabaram…"). Se a IA falhar, ou se o roteiro vier cortado ou fora do formato, o crédito volta.
+- **Na tela:** nada enquanto sobra bastante. Com 4 perguntas ou menos aparece "Restam N perguntas nesta semana. Renova no domingo." no assistente; com 2 roteiros ou menos, "Restam N roteiros…" no gerador. Sem saldo, o campo ou o botão travam.
+- **Histórico:** de 2026-11-11 a 2026-11-12 foi um saldo só de 40 créditos, com meio crédito a mais nos pedidos grandes (pelos tokens de saída). A dona trocou por saldos por tipo e 1 por pedido, para a aluna entender quanto resta.
 
 ```sql
 -- créditos gastos na semana atual (semana = o domingo em que ela começou)
-select u.email, c.gastos from public.creditos_semana c join auth.users u on u.id = c.user_id
+select u.email, c.rota, c.gastos from public.creditos_semana c join auth.users u on u.id = c.user_id
 where c.semana = (date_trunc('week', (now() at time zone 'America/Sao_Paulo')::date + 1) - interval '1 day')::date
 order by c.gastos desc;
 ```
@@ -270,7 +263,7 @@ Migrations em `supabase/migrations/`:
 | `ganchos` | banco de ganchos e os da comunidade (`comunidade = true`). O `user_id` de quem registrou só serve ao limite diário e nunca sai nas rotas | servidor (`/api/ganchos`: aluna cria, admin edita e apaga) |
 | `gancho_notas` | nota de 1 a 5 de cada aluna em cada gancho | servidor (`/api/ganchos/nota`) |
 | `ai_perguntas` | perguntas ao assistente e roteiros gerados, tokens e custo | servidor (`/api/assistente`, `/api/roteiro`) |
-| `creditos_semana` | créditos gastos por aluna em cada semana (`semana` = o domingo em que ela começou) | servidor (`reservarChamada`) |
+| `creditos_semana` | pedidos gastos por aluna em cada semana e tipo (`rota` = assistente ou roteiro; `semana` = o domingo em que ela começou) | servidor (`reservarChamada`) |
 | `admins` | quem acessa o treinamento da IA e cadastra as abas e os vídeos campeões | só service role (painel do Supabase) |
 | `treinamento` | perguntas e respostas da expert, com embedding (pgvector, 1536). Sem `user_id` de aluna | servidor (`/api/treinamento`, só admin; `/api/assistente` grava as conversas) |
 | `gatilhos` | gatilhos do gancho das fichas (slug + rótulo) | servidor (`/api/gatilhos`, só admin) |
@@ -341,7 +334,7 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 | Aluna escrever na conversa de outra na fila de treinamento | A conversa é sempre o par (`user_id` do token, id do navegador). A linha do treinamento não tem `user_id`, e a expert não vê quem perguntou. |
 | Aluna liberar o próprio acesso, criar código ou mexer na IA | Essas tabelas não têm política de escrita: só a service role escreve. |
 | Chutar códigos de acesso | `resgatar_codigo` (só o servidor executa) bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
-| Gastar IA sem limite | 40 créditos por semana por aluna, reservados no servidor numa consulta atômica (`creditos_semana`). |
+| Gastar IA sem limite | 15 perguntas e 7 roteiros por semana por aluna, reservados no servidor numa consulta atômica (`creditos_semana`). |
 | Injetar instruções na IA | O navegador só manda o slug do capítulo; o título vem do conteúdo. O prompt proíbe copiar o material pago. |
 | Roubo do token (a sessão fica no `localStorage`) | CSP com `connect-src` limitado ao app e ao Supabase: um script injetado não consegue mandar o token para fora. Sem `dangerouslySetInnerHTML`; respostas da IA são texto puro. O token vale 15 min. |
 | E-mails de recuperação/link mágico disparados por qualquer um | Os modelos não têm link nem código (`supabase/templates/sem-link.html`). |
