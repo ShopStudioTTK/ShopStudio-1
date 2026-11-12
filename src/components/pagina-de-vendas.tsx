@@ -177,7 +177,7 @@ export const PaginaDeVendas = () => {
                 )}
               >
                 {aluna
-                  ? "Achamos você! 🎉 Como você já é aluna do curso, pode levar só a ferramenta por R$ 197."
+                  ? "Achamos você! 🎉 Como você já é aluna do curso, é só levar a ferramenta por R$ 197."
                   : "Não achamos esse e-mail entre as alunas do curso. Confira se é o mesmo e-mail da compra, ou leve o combo com o curso junto."}
               </p>
             ) : null}
@@ -186,10 +186,10 @@ export const PaginaDeVendas = () => {
           {mostrarOfertas ? (
             <div className="mx-auto grid max-w-3xl gap-5 pt-3 sm:grid-cols-2">
               {aluna ? (
-                <>
+                // Já é aluna: só a ferramenta (o curso ela já tem).
+                <div className="sm:col-span-2 sm:mx-auto sm:w-full sm:max-w-sm">
                   <CartaoDaOferta oferta={OFERTA_FERRAMENTA} destaque selo="Para alunas" />
-                  <CartaoDaOferta oferta={OFERTA_COMBO} destaque={false} />
-                </>
+                </div>
               ) : (
                 <>
                   <CartaoDaOferta oferta={OFERTA_COMBO} destaque selo="Mais completo" />
