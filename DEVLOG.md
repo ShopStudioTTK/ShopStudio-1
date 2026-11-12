@@ -4,6 +4,27 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: A persona sai do banco (`ai_config` → `src/lib/persona.ts`) e os vídeos "campeão" do `chapter_videos`
+
+**Pedido:** a dona achou que não fazia sentido uma tabela de uma linha só, lida em toda pergunta e todo roteiro. Pediu para manter a regra (a voz da Ana com "gnt", "pq", emoji) e aplicá-la de outro jeito. Também perguntou se o `chapter_videos` estava em uso.
+
+**`ai_config` → constante:**
+- O texto da linha (o mesmo da migration inicial) virou `PERSONA` em `src/lib/persona.ts`, `server-only`. Os prompts ficaram iguais, sem a consulta ao banco.
+- O assistente usa a persona só sem `OPENROUTER_PRESET`, como antes. O roteiro usa sempre.
+- Saiu `configDaIA`. A migration `20261112030000_remove_ai_config` apaga a tabela.
+- **Custo:** mudar a persona agora exige deploy, em vez do painel do Supabase.
+- Primeiro a persona saiu inteira dos prompts. A dona corrigiu: a regra fica, só a tabela sai.
+
+**`chapter_videos` (decisão: só tirar o código morto):** a página do capítulo continua mostrando os vídeos cadastrados pelo painel. Saiu a coleção "campeão" (`?colecao=campeao` e `useChampionVideos`), sem uso desde que os Campeões ganharam tabela própria. A coluna `colecao` ficou no banco, sem uso.
+
+## 2026-11-12: Sai a tabela `ai_knowledge`
+
+**Pedido:** a dona viu a tabela vazia e pediu para tirar tudo relacionado a ela.
+
+**Por que estava vazia:** veio do app original. O banco começou do zero na migração, e nenhuma tela ou rota escrevia nela, só o painel do Supabase. Mesmo assim, `configDaIA()` a lia em toda pergunta e em todo roteiro. O papel dela já é coberto pelo material (`transcricao.md`, `dossie.md`) e pelo treinamento da IA.
+
+**Como ficou:** `configDaIA()` devolve só a persona (`ai_config`). `buildAssistantSystemPrompt` e `buildSystemPrompt` perderam o parâmetro `knowledge` e o bloco da base. A migration `20261112020000_remove_ai_knowledge` apaga a tabela.
+
 ## 2026-11-12: Assistente avisa quando o provedor cai e oferece "Tentar de novo"
 
 **Pedido:** os provedores do DeepSeek (Morph e DeepInfra) devolveram 504 e 499, e o assistente simplesmente não respondeu: a bolha "Pensando" sumia sem aviso. A dona quer uma mensagem e um botão para a aluna reenviar a última mensagem.

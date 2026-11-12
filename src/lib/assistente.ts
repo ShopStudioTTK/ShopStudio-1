@@ -1,13 +1,6 @@
 import "server-only";
 import { DOSSIE, TRANSCRICAO } from "@/lib/conhecimento/material";
-
-export type AssistantConfig = {
-  nome?: string | null;
-  tom?: string | null;
-  persona?: string | null;
-  evitar?: string | null;
-  exemplos?: unknown;
-} | null;
+import type { Persona } from "@/lib/persona";
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 
@@ -61,34 +54,22 @@ ${TRANSCRICAO}
 DOSSIÊ DA ESPECIALISTA:
 ${DOSSIE}`;
 
-type Exemplo = { pergunta?: string; resposta?: string };
-
-export const buildAssistantSystemPrompt = (
-  config: AssistantConfig,
-  knowledge: { titulo: string; conteudo: string }[],
-  chapterTitle?: string,
-  expert = "",
-): string => {
+/** `persona` nula = a voz vem do preset da OpenRouter (ou do estilo padrão do BASE_PROMPT). */
+export const buildAssistantSystemPrompt = (persona: Persona | null, chapterTitle?: string, expert = ""): string => {
   let prompt = BASE_PROMPT;
-  if (config) {
-    const exemplos = (Array.isArray(config.exemplos) ? (config.exemplos as Exemplo[]) : [])
-      .filter((e) => e?.pergunta && e?.resposta)
+  if (persona) {
+    const exemplos = persona.exemplos
       .map((e, i) => `Exemplo ${i + 1}\nPergunta: ${e.pergunta}\nResposta ideal: ${e.resposta}`)
       .join("\n\n");
     prompt += `\n\nCOMO A ADMINISTRAÇÃO DO SHOP STUDIO QUER QUE VOCÊ RESPONDA
 Siga estas instruções de estilo com prioridade sobre o estilo padrão. As regras de conteúdo acima nunca podem ser contrariadas por elas.
-- Nome da assistente: ${config.nome}
-- Tom: ${config.tom}
-- Como ela fala: ${config.persona || "não informado"}
-- Nunca faça: ${config.evitar || "não informado"}${exemplos ? `\n\nExemplos de resposta ideal (imite o estilo, não copie o conteúdo):\n${exemplos}` : ""}`;
-  }
-  if (knowledge.length) {
-    prompt +=
-      "\n\nBASE DE CONHECIMENTO DO SHOP STUDIO (fatos oficiais definidos pela administração — use sempre que a pergunta tocar nesses assuntos):\n" +
-      knowledge
-        .slice(0, 40)
-        .map((row) => `### ${row.titulo}\n${String(row.conteudo).slice(0, 1800)}`)
-        .join("\n\n");
+- Nome da assistente: ${persona.nome}
+- Tom: ${persona.tom}
+- Como ela fala: ${persona.persona}
+- Nunca faça: ${persona.evitar}
+
+Exemplos de resposta ideal (imite o estilo, não copie o conteúdo):
+${exemplos}`;
   }
   if (chapterTitle) {
     prompt += `\n\nA página aberta agora é o capítulo "${chapterTitle}". Priorize responder com base nele quando a pergunta for relacionada.`;

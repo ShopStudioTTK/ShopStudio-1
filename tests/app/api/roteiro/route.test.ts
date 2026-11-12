@@ -7,7 +7,7 @@ vi.mock("@/lib/db", async () => {
   return { db: () => b.sqlFalso };
 });
 vi.mock("@/lib/supabase/admin", async () => (await import("../../../apoio/db-falso")).adminFalso);
-import { getUser, naTabela, reiniciarDb, responderCom } from "../../../apoio/db-falso";
+import { consultas, getUser, naTabela, reiniciarDb, responderCom } from "../../../apoio/db-falso";
 
 const gravou = (inicio: string) => naTabela("ai_perguntas").find((c) => c.sql.startsWith(inicio));
 const creditos = (inicio: string) => naTabela("creditos_semana").filter((c) => c.sql.startsWith(inicio));
@@ -58,11 +58,9 @@ const ia = (content: string, saida = 900) =>
 const msg = async (res: Response) => (await res.json()).error.message;
 
 type R = Record<string, unknown>[] | Error;
-const regras = (o: { entitlements?: R; config?: R; semCredito?: boolean; admins?: R } = {}): [string, R][] => [
+const regras = (o: { entitlements?: R; semCredito?: boolean; admins?: R } = {}): [string, R][] => [
   ["from public.entitlements", o.entitlements ?? [{}]],
   ["from public.admins", o.admins ?? []],
-  ["from public.ai_config", o.config ?? [{ tom: "alegre", persona: null, evitar: null }]],
-  ["from public.ai_knowledge", [{ titulo: "t", conteudo: "c" }]],
   ["insert into public.creditos_semana", o.semCredito ? [] : [{ gastos: 1 }]],
   ["insert into public.ai_perguntas", [{ id: "r1" }]],
 ];
@@ -224,9 +222,12 @@ describe("POST /api/roteiro", () => {
     expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
   });
 
-  it("segue sem treino se as leituras opcionais falham", async () => {
-    responderCom(regras({ config: new Error("x") }));
+  it("a persona entra no prompt vinda do código, sem consulta ao banco (ai_config saiu em 2026-11-12)", async () => {
     expect((await POST(req())).status).toBe(200);
+    expect(consultas.some((c) => c.sql.includes("ai_config"))).toBe(false);
+    const sistema = JSON.parse(String(vi.mocked(fetch).mock.calls.find(([u]) => String(u).endsWith("/chat/completions"))![1]?.body)).messages[0].content;
+    expect(sistema).toContain("TOM DE VOZ DEFINIDO PELA ADMINISTRAÇÃO");
+    expect(sistema).toContain("Usa “gnt”, “pq”");
   });
 
   it("429 sem créditos na semana, sem gravar nem chamar a IA", async () => {

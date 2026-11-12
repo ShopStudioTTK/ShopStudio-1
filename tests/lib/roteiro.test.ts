@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/conhecimento/material", () => ({ DOSSIE: "DOSSIE-TESTE", TRANSCRICAO: "T" }));
 
+import { PERSONA } from "@/lib/persona";
 import { buildSystemPrompt, buildUserPrompt, extractScriptJson, METHOD, SYSTEM_PROMPT } from "@/lib/roteiro";
 
 describe("extractScriptJson", () => {
@@ -75,26 +76,23 @@ describe("prompts", () => {
     expect(SYSTEM_PROMPT).toContain("Shop Studio");
     expect(SYSTEM_PROMPT).not.toContain("Club");
   });
-  it("sem treino nem base: SYSTEM_PROMPT + dossiê, com o formato JSON por último", () => {
-    const p = buildSystemPrompt(null, []);
+  it("sem treino: SYSTEM_PROMPT + dossiê, com o formato JSON por último", () => {
+    const p = buildSystemPrompt();
     expect(p.startsWith(SYSTEM_PROMPT)).toBe(true);
     expect(p).toContain("DOSSIE-TESTE");
+    // persona do código (era a linha do ai_config) depois do dossiê
+    expect(p).toContain("TOM DE VOZ DEFINIDO PELA ADMINISTRAÇÃO");
+    expect(p).toContain(PERSONA.persona);
+    expect(p.indexOf(PERSONA.persona)).toBeGreaterThan(p.indexOf("DOSSIE-TESTE"));
     expect(p.indexOf("DOSSIE-TESTE")).toBeLessThan(p.lastIndexOf("APENAS com o objeto JSON"));
   });
   it("o bloco das fichas vem depois do dossiê e antes do lembrete final", () => {
-    const p = buildSystemPrompt(null, [], "BLOCO-FICHAS");
-    expect(p.indexOf("BLOCO-FICHAS")).toBeGreaterThan(p.indexOf("DOSSIE-TESTE"));
+    const p = buildSystemPrompt("BLOCO-FICHAS");
+    expect(p.indexOf("BLOCO-FICHAS")).toBeGreaterThan(p.indexOf(PERSONA.evitar));
     expect(p.indexOf("BLOCO-FICHAS")).toBeLessThan(p.lastIndexOf("Lembrete:"));
     expect(p.startsWith(SYSTEM_PROMPT)).toBe(true);
   });
   it("o JSON pede o campo gatilho", () => {
     expect(SYSTEM_PROMPT).toContain('"gatilho"');
-  });
-  it("limita a 20 itens e 600 caracteres", () => {
-    const k = Array.from({ length: 25 }, (_, i) => ({ titulo: "t" + i, conteudo: "x".repeat(700) }));
-    const p = buildSystemPrompt(null, k);
-    expect(p).toContain("t19");
-    expect(p).not.toContain("t20");
-    expect(p).not.toContain("x".repeat(601));
   });
 });

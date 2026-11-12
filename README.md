@@ -64,7 +64,7 @@ Preencha também no `.env.local`:
 | `OPENROUTER_API_KEY` | só servidor (rotas `/api/*`) | **sim** |
 | `OPENROUTER_MODEL` | só servidor. Hoje: `deepseek/deepseek-v4.1-flash-1017` | não |
 | `OPENROUTER_EMBEDDING_MODEL` | só servidor. Modelo de embedding do treinamento da IA. Padrão `openai/text-embedding-3-small` (1536 dimensões, acoplado à coluna `treinamento.embedding`) | não |
-| `OPENROUTER_PRESET` | só servidor, só o assistente. Slug do preset da OpenRouter com a voz da especialista (hoje: `ana-shop-studio-leads-behavior`). Com ele, a persona do `ai_config` sai do prompt do assistente. Vazio = sem preset | não |
+| `OPENROUTER_PRESET` | só servidor, só o assistente. Slug do preset da OpenRouter com a voz da especialista (hoje: `ana-shop-studio-leads-behavior`). Com ele, a persona (`PERSONA`) sai do prompt do assistente. Vazio = sem preset | não |
 | `WEBHOOK_CONTA_SEGREDO` | só servidor (`/api/webhook/conta`). A plataforma de venda manda no `Authorization: Bearer`. Sem ele, o webhook responde 500 | **sim** |
 | `WEBHOOK_CONTA_ORIGENS` | só servidor. Origens liberadas no CORS do webhook, separadas por vírgula. Vazio = nenhuma | não |
 | `APPLYFY_WEBHOOK_TOKEN` | só servidor (`/api/webhook/applyfy`). Token do webhook na Applyfy, que ela manda no campo `token` do corpo. Sem ele, o webhook responde 500 | **sim** |
@@ -149,9 +149,9 @@ docs/superpowers/             design e plano da migração do Enter
 ## IA: assistente, roteiros e custos
 
 ### Assistente (`/api/assistente`)
-- Cada pergunta envia ao modelo as regras, o **resumo dos 12 capítulos**, a **transcrição das aulas** e o **dossiê da especialista** (~78 mil tokens). Junto vão a persona e a base de conhecimento do banco (`ai_config`, `ai_knowledge`) e as últimas 12 mensagens da conversa.
+- Cada pergunta envia ao modelo as regras, o **resumo dos 12 capítulos**, a **transcrição das aulas** e o **dossiê da especialista** (~78 mil tokens). Junto vão a persona (`PERSONA`, em `src/lib/persona.ts`) e as últimas 12 mensagens da conversa.
 - A IA usa primeiro o material e cita a aula e o minuto ("Aula 7, 3:12"). Quando o material não cobre o assunto, ela responde mesmo assim com o que se sabe em geral e diz que aquela parte não está nas aulas. Não abre com "o material não cobre", não atribui à Ana o que não é dela e não dá número, prazo ou regra inventados como certos. A resposta chega aos poucos (SSE).
-- **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. Nesse caso, a persona do `ai_config` não vai, para as duas não brigarem. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
+- **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. Nesse caso, a `PERSONA` não vai, para as duas não brigarem. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
 - **Créditos:** cada pergunta gasta créditos da semana (ver [Créditos semanais](#créditos-semanais)).
 
 ### Créditos semanais
@@ -264,7 +264,6 @@ Migrations em `supabase/migrations/`:
 | `success_cases` | mural de resultados (vídeo do TikTok e depoimento; o nome vem da conta) | a própria aluna, até 10 por dia (todas leem); fixar no topo só a admin |
 | `entitlements` | quem tem acesso liberado | webhook da compra (`origem = 'compra'`) ou função `resgatar_codigo` (via `POST /api/acesso`) |
 | `access_codes` | códigos de compra | só service role (painel do Supabase) |
-| `ai_config`, `ai_knowledge` | persona e fatos da IA | só service role |
 | `chapter_videos` + bucket `studio-videos` | vídeos dos capítulos | só service role |
 | `nichos` | abas da tela de Campeões (compartilhado, sem `user_id`) | servidor (`/api/nichos`, só admin) |
 | `campeoes` | vídeos campeões do TikTok por aba (compartilhado, sem `user_id`) | servidor (`/api/campeoes`, só admin) |
@@ -278,7 +277,7 @@ Migrations em `supabase/migrations/`:
 | `fichas_roteiro` | fichas de roteiro da expert, com embedding (pgvector, 1536) só de produto + tipo. Sem `user_id` de aluna | servidor (`/api/fichas`, só admin) |
 | `treinamento_conversas` | uma conversa do assistente = um item na fila. O `user_id` só serve para o servidor achar a conversa certa e nunca sai nas rotas | servidor (`/api/assistente`) |
 
-No app, a administração tem a página de treinamento da IA, o cadastro na aba de Campeões e a edição dos ganchos. Admins, códigos, vídeos dos capítulos, persona e base de conhecimento continuam sendo editados no painel do Supabase.
+No app, a administração tem a página de treinamento da IA, o cadastro na aba de Campeões e a edição dos ganchos. Admins, códigos e vídeos dos capítulos continuam sendo editados no painel do Supabase; a persona da IA fica no código (`src/lib/persona.ts`).
 
 Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql`, rode `pnpm supabase migration up` e depois `pnpm db:types`.
 

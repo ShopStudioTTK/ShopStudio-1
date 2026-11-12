@@ -162,34 +162,22 @@ describe("POST /api/assistente", () => {
     expect(body.messages.slice(1)).toEqual(conversa);
   });
 
-  it("com OPENROUTER_PRESET, chama modelo@preset e deixa a voz com o preset (sem a persona do ai_config)", async () => {
+  it("com OPENROUTER_PRESET, chama modelo@preset e a voz fica com o preset", async () => {
     vi.stubEnv("OPENROUTER_PRESET", "voz-teste");
-    responderCom([
-      ["from public.entitlements", [{}]],
-      ["insert into public.creditos_semana", [{ gastos: 5 }]],
-      ["insert into public.ai_perguntas", [{ id: "p1" }]],
-      ["from public.ai_config", [{ nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: null, exemplos: [] }]],
-      ["from public.ai_knowledge", [{ titulo: "Frete", conteudo: "grátis" }]],
-    ]);
     await POST(req());
     const body = JSON.parse(String(chat()[1]?.body));
     expect(body.model).toBe("modelo/teste@preset/voz-teste");
+    expect(body.messages[0].content).not.toContain("COMO A ADMINISTRAÇÃO");
     expect(body.provider).toEqual({ order: ["deepinfra/fp8", "morph/fp8"], quantizations: ["fp8"] });
-    expect(body.messages[0].content).not.toContain("fala gnt");
-    expect(body.messages[0].content).toContain("### Frete");
   });
 
-  it("sem OPENROUTER_PRESET, segue com a persona do ai_config", async () => {
-    responderCom([
-      ["from public.entitlements", [{}]],
-      ["insert into public.creditos_semana", [{ gastos: 5 }]],
-      ["insert into public.ai_perguntas", [{ id: "p1" }]],
-      ["from public.ai_config", [{ nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: null, exemplos: [] }]],
-    ]);
+  it("sem OPENROUTER_PRESET, segue com a persona, que vem do código e não do banco (2026-11-12)", async () => {
     await POST(req());
     const body = JSON.parse(String(chat()[1]?.body));
     expect(body.model).toBe("modelo/teste");
-    expect(body.messages[0].content).toContain("fala gnt");
+    expect(body.messages[0].content).toContain("COMO A ADMINISTRAÇÃO");
+    expect(body.messages[0].content).toContain("Usa “gnt”, “pq”");
+    expect(consultas.some((c) => /ai_config|ai_knowledge/.test(c.sql))).toBe(false);
   });
 
   it("502 com a mensagem da OpenRouter e a pergunta não conta", async () => {

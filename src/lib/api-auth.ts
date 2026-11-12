@@ -119,21 +119,6 @@ export const chamarOpenRouter = (apiKey: string, body: object) =>
 
 export type Rota = "assistente" | "roteiro";
 
-type ConfigDaIA = { nome: string | null; tom: string | null; persona: string | null; evitar: string | null; exemplos: string | null };
-
-/** Persona e base de conhecimento da IA. São opcionais: se a leitura falhar, a IA segue sem elas. */
-export async function configDaIA(): Promise<{ config: ConfigDaIA | null; knowledge: { titulo: string; conteudo: string }[] }> {
-  try {
-    const sql = db();
-    const [config] = await sql`select nome, tom, persona, evitar, exemplos from public.ai_config where id = 'default'`;
-    const knowledge = await sql`select titulo, conteudo from public.ai_knowledge order by ordem`;
-    return { config: (config ?? null) as ConfigDaIA | null, knowledge: knowledge as unknown as { titulo: string; conteudo: string }[] };
-  } catch (e) {
-    console.error("falha ao ler a configuração da IA", e);
-    return { config: null, knowledge: [] };
-  }
-}
-
 /** Reserva de uma chamada de IA. `semana` nula = admin, sem créditos. */
 export type Reserva = { id: string; userId: string; rota: Rota; semana: string | null };
 
