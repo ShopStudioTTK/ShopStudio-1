@@ -44,3 +44,8 @@ export const mensagemDeCreditos = (tipo: TipoDeCredito, restantes: number): stri
     ? `Resta 1 ${um} nesta semana. Renova no domingo.`
     : `Restam ${restantes} ${varios} nesta semana. Renova no domingo.`;
 };
+
+/** Cartão perto do botão (pedido da dona, 2026-11-12): quanto a ação gasta e quanto ainda resta. */
+export const usoPorAcao = (tipo: TipoDeCredito) => `Cada ${NOME[tipo][0]} usa 1 crédito.`;
+export const saldoDeCreditos = (restantes: number) =>
+  `Você ainda tem ${restantes} ${restantes === 1 ? "crédito" : "créditos"} nesta semana.`;

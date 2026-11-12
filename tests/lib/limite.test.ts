@@ -4,6 +4,8 @@ import {
   LIMITE_SEMANAL,
   inicioDoDiaSP,
   mensagemDeCreditos,
+  saldoDeCreditos,
+  usoPorAcao,
   semanaSP,
   semCreditos,
 } from "@/lib/limite";
@@ -54,5 +56,16 @@ describe("mensagemDeCreditos", () => {
     expect(semCreditos(0)).toBe(true);
     expect(mensagemDeCreditos("assistente", 0)).toBe("Suas 15 perguntas da semana acabaram. Domingo tem mais.");
     expect(mensagemDeCreditos("roteiro", 0)).toBe("Seus 7 roteiros da semana acabaram. Domingo tem mais.");
+  });
+});
+
+describe("cartão de créditos", () => {
+  it("diz quanto cada ação gasta", () => {
+    expect(usoPorAcao("assistente")).toBe("Cada pergunta usa 1 crédito.");
+    expect(usoPorAcao("roteiro")).toBe("Cada roteiro usa 1 crédito.");
+  });
+  it("diz quanto ainda resta na semana", () => {
+    expect(saldoDeCreditos(12)).toBe("Você ainda tem 12 créditos nesta semana.");
+    expect(saldoDeCreditos(1)).toBe("Você ainda tem 1 crédito nesta semana.");
   });
 });
