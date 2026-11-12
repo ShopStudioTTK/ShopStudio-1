@@ -4,6 +4,24 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: Cartão "1 crédito por ação" e Música viral fora da tela da aluna
+
+**Pedido (para subir para produção antes dos créditos comprados):**
+- no gerador e no assistente, um cartão avisando que cada ação gasta 1 crédito e quantos ainda restam;
+- tirar a Música viral do gerador da aluna por enquanto.
+
+**Como ficou:**
+- **`CartaoDeCredito`**: fica embaixo de "Criar meu roteiro" e em cima do campo do assistente, sempre visível, porque a aluna vê antes de gastar. Ele diz "Cada roteiro usa 1 crédito. Você ainda tem N créditos nesta semana.". Perto do fim, o cartão fica rosa e mostra o aviso de antes ("Restam 4 perguntas nesta semana. Renova no domingo."). A admin não vê o cartão.
+- **Decisão minha:** o cartão fica fixo na tela, e não num pop-up a cada pergunta, para não travar a conversa no chat.
+- **Música viral:** sai das escolhas do gerador e do Studio (`FORMATOS_DA_ALUNA`), e o `?formato=Música viral` na URL é ignorado. O resto continua igual, para voltar fácil: o prompt, as fichas da admin, o filtro dos Roteiros expert e os roteiros salvos nesse formato.
+
+**Verificado:**
+- Testes (686), lint e build.
+- No navegador (build em `localhost:3005`, Playwright, a 1366 px e a 375 px):
+  - o cartão aparece com o saldo normal e, perto do fim, no estado rosa;
+  - os dois lugares mostram só 4 formatos;
+  - sem rolagem lateral e sem erro no console.
+
 ## 2026-11-12: Conversas anteriores no assistente; "Outra versão" avisa do crédito
 
 **Pedido:** no gerador, o hover do "Outra versão" deve deixar claro que gasta outro crédito. No assistente, se as perguntas já estavam guardadas, dar um histórico para a aluna voltar e ver a conversa; se não, criar isso.

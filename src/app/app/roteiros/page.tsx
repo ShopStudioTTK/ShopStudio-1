@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Flame, Sparkles, Wand2 } from "lucide-react";
 import { ScriptGenerator } from "@/components/script-generator";
 import { HookBank } from "@/components/hook-bank";
-import { ehFormato } from "@/content/formatos";
+import { ehFormatoDaAluna } from "@/content/formatos";
 import { useGanchos } from "@/hooks/use-ganchos";
 import { sair } from "@/lib/saida";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ const Scripts = () => {
   // O Studio manda o produto pela URL (?produto=…&formato=…&gerar=1).
   const produto = (searchParams.get("produto") ?? "").slice(0, 120);
   const formatoParam = searchParams.get("formato");
-  const formato = ehFormato(formatoParam) ? formatoParam : undefined;
+  const formato = ehFormatoDaAluna(formatoParam) ? formatoParam : undefined;
   const gerar = searchParams.get("gerar") === "1" && produto.trim().length >= 2;
   // tira o ?gerar da URL para não gerar de novo ao recarregar
   const limparUrl = useCallback(() => router.replace("/app/roteiros?aba=gerador", { scroll: false }), [router]);

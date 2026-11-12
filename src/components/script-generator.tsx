@@ -10,7 +10,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { supabase } from "@/integrations/supabase/client";
 import { CartaoDaExpert } from "@/components/fichas-da-expert";
 import { Confirmacao } from "@/components/confirmacao";
-import { duracaoDoFormato, FORMATOS, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
+import { duracaoDoFormato, FORMATOS_DA_ALUNA, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
+import { CartaoDeCredito } from "@/components/cartao-de-credito";
 import { CREDITOS_KEY, useCreditos } from "@/hooks/use-creditos";
 import { useAuth } from "@/hooks/use-auth";
 import { useGuardaDeSaida } from "@/hooks/use-guarda-de-saida";
@@ -436,8 +437,8 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-foreground/60">4</span>
             Escolha o formato
           </p>
-          <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {FORMATOS.map((option) => {
+          <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {FORMATOS_DA_ALUNA.map((option) => {
               const ativo = formato === option.id;
               return (
                 <button
@@ -466,11 +467,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
             {escrevendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
             {escrevendo ? "Escrevendo seu roteiro…" : "Criar meu roteiro"}
           </Button>
-          {creditos.aviso ? (
-            <p className="mt-3 text-[12px] text-rose" role="status">
-              {creditos.aviso}
-            </p>
-          ) : null}
+          <CartaoDeCredito tipo="roteiro" className="mt-3 sm:max-w-md" />
         </form>
       </section>
 

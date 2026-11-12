@@ -14,6 +14,16 @@ export const FORMATO_PADRAO: Formato = FORMATOS[0].id;
 export const ehFormato = (valor: string | null | undefined): valor is Formato =>
   FORMATOS.some((f) => f.id === valor);
 
+/**
+ * Formatos que a aluna escolhe no gerador. A Música viral saiu por enquanto (pedido da dona,
+ * 2026-11-12) e volta depois: as regras dela no prompt, as fichas da admin e o filtro dos Roteiros
+ * expert continuam com ela.
+ */
+export const FORMATOS_DA_ALUNA = FORMATOS.filter((f) => f.id !== "Música viral");
+
+export const ehFormatoDaAluna = (valor: string | null | undefined): valor is Formato =>
+  FORMATOS_DA_ALUNA.some((f) => f.id === valor);
+
 /** Ideias para quem abre o Studio sem saber por onde começar. */
 export const SUGESTOES_DE_PRODUTO = [
   "Legging cintura alta",
