@@ -4,6 +4,24 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: Assistente: a tela pulava ao descer durante a resposta
+
+**Pedido:** na página do assistente, se a aluna descia enquanto a IA respondia, a tela "bugava".
+
+**Causa (medida no navegador):** a cada pedaço da resposta, a página fazia `scrollIntoView({ behavior: "smooth", block: "end" })` num marcador que fica **acima** da caixa de digitar. Como a caixa está no fluxo da página, o fundo de verdade ficava ~190 px abaixo do marcador. Quando a aluna descia até o fundo (distância 0), o pedaço seguinte puxava a tela de volta para ~190 px acima. Isso se repetia várias vezes por segundo, com animação suave: "0→190" em toda medição.
+
+**Correção** (`src/app/app/assistente/page.tsx`):
+- rola até o fundo de verdade (`scrollTo(scrollHeight)`), sem animação;
+- só segue a resposta se a aluna estava no fim (`pertoDoFim`, a até 120 px, em `src/lib/rolagem.ts`, com teste). Se ela subiu para ler, a tela fica onde está;
+- mandar uma pergunta nova volta a seguir o fim.
+
+**Verificado:** testes, lint e build. No navegador (build em `localhost:3005`, conta de teste apagada no fim):
+- sozinha, a rolagem fica no fundo (distância 0; antes, 13 a 190);
+- descendo até o fundo durante a resposta, ela fica lá ("0→0" nas 12 vezes; antes, "0→190");
+- subindo 350 px para ler, ela fica onde parou com a resposta chegando;
+- uma pergunta nova mandada com a página no topo leva ao fim;
+- console sem erro.
+
 ## 2026-11-12: A persona sai do banco (`ai_config` → `src/lib/persona.ts`) e os vídeos "campeão" do `chapter_videos`
 
 **Pedido:** a dona achou que não fazia sentido uma tabela de uma linha só, lida em toda pergunta e todo roteiro. Pediu para manter a regra (a voz da Ana com "gnt", "pq", emoji) e aplicá-la de outro jeito. Também perguntou se o `chapter_videos` estava em uso.
