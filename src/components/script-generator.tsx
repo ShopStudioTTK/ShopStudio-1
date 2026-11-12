@@ -14,6 +14,7 @@ import { CREDITOS_KEY, useCreditos } from "@/hooks/use-creditos";
 import { useAuth } from "@/hooks/use-auth";
 import { useGuardaDeSaida } from "@/hooks/use-guarda-de-saida";
 import { api } from "@/lib/api-cliente";
+import { esperarPedido, esquecer, lembrado, lembrar } from "@/lib/pedido";
 import { sair } from "@/lib/saida";
 import { cn } from "@/lib/utils";
 import type { FichasDoRoteiro } from "@/lib/fichas-tipos";
@@ -221,6 +222,9 @@ export const PreviaDoRoteiro = ({ titulo, result, formato }: { titulo: string; r
   </>
 );
 
+/** Pedido guardado para o F5: o id e o que ela preencheu (o formulário volta igual). */
+type PedidoDeRoteiro = { id: string; produto: string; publico: string; beneficio: string; preco: string; formato: string };
+
 type Props = {
   inicial?: { produto?: string; publico?: string; formato?: Formato };
   /** Veio do Studio com o produto já escrito: gera assim que abre. */
@@ -231,12 +235,14 @@ type Props = {
 export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Props) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [produto, setProduto] = useState(inicial?.produto ?? "");
-  const [publico, setPublico] = useState(inicial?.publico ?? "");
-  const [beneficio, setBeneficio] = useState("");
+  // Roteiro pedido antes do F5 (sendo escrito ou já pronto e não salvo): volta para a tela.
+  const [pendente] = useState(() => lembrado<PedidoDeRoteiro>("roteiro"));
+  const [produto, setProduto] = useState(pendente?.produto ?? inicial?.produto ?? "");
+  const [publico, setPublico] = useState(pendente?.publico ?? inicial?.publico ?? "");
+  const [beneficio, setBeneficio] = useState(pendente?.beneficio ?? "");
   // Opcional: só com ele o roteiro fala de preço.
-  const [preco, setPreco] = useState("");
-  const [formato, setFormato] = useState<string>(inicial?.formato ?? FORMATO_PADRAO);
+  const [preco, setPreco] = useState(pendente?.preco ?? "");
+  const [formato, setFormato] = useState<string>(pendente?.formato ?? inicial?.formato ?? FORMATO_PADRAO);
   const [result, setResult] = useState<ScriptResult | null>(null);
   const [savedProduto, setSavedProduto] = useState("");
   // O roteiro na tela já está na biblioteca (salvo agora ou aberto de lá)?
@@ -244,6 +250,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
   const [apagando, setApagando] = useState<RoteiroSalvo | null>(null);
   const resultadoRef = useRef<HTMLDivElement>(null);
   const jaGerou = useRef(false);
+  const retomou = useRef(false);
 
   const savedQuery = useRoteirosSalvos();
   const creditos = useCreditos("roteiro");
@@ -253,31 +260,61 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
       const { data: sessao } = await supabase.auth.getSession();
       const token = sessao.session?.access_token;
       if (!token) throw new Error("Faça login para gerar roteiros.");
+      // Com o id no sessionStorage, o F5 retoma: o servidor termina sozinho e guarda o roteiro.
+      const pedido: PedidoDeRoteiro = { id: crypto.randomUUID(), produto, publico, beneficio, preco, formato };
+      lembrar("roteiro", pedido);
       const res = await fetch("/api/roteiro", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ produto, publico, beneficio, formato, preco }),
+        body: JSON.stringify({ produto, publico, beneficio, formato, preco, pedido: pedido.id }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error?.message ?? "Não consegui gerar o roteiro.");
+      // Só esquece quando o servidor respondeu. Conexão cortada (o próprio F5 corta o fetch) não:
+      // o servidor segue com o pedido, e o F5 o retoma.
+      if (!res.ok) {
+        esquecer("roteiro");
+        throw new Error(json.error?.message ?? "Não consegui gerar o roteiro.");
+      }
       return json as ScriptResult;
     },
-    onSuccess: (data) => {
-      setResult(data);
-      setSalvo(false);
-      setSavedProduto(produto);
-      requestAnimationFrame(() => resultadoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
-    },
+    onSuccess: (data) => mostrar(data),
     onError: (error: Error) => toast.error(error.message),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: [CREDITOS_KEY] }),
   });
 
+  // Depois do F5: espera o roteiro que o servidor terminou (ou ainda termina) sem ela na página.
+  const retomar = useMutation({
+    mutationFn: (id: string) => esperarPedido<ScriptResult>(id),
+    onSuccess: (data) => mostrar(data),
+    onError: (error: Error) => {
+      esquecer("roteiro");
+      toast.error(error.message);
+    },
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: [CREDITOS_KEY] }),
+  });
+  const escrevendo = generate.isPending || retomar.isPending;
+
+  function mostrar(data: ScriptResult) {
+    setResult(data);
+    setSalvo(false);
+    setSavedProduto(produto);
+    requestAnimationFrame(() => resultadoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
   useEffect(() => {
-    if (!gerarAoAbrir || jaGerou.current || !user?.id || produto.trim().length < 2) return;
+    if (!pendente || retomou.current) return;
+    retomou.current = true;
+    retomar.mutate(pendente.id);
+  }, [pendente, retomar]);
+  // Saiu pelo app (link, voltar, aba): o pedido vai embora. O F5 não desmonta, então ele fica.
+  useEffect(() => () => esquecer("roteiro"), []);
+
+  useEffect(() => {
+    if (!gerarAoAbrir || pendente || jaGerou.current || !user?.id || produto.trim().length < 2) return;
     jaGerou.current = true;
     generate.mutate();
     onGerou?.();
-  }, [gerarAoAbrir, user?.id, produto, generate, onGerou]);
+  }, [gerarAoAbrir, pendente, user?.id, produto, generate, onGerou]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -289,6 +326,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
       });
     },
     onSuccess: () => {
+      esquecer("roteiro");
       setSalvo(true);
       toast.success("Roteiro salvo na sua biblioteca.");
       void queryClient.invalidateQueries({ queryKey: ["saved-scripts", user?.id] });
@@ -304,10 +342,10 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
     onError: (error: Error) => toast.error(error.message),
   });
 
-  // Roteiro gerado e ainda fora da biblioteca: sair da tela pergunta se ela quer salvar antes.
-  const guarda = useGuardaDeSaida(Boolean(result) && !salvo);
+  // Roteiro sendo escrito, ou gerado e ainda fora da biblioteca: sair da tela pergunta antes.
+  const guarda = useGuardaDeSaida(escrevendo || (Boolean(result) && !salvo));
 
-  const podeGerar = produto.trim().length >= 2 && !generate.isPending && !creditos.esgotado;
+  const podeGerar = produto.trim().length >= 2 && !escrevendo && !creditos.esgotado;
 
   return (
     <div className="space-y-8">
@@ -418,8 +456,8 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
           </div>
 
           <Button type="submit" variant="pop" size="lg" className="mt-7 w-full sm:w-auto" disabled={!podeGerar}>
-            {generate.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-            {generate.isPending ? "Escrevendo seu roteiro…" : "Criar meu roteiro"}
+            {escrevendo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+            {escrevendo ? "Escrevendo seu roteiro…" : "Criar meu roteiro"}
           </Button>
           {creditos.aviso ? (
             <p className="mt-3 text-[12px] text-rose" role="status">
@@ -429,7 +467,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
         </form>
       </section>
 
-      {generate.isPending && !result ? (
+      {escrevendo && !result ? (
         <div className="space-y-4" aria-live="polite">
           <div className="hero-surface h-56 animate-pulse rounded-[28px] opacity-80" />
           <div className="grid gap-4 sm:grid-cols-2">
@@ -472,8 +510,8 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
               {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
               Salvar
             </Button>
-            <Button variant="ghost" onClick={() => generate.mutate()} disabled={generate.isPending || creditos.esgotado}>
-              {generate.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            <Button variant="ghost" onClick={() => generate.mutate()} disabled={escrevendo || creditos.esgotado}>
+              {escrevendo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
               Outra versão
             </Button>
           </div>
@@ -499,6 +537,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
                   onClick={() =>
                     // abrir outro roteiro tira da tela o que não foi salvo
                     sair(() => {
+                      esquecer("roteiro");
                       setResult(script.conteudo);
                       setSalvo(true);
                       setSavedProduto(script.produto);
@@ -539,23 +578,37 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
         )}
       </section>
 
-      <Confirmacao
-        aberta={guarda.aberta}
-        titulo="Salvar o roteiro antes de sair?"
-        descricao="Ele ainda não está na sua biblioteca. Se você sair sem salvar, ele se perde."
-        onFechar={guarda.ficar}
-      >
-        <Button onClick={() => void guarda.sair(() => save.mutateAsync())} disabled={save.isPending}>
-          {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-          Salvar e sair
-        </Button>
-        <Button variant="outline" onClick={() => void guarda.sair()} disabled={save.isPending}>
-          Sair sem salvar
-        </Button>
-        <Button variant="ghost" onClick={guarda.ficar}>
-          Continuar aqui
-        </Button>
-      </Confirmacao>
+      {escrevendo ? (
+        <Confirmacao
+          aberta={guarda.aberta}
+          titulo="Seu roteiro ainda está sendo escrito"
+          descricao="Se você sair agora, ele se perde, e o crédito do roteiro já foi usado."
+          onFechar={guarda.ficar}
+        >
+          <Button onClick={guarda.ficar}>Continuar aqui</Button>
+          <Button variant="outline" onClick={() => void guarda.sair()}>
+            Sair mesmo assim
+          </Button>
+        </Confirmacao>
+      ) : (
+        <Confirmacao
+          aberta={guarda.aberta}
+          titulo="Salvar o roteiro antes de sair?"
+          descricao="Ele ainda não está na sua biblioteca. Se você sair sem salvar, ele se perde."
+          onFechar={guarda.ficar}
+        >
+          <Button onClick={() => void guarda.sair(() => save.mutateAsync())} disabled={save.isPending}>
+            {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            Salvar e sair
+          </Button>
+          <Button variant="outline" onClick={() => void guarda.sair()} disabled={save.isPending}>
+            Sair sem salvar
+          </Button>
+          <Button variant="ghost" onClick={guarda.ficar}>
+            Continuar aqui
+          </Button>
+        </Confirmacao>
+      )}
 
       <Confirmacao
         aberta={apagando !== null}

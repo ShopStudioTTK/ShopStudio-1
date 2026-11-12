@@ -3,11 +3,13 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUp, Loader2, RotateCcw, Sparkles } from "lucide-react";
+import { Confirmacao } from "@/components/confirmacao";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAiChat } from "@/hooks/use-ai-chat";
 import { useAuth } from "@/hooks/use-auth";
 import { useCreditos } from "@/hooks/use-creditos";
+import { useGuardaDeSaida } from "@/hooks/use-guarda-de-saida";
 import { getChapter } from "@/content/chapters";
 import { pertoDoFim } from "@/lib/rolagem";
 import { cn, partesNegrito } from "@/lib/utils";
@@ -29,6 +31,8 @@ const Assistant = () => {
   const { session } = useAuth();
   const { messages, isLoading, error, podeTentarDeNovo, tentarDeNovo, sendMessage, reset } = useAiChat(chapter?.slug);
   const { pronto: contagemPronta, esgotado, aviso } = useCreditos("assistente");
+  // Com a IA escrevendo, sair da página pergunta antes (o F5 retoma; sair pelo app perde a resposta).
+  const guarda = useGuardaDeSaida(isLoading);
   const [input, setInput] = useState("");
   const trechoEnviado = useRef(false);
   // A resposta só puxa a tela para baixo se ela já estava no fim; se subiu para ler, fica onde está.
@@ -221,6 +225,18 @@ const Assistant = () => {
           O assistente usa o guia como base. Regras da plataforma podem mudar — confirme no app.
         </p>
       </div>
+
+      <Confirmacao
+        aberta={guarda.aberta}
+        titulo="A resposta ainda está sendo escrita"
+        descricao="Se você sair agora, ela se perde, e a pergunta já foi descontada dos seus créditos."
+        onFechar={guarda.ficar}
+      >
+        <Button onClick={guarda.ficar}>Continuar aqui</Button>
+        <Button variant="outline" onClick={() => void guarda.sair()}>
+          Sair mesmo assim
+        </Button>
+      </Confirmacao>
     </div>
   );
 };
