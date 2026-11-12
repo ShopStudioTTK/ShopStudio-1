@@ -94,7 +94,7 @@ export async function POST(req: Request) {
 
   try {
     const r = await criarConta(email);
-    await enviarEmailDeAcesso({ email, nome, senhaTemporaria: r === "existe" ? null : r.senhaTemporaria });
+    await enviarEmailDeAcesso({ email, nome, senhaTemporaria: r === "existe" ? null : r.senhaTemporaria, combo: doCurso });
     return ok(r === "existe" ? "ja_tinha_conta" : "conta_criada");
   } catch (e) {
     console.error("webhook/applyfy: falha ao criar a conta ou mandar o e-mail", { transacao, erro: (e as Error).message });
