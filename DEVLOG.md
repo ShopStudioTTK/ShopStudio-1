@@ -27,11 +27,18 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 - **Bug achado no navegador:** o F5 corta o `fetch`, e o `onError` rodava antes de a página sumir, apagando o pedido guardado. Agora o pedido só é esquecido quando o servidor responde com erro. Conexão cortada (`TypeError`) não o apaga.
 
 **Verificado:**
-- Testes (662), lint e build.
+- Testes (663), lint e build.
 - No navegador (Playwright headless, build em `localhost:3005`, OpenRouter de verdade; contas de teste apagadas no fim), 19 cenários certos, console sem erro:
   - **roteiro:** o F5 no meio pediu confirmação, o formulário voltou igual, "Escrevendo…" continuou e o roteiro apareceu; um F5 com o roteiro pronto o trouxe de volta; o menu no meio perguntou; "Continuar aqui" ficou, e depois perguntou "Salvar…"; "Sair mesmo assim" saiu, e ao voltar o roteiro abandonado não estava lá;
   - **assistente:** o F5 no meio pediu confirmação, a pergunta continuou e a resposta apareceu sem aviso de falha; outro F5 manteve a conversa; o menu no meio perguntou, e ao voltar a conversa começou do zero.
 - No banco: 3 roteiros e 2 perguntas, gastos iguais aos pedidos feitos (o F5 não cobra de novo). Os 5 resultados foram guardados com status 200, inclusive o da resposta abandonada.
+
+**Tentando quebrar (pedido da dona, mesmo dia):** mais 22 cenários no navegador (F5 três vezes seguidas, F5 durante a retomada, "Nova conversa" na retomada, internet caída, botão voltar, F5 logo no clique, abrir da biblioteca no meio, celular a 375 px, outra conta na mesma aba). Três bugs, corrigidos:
+- **A resposta trocava de conversa:** "Nova conversa" durante a retomada não parava a espera, e a resposta antiga, quando chegava, entrava na bolha da pergunta seguinte. Agora `vez` muda no "Nova conversa", e a resposta atrasada é ignorada.
+- **O roteiro abandonado voltava:** abrir um roteiro da biblioteca no meio da geração (com "Sair mesmo assim") abria o salvo, mas o abandonado tomava o lugar dele ao ficar pronto, e o botão ficava em "Escrevendo…". Agora `esperado` guarda o pedido que a tela espera, e abrir da biblioteca o zera. Isso já acontecia antes desta mudança, sem pergunta nenhuma.
+- **Privacidade:** com a sessão da conta A caída e a conta B entrando na mesma aba, B via a conversa de A (e o formulário do roteiro). Agora o que fica guardado leva o `userId`, e o de outra conta é apagado sem aparecer.
+- **Mensagem:** o F5 logo no clique, antes de o pedido chegar ao servidor, dá 404. A mensagem agora diz que nenhum crédito foi usado.
+- **Visto e deixado:** o Chrome só mostra o aviso do F5 se houve um clique desde o último carregamento. Um segundo F5 seguido recarrega sem perguntar, e a tela retoma igual. No modo offline do Playwright, o stream já aberto não cai, então a falta de internet de verdade não foi reproduzida; a internet voltando + F5 retomou a resposta.
 
 **Limites conhecidos:**
 - Se a função cair antes de guardar o resultado, a tela desiste depois de 90 s, e o crédito fica gasto.
