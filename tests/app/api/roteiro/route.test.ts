@@ -62,7 +62,6 @@ const regras = (o: { entitlements?: R; config?: R; semCredito?: boolean; admins?
   ["from public.entitlements", o.entitlements ?? [{}]],
   ["from public.admins", o.admins ?? []],
   ["from public.ai_config", o.config ?? [{ tom: "alegre", persona: null, evitar: null }]],
-  ["from public.ai_knowledge", [{ titulo: "t", conteudo: "c" }]],
   ["insert into public.creditos_semana", o.semCredito ? [] : [{ gastos: 1 }]],
   ["insert into public.ai_perguntas", [{ id: "r1" }]],
 ];

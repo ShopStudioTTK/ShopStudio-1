@@ -104,21 +104,13 @@ const FORMATO_FINAL = "\n\nLembrete: responda APENAS com o objeto JSON no format
 
 export const buildSystemPrompt = (
   config: { tom?: string | null; persona?: string | null; evitar?: string | null } | null,
-  knowledge: { titulo: string; conteudo: string }[],
   /** blocoDasFichas (src/lib/fichas.ts): sempre depois do dossiê, para não quebrar o cache. */
   fichas = "",
 ): string => {
   const trainingBlock = config
     ? `\n\nTOM DE VOZ DEFINIDO PELA ADMINISTRAÇÃO (aplique nos textos gerados):\n- Estilo: ${config.tom}\n- Como ela fala: ${config.persona || "não informado"}\n- Nunca faça: ${config.evitar || "não informado"}`
     : "";
-  const knowledgeBlock = knowledge.length
-    ? "\n\nREGRAS E FATOS DA OPERAÇÃO (respeite nos roteiros e nas chamadas para ação):\n" +
-      knowledge
-        .slice(0, 20)
-        .map((row) => `- ${row.titulo}: ${String(row.conteudo).slice(0, 600)}`)
-        .join("\n")
-    : "";
-  return SYSTEM_PROMPT + DOSSIE_BLOCK + trainingBlock + knowledgeBlock + fichas + FORMATO_FINAL;
+  return SYSTEM_PROMPT + DOSSIE_BLOCK + trainingBlock + fichas + FORMATO_FINAL;
 };
 
 export const buildUserPrompt = ({ produto, publico, beneficio, formato, preco }: ScriptInput): string =>

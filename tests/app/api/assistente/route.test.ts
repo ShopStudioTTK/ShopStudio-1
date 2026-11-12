@@ -169,14 +169,14 @@ describe("POST /api/assistente", () => {
       ["insert into public.creditos_semana", [{ gastos: 5 }]],
       ["insert into public.ai_perguntas", [{ id: "p1" }]],
       ["from public.ai_config", [{ nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: null, exemplos: [] }]],
-      ["from public.ai_knowledge", [{ titulo: "Frete", conteudo: "grátis" }]],
     ]);
     await POST(req());
     const body = JSON.parse(String(chat()[1]?.body));
     expect(body.model).toBe("modelo/teste@preset/voz-teste");
     expect(body.provider).toEqual({ order: ["deepinfra/fp8", "morph/fp8"], quantizations: ["fp8"] });
     expect(body.messages[0].content).not.toContain("fala gnt");
-    expect(body.messages[0].content).toContain("### Frete");
+    // a base ai_knowledge saiu (2026-11-12): nenhuma consulta a ela
+    expect(consultas.some((c) => c.sql.includes("ai_knowledge"))).toBe(false);
   });
 
   it("sem OPENROUTER_PRESET, segue com a persona do ai_config", async () => {

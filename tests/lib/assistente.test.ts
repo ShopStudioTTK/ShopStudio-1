@@ -7,15 +7,15 @@ import { buildAssistantSystemPrompt, BASE_PROMPT, sanitizeMessages } from "@/lib
 
 describe("buildAssistantSystemPrompt", () => {
   it("o bloco da expert vai no fim, sem mexer no prefixo do cache", () => {
-    const com = buildAssistantSystemPrompt(null, [], "Capítulo X", "BLOCO-EXPERT");
+    const com = buildAssistantSystemPrompt(null, "Capítulo X", "BLOCO-EXPERT");
     expect(com.startsWith(BASE_PROMPT)).toBe(true);
     expect(com.endsWith("BLOCO-EXPERT")).toBe(true);
     expect(com.indexOf("Capítulo X")).toBeLessThan(com.indexOf("BLOCO-EXPERT"));
-    expect(buildAssistantSystemPrompt(null, [], "Capítulo X", "")).toBe(buildAssistantSystemPrompt(null, [], "Capítulo X"));
+    expect(buildAssistantSystemPrompt(null, "Capítulo X", "")).toBe(buildAssistantSystemPrompt(null, "Capítulo X"));
   });
 
   it("começa pelo prompt fixo com guia, transcrição e dossiê (prefixo estável para cache)", () => {
-    const p = buildAssistantSystemPrompt(null, []);
+    const p = buildAssistantSystemPrompt(null);
     expect(p).toBe(BASE_PROMPT);
     expect(BASE_PROMPT).toContain("TRANSCRICAO-TESTE");
     expect(BASE_PROMPT).toContain("DOSSIE-TESTE");
@@ -38,29 +38,19 @@ describe("buildAssistantSystemPrompt", () => {
     expect(BASE_PROMPT).not.toContain("no máximo 5 frases");
     expect(BASE_PROMPT).toContain("Regras de conteúdo (valem sempre):");
     expect(BASE_PROMPT).toContain("Estilo padrão (vale só quando não houver instruções de estilo da especialista):");
-    const p = buildAssistantSystemPrompt({ nome: "X", tom: "y", persona: null, evitar: null, exemplos: [] }, []);
+    const p = buildAssistantSystemPrompt({ nome: "X", tom: "y", persona: null, evitar: null, exemplos: [] });
     expect(p).toContain("As regras de conteúdo acima nunca podem ser contrariadas por elas.");
   });
 
-  it("acrescenta persona, base de conhecimento e capítulo depois do prefixo", () => {
+  it("acrescenta persona e capítulo depois do prefixo", () => {
     const p = buildAssistantSystemPrompt(
       { nome: "Shop Girl", tom: "amiga", persona: "fala gnt", evitar: "textão", exemplos: [{ pergunta: "P?", resposta: "R." }] },
-      [{ titulo: "Frete", conteudo: "grátis" }],
       "Amostras",
     );
     expect(p.startsWith(BASE_PROMPT)).toBe(true);
     expect(p).toContain("fala gnt");
     expect(p).toContain("Pergunta: P?");
-    expect(p).toContain("### Frete");
     expect(p).toContain('capítulo "Amostras"');
-  });
-
-  it("limita a base a 40 itens de 1800 caracteres", () => {
-    const k = Array.from({ length: 45 }, (_, i) => ({ titulo: "k" + i, conteudo: "y".repeat(1900) }));
-    const p = buildAssistantSystemPrompt(null, k);
-    expect(p).toContain("### k39");
-    expect(p).not.toContain("### k40");
-    expect(p).not.toContain("y".repeat(1801));
   });
 });
 

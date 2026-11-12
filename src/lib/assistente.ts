@@ -65,7 +65,6 @@ type Exemplo = { pergunta?: string; resposta?: string };
 
 export const buildAssistantSystemPrompt = (
   config: AssistantConfig,
-  knowledge: { titulo: string; conteudo: string }[],
   chapterTitle?: string,
   expert = "",
 ): string => {
@@ -81,14 +80,6 @@ Siga estas instruções de estilo com prioridade sobre o estilo padrão. As regr
 - Tom: ${config.tom}
 - Como ela fala: ${config.persona || "não informado"}
 - Nunca faça: ${config.evitar || "não informado"}${exemplos ? `\n\nExemplos de resposta ideal (imite o estilo, não copie o conteúdo):\n${exemplos}` : ""}`;
-  }
-  if (knowledge.length) {
-    prompt +=
-      "\n\nBASE DE CONHECIMENTO DO SHOP STUDIO (fatos oficiais definidos pela administração — use sempre que a pergunta tocar nesses assuntos):\n" +
-      knowledge
-        .slice(0, 40)
-        .map((row) => `### ${row.titulo}\n${String(row.conteudo).slice(0, 1800)}`)
-        .join("\n\n");
   }
   if (chapterTitle) {
     prompt += `\n\nA página aberta agora é o capítulo "${chapterTitle}". Priorize responder com base nele quando a pergunta for relacionada.`;

@@ -79,20 +79,6 @@ export type Database = {
                   Relationships: [
                     
                   ]
-                },"ai_knowledge": {
-                  Row: {
-                    "conteudo": string,"id": string,"ordem": number,"titulo": string,"updated_at": string
-                  }
-                  ComputedFields: never
-                  Insert: {
-                    "conteudo": string,"id"?: string,"ordem"?: number,"titulo": string,"updated_at"?: string
-                  }
-                  Update: {
-                    "conteudo"?: string,"id"?: string,"ordem"?: number,"titulo"?: string,"updated_at"?: string
-                  }
-                  Relationships: [
-                    
-                  ]
                 },"ai_perguntas": {
                   Row: {
                     "capitulo": string | null,"created_at": string,"custo_usd": number | null,"id": string,"pergunta": string,"rota": string,"tokens_cache": number | null,"tokens_entrada": number | null,"tokens_saida": number | null,"user_id": string

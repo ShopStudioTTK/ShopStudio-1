@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   const descontar = () => liberarChamada(reserva);
 
   // Opcionais: config, base, fichas da expert (parecidas e fixas) e gatilhos. Falha em qualquer um = roteiro como antes.
-  const [{ config, knowledge }, parecidas, gatilhos, fixas] = await Promise.all([
+  const [config, parecidas, gatilhos, fixas] = await Promise.all([
     configDaIA(),
     buscarParecidas(input.produto),
     listarGatilhos().catch((e): Gatilho[] => {
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     response = await chamarOpenRouter(apiKey, {
       model,
       messages: [
-        { role: "system", content: buildSystemPrompt(config, knowledge, blocoDasFichas(parecidas, gatilhos, fixas) + (rascunho ? RASCUNHO_BLOCK : "")) },
+        { role: "system", content: buildSystemPrompt(config, blocoDasFichas(parecidas, gatilhos, fixas) + (rascunho ? RASCUNHO_BLOCK : "")) },
         { role: "user", content: buildUserPrompt(input) },
       ],
       stream: false,
