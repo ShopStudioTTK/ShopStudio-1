@@ -70,6 +70,7 @@ export async function POST(req: Request) {
       stream: false,
       temperature: 0.8,
       max_tokens: 4000,
+      reasoning: { enabled: false },
     });
   } catch (e) {
     console.error("roteiro: falha na chamada à OpenRouter", e);
