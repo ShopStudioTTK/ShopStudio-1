@@ -4,6 +4,41 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: IA escrevendo: perguntar antes de sair e retomar no F5
+
+**Pedido:** no gerador e no assistente, quem saía ou dava F5 durante a geração não via o resultado, mas a chamada era processada e o crédito, gasto. A dona quer que a tela pergunte antes de sair, avisando que o resultado se perde, e que o F5 continue de onde parou.
+
+**Como estava:**
+- No roteiro, a guarda só perguntava com o roteiro já pronto e não salvo.
+- No assistente, não havia guarda, e a conversa nem sobrevivia ao F5.
+- Ao fechar a conexão, o stream do assistente era cancelado até a OpenRouter: a resposta se perdia, e o crédito também (o "limite conhecido" da entrada "Tentar de novo").
+
+**Como ficou:**
+- **Guarda:** a mesma `useGuardaDeSaida`, ligada também enquanto a IA escreve, com o pop-up "Seu roteiro ainda está sendo escrito" / "A resposta ainda está sendo escrita" (**Continuar aqui**, que é o botão principal, ou **Sair mesmo assim**). No F5 e ao fechar a aba, o navegador só deixa mostrar o aviso dele.
+- **F5 retoma:**
+  - o navegador guarda o id do pedido no `sessionStorage` (`src/lib/pedido.ts`);
+  - a rota grava esse id em `ai_perguntas.pedido`, termina com `after()` e guarda o `{ status, corpo }` em `ai_perguntas.resultado` (migration `20261112050000`);
+  - a tela espera por `GET /api/pedidos?id=` (202 enquanto escreve, 404, 504 depois de 90 s).
+- **`comRegistroDeUso`** lê a OpenRouter num laço próprio e só repassa à aluna enquanto ela está lá. A resposta chega ao fim mesmo com o stream da aluna cancelado. Se a conexão com a OpenRouter cair, o fim também roda: o crédito volta (resolve o limite conhecido).
+- **Decisões da dona:** sair pelo app depois de confirmar descarta o resultado (ele fica gravado, mas a tela não o traz de volta). **Decisões minhas:**
+  - no assistente, a conversa inteira passa a sobreviver ao F5, porque é onde a resposta retomada aparece; sair pelo app ou "Nova conversa" a apagam, como antes;
+  - um F5 com o roteiro pronto e não salvo também o traz de volta, porque o pedido só é esquecido ao salvar;
+  - o rascunho de ficha da admin fica de fora.
+- **Bug achado no navegador:** o F5 corta o `fetch`, e o `onError` rodava antes de a página sumir, apagando o pedido guardado. Agora o pedido só é esquecido quando o servidor responde com erro. Conexão cortada (`TypeError`) não o apaga.
+
+**Verificado:**
+- Testes (662), lint e build.
+- No navegador (Playwright headless, build em `localhost:3005`, OpenRouter de verdade; contas de teste apagadas no fim), 19 cenários certos, console sem erro:
+  - **roteiro:** o F5 no meio pediu confirmação, o formulário voltou igual, "Escrevendo…" continuou e o roteiro apareceu; um F5 com o roteiro pronto o trouxe de volta; o menu no meio perguntou; "Continuar aqui" ficou, e depois perguntou "Salvar…"; "Sair mesmo assim" saiu, e ao voltar o roteiro abandonado não estava lá;
+  - **assistente:** o F5 no meio pediu confirmação, a pergunta continuou e a resposta apareceu sem aviso de falha; outro F5 manteve a conversa; o menu no meio perguntou, e ao voltar a conversa começou do zero.
+- No banco: 3 roteiros e 2 perguntas, gastos iguais aos pedidos feitos (o F5 não cobra de novo). Os 5 resultados foram guardados com status 200, inclusive o da resposta abandonada.
+
+**Limites conhecidos:**
+- Se a função cair antes de guardar o resultado, a tela desiste depois de 90 s, e o crédito fica gasto.
+- Sem `sessionStorage` (bloqueado), a guarda pergunta igual, mas o F5 não retoma.
+
+**Produção:** a migration vai **antes** do deploy, porque o `insert` de `reservarChamada` já usa a coluna `pedido`.
+
 ## 2026-11-12: Créditos por tipo: 15 perguntas e 7 roteiros por semana
 
 **Pedido:** o projeto mudou de dono no GitHub (`ShopStudioTTK/ShopStudio-1`) e no Supabase. No lugar do saldo único de 40 créditos, a dona quer dois saldos semanais: 15 perguntas ao assistente e 7 roteiros. Cada pedido gasta 1, do tamanho que for (o meio crédito a mais pelos tokens saiu). Admin continua ilimitada. Ela escolheu a contagem simples entre as duas opções, porque é fácil de a aluna entender quanto resta.

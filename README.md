@@ -153,6 +153,7 @@ docs/superpowers/             design e plano da migração do Enter
 - A IA usa primeiro o material e cita a aula e o minuto ("Aula 7, 3:12"). Quando o material não cobre o assunto, ela responde mesmo assim com o que se sabe em geral e diz que aquela parte não está nas aulas. Não abre com "o material não cobre", não atribui à Ana o que não é dela e não dá número, prazo ou regra inventados como certos. A resposta chega aos poucos (SSE).
 - **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. Nesse caso, a `PERSONA` não vai, para as duas não brigarem. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
 - **Créditos:** cada pergunta gasta 1 das 15 da semana (ver [Créditos semanais](#créditos-semanais)).
+- **IA escrevendo:** sair pelo app enquanto a resposta chega pergunta antes ("A resposta ainda está sendo escrita", **Continuar aqui** ou **Sair mesmo assim**; a pergunta já foi descontada). No F5, o navegador mostra o aviso dele, e a tela **retoma**: a conversa volta e a resposta aparece inteira quando fica pronta (ver [Retomar depois do F5](#retomar-depois-do-f5)).
 
 ### Créditos semanais
 
@@ -168,6 +169,15 @@ select u.email, c.rota, c.gastos from public.creditos_semana c join auth.users u
 where c.semana = (date_trunc('week', (now() at time zone 'America/Sao_Paulo')::date + 1) - interval '1 day')::date
 order by c.gastos desc;
 ```
+
+### Retomar depois do F5
+
+O gerador e o assistente continuam o trabalho no servidor mesmo quando a aluna sai da página, e o F5 mostra o resultado:
+- antes de chamar a rota, o navegador cria um id para o pedido e o guarda no `sessionStorage` da aba (ele sobrevive ao F5 e some quando a aba fecha);
+- a rota grava o id em `ai_perguntas.pedido`, termina mesmo sem ninguém do outro lado (`after()` do Next, que na Vercel mantém a função viva) e guarda em `ai_perguntas.resultado` o que teria devolvido;
+- depois do F5, a tela pergunta a `GET /api/pedidos?id=…` a cada 2 s, até vir o resultado (no assistente, a resposta chega inteira de uma vez). Se a IA falhou, aparece o erro de sempre (no assistente, com "Tentar de novo"); sem resultado depois de 90 s, a tela desiste.
+
+Saindo pelo app, depois de confirmar, o pedido é descartado: o crédito fica gasto e o resultado não volta. No assistente, a conversa da aba também sobrevive ao F5; sair da página pelo app ou "Nova conversa" a apagam, como antes.
 
 ### Mural das alunas (`/api/resultados`)
 A aluna conta o resultado dela: **resultado em uma linha** (até 80 caracteres), **depoimento** e, se quiser, o **link do vídeo no TikTok** (o link curto do celular também vale). Pelo menos o depoimento ou o vídeo. Não há campo de nome: aparece o nome da conta (Minha conta), ou "Aluna do Shop Studio". Até 10 publicações por dia. Ela apaga só as dela, com confirmação. Quem está em `admins` vê um alfinete em todos os cartões para fixar no topo ou desafixar.
@@ -189,6 +199,8 @@ Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de e
 - **Regras por formato:** no Unboxing, o gancho vem antes de abrir a caixa; na Tela verde, a criadora aponta para os prints; o Storytelling segue cena, conflito, descoberta e frase final; a **Música viral é sem fala**, só com "Texto na tela: …", e dura de 7 a 15 segundos (a tela mostra "7 a 15s · sem fala"; os outros formatos, "30 a 60s").
 - **Preço (opcional):** só com o **preço** preenchido o roteiro fala de valor, comparando apenas com ele (nunca com preço inventado de outra loja ou do shopping). Sem preço, nenhum valor aparece.
 - **Continua valendo:** nada de cor, tamanho, variação, promoção, frete, estoque ou tempo de uso que a aluna não informou, e o resultado vem como experiência dela ("senti que desliza"), nunca como garantia.
+
+**Roteiro sendo escrito:** sair pelo app enquanto a IA escreve pergunta "Seu roteiro ainda está sendo escrito" (**Continuar aqui** ou **Sair mesmo assim**; o crédito já foi usado e o roteiro se perde). No F5, o navegador mostra o aviso dele, o formulário volta igual e o roteiro aparece quando fica pronto. Um F5 com o roteiro pronto e ainda não salvo também o traz de volta.
 
 **Roteiro não salvo:** se a aluna tenta sair com um roteiro gerado que ainda não está na biblioteca, aparece "Salvar o roteiro antes de sair?", com **Salvar e sair**, **Sair sem salvar** e **Continuar aqui**. Isso vale para o menu, a barra de baixo do celular, a aba "Ganchos", "Sair da conta", abrir outro roteiro da biblioteca e o botão voltar. Ao recarregar ou fechar a aba, o navegador mostra o aviso padrão dele. Apagar um roteiro da biblioteca pede confirmação ("Apagar este roteiro?").
 
