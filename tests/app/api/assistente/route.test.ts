@@ -167,13 +167,16 @@ describe("POST /api/assistente", () => {
     await POST(req());
     const body = JSON.parse(String(chat()[1]?.body));
     expect(body.model).toBe("modelo/teste@preset/voz-teste");
+    expect(body.messages[0].content).not.toContain("COMO A ADMINISTRAÇÃO");
     expect(body.provider).toEqual({ order: ["deepinfra/fp8", "morph/fp8"], quantizations: ["fp8"] });
   });
 
-  it("sem OPENROUTER_PRESET, chama o modelo puro; persona e base saíram do banco (2026-11-12)", async () => {
+  it("sem OPENROUTER_PRESET, segue com a persona, que vem do código e não do banco (2026-11-12)", async () => {
     await POST(req());
     const body = JSON.parse(String(chat()[1]?.body));
     expect(body.model).toBe("modelo/teste");
+    expect(body.messages[0].content).toContain("COMO A ADMINISTRAÇÃO");
+    expect(body.messages[0].content).toContain("Usa “gnt”, “pq”");
     expect(consultas.some((c) => /ai_config|ai_knowledge/.test(c.sql))).toBe(false);
   });
 

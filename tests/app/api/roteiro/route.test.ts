@@ -222,9 +222,12 @@ describe("POST /api/roteiro", () => {
     expect(creditos("update")[0].valores).toEqual([40, -1, "u1", semanaSP()]);
   });
 
-  it("não consulta persona no banco (ai_config saiu em 2026-11-12)", async () => {
+  it("a persona entra no prompt vinda do código, sem consulta ao banco (ai_config saiu em 2026-11-12)", async () => {
     expect((await POST(req())).status).toBe(200);
     expect(consultas.some((c) => c.sql.includes("ai_config"))).toBe(false);
+    const sistema = JSON.parse(String(vi.mocked(fetch).mock.calls.find(([u]) => String(u).endsWith("/chat/completions"))![1]?.body)).messages[0].content;
+    expect(sistema).toContain("TOM DE VOZ DEFINIDO PELA ADMINISTRAÇÃO");
+    expect(sistema).toContain("Usa “gnt”, “pq”");
   });
 
   it("429 sem créditos na semana, sem gravar nem chamar a IA", async () => {

@@ -4,18 +4,19 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/conhecimento/material", () => ({ DOSSIE: "DOSSIE-TESTE", TRANSCRICAO: "TRANSCRICAO-TESTE" }));
 
 import { buildAssistantSystemPrompt, BASE_PROMPT, sanitizeMessages } from "@/lib/assistente";
+import { PERSONA } from "@/lib/persona";
 
 describe("buildAssistantSystemPrompt", () => {
   it("o bloco da expert vai no fim, sem mexer no prefixo do cache", () => {
-    const com = buildAssistantSystemPrompt("Capítulo X", "BLOCO-EXPERT");
+    const com = buildAssistantSystemPrompt(null, "Capítulo X", "BLOCO-EXPERT");
     expect(com.startsWith(BASE_PROMPT)).toBe(true);
     expect(com.endsWith("BLOCO-EXPERT")).toBe(true);
     expect(com.indexOf("Capítulo X")).toBeLessThan(com.indexOf("BLOCO-EXPERT"));
-    expect(buildAssistantSystemPrompt("Capítulo X", "")).toBe(buildAssistantSystemPrompt("Capítulo X"));
+    expect(buildAssistantSystemPrompt(null, "Capítulo X", "")).toBe(buildAssistantSystemPrompt(null, "Capítulo X"));
   });
 
   it("começa pelo prompt fixo com guia, transcrição e dossiê (prefixo estável para cache)", () => {
-    const p = buildAssistantSystemPrompt();
+    const p = buildAssistantSystemPrompt(null);
     expect(p).toBe(BASE_PROMPT);
     expect(BASE_PROMPT).toContain("TRANSCRICAO-TESTE");
     expect(BASE_PROMPT).toContain("DOSSIE-TESTE");
@@ -40,11 +41,22 @@ describe("buildAssistantSystemPrompt", () => {
     expect(BASE_PROMPT).toContain("Estilo padrão (vale só quando não houver instruções de estilo da especialista):");
   });
 
-  it("acrescenta o capítulo depois do prefixo, sem persona do banco (ai_config saiu em 2026-11-12)", () => {
-    const p = buildAssistantSystemPrompt("Amostras");
+  it("acrescenta a persona (constante do código, não mais do banco) e o capítulo depois do prefixo", () => {
+    const p = buildAssistantSystemPrompt(PERSONA, "Amostras");
     expect(p.startsWith(BASE_PROMPT)).toBe(true);
+    expect(p).toContain("COMO A ADMINISTRAÇÃO DO SHOP STUDIO QUER QUE VOCÊ RESPONDA");
+    expect(p).toContain("As regras de conteúdo acima nunca podem ser contrariadas por elas.");
+    expect(p).toContain(PERSONA.persona);
+    expect(p).toContain(`Pergunta: ${PERSONA.exemplos[0].pergunta}`);
     expect(p).toContain('capítulo "Amostras"');
-    expect(p).not.toContain("COMO A ADMINISTRAÇÃO");
+    expect(p.indexOf(PERSONA.persona)).toBeLessThan(p.indexOf('capítulo "Amostras"'));
+  });
+
+  it("a persona é o texto que estava na linha do ai_config", () => {
+    expect(PERSONA.nome).toBe("Shop Girl");
+    expect(PERSONA.persona).toContain("Usa “gnt”, “pq”, “agr”");
+    expect(PERSONA.evitar).toContain("Não promete ganhos");
+    expect(PERSONA.exemplos).toHaveLength(3);
   });
 });
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { PERSONA } from "@/lib/persona";
 import { DOSSIE } from "@/lib/conhecimento/material";
 import type { FichasDoRoteiro } from "@/lib/fichas-tipos";
 
@@ -103,8 +104,10 @@ Em cada parte do "roteiro": "porque" diz em 1 ou 2 frases por que essa escolha f
 const FORMATO_FINAL = "\n\nLembrete: responda APENAS com o objeto JSON no formato definido no início.";
 
 /** `fichas` = blocoDasFichas (src/lib/fichas.ts): sempre depois do dossiê, para não quebrar o cache. */
+const PERSONA_BLOCK = `\n\nTOM DE VOZ DEFINIDO PELA ADMINISTRAÇÃO (aplique nos textos gerados):\n- Estilo: ${PERSONA.tom}\n- Como ela fala: ${PERSONA.persona}\n- Nunca faça: ${PERSONA.evitar}`;
+
 export const buildSystemPrompt = (fichas = ""): string => {
-  return SYSTEM_PROMPT + DOSSIE_BLOCK + fichas + FORMATO_FINAL;
+  return SYSTEM_PROMPT + DOSSIE_BLOCK + PERSONA_BLOCK + fichas + FORMATO_FINAL;
 };
 
 export const buildUserPrompt = ({ produto, publico, beneficio, formato, preco }: ScriptInput): string =>

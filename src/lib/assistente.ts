@@ -1,5 +1,6 @@
 import "server-only";
 import { DOSSIE, TRANSCRICAO } from "@/lib/conhecimento/material";
+import type { Persona } from "@/lib/persona";
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 
@@ -53,8 +54,23 @@ ${TRANSCRICAO}
 DOSSIÊ DA ESPECIALISTA:
 ${DOSSIE}`;
 
-export const buildAssistantSystemPrompt = (chapterTitle?: string, expert = ""): string => {
+/** `persona` nula = a voz vem do preset da OpenRouter (ou do estilo padrão do BASE_PROMPT). */
+export const buildAssistantSystemPrompt = (persona: Persona | null, chapterTitle?: string, expert = ""): string => {
   let prompt = BASE_PROMPT;
+  if (persona) {
+    const exemplos = persona.exemplos
+      .map((e, i) => `Exemplo ${i + 1}\nPergunta: ${e.pergunta}\nResposta ideal: ${e.resposta}`)
+      .join("\n\n");
+    prompt += `\n\nCOMO A ADMINISTRAÇÃO DO SHOP STUDIO QUER QUE VOCÊ RESPONDA
+Siga estas instruções de estilo com prioridade sobre o estilo padrão. As regras de conteúdo acima nunca podem ser contrariadas por elas.
+- Nome da assistente: ${persona.nome}
+- Tom: ${persona.tom}
+- Como ela fala: ${persona.persona}
+- Nunca faça: ${persona.evitar}
+
+Exemplos de resposta ideal (imite o estilo, não copie o conteúdo):
+${exemplos}`;
+  }
   if (chapterTitle) {
     prompt += `\n\nA página aberta agora é o capítulo "${chapterTitle}". Priorize responder com base nele quando a pergunta for relacionada.`;
   }

@@ -64,7 +64,7 @@ Preencha também no `.env.local`:
 | `OPENROUTER_API_KEY` | só servidor (rotas `/api/*`) | **sim** |
 | `OPENROUTER_MODEL` | só servidor. Hoje: `deepseek/deepseek-v4.1-flash-1017` | não |
 | `OPENROUTER_EMBEDDING_MODEL` | só servidor. Modelo de embedding do treinamento da IA. Padrão `openai/text-embedding-3-small` (1536 dimensões, acoplado à coluna `treinamento.embedding`) | não |
-| `OPENROUTER_PRESET` | só servidor, só o assistente. Slug do preset da OpenRouter com a voz da especialista (hoje: `ana-shop-studio-leads-behavior`). Vazio = sem preset (vale o estilo padrão do prompt) | não |
+| `OPENROUTER_PRESET` | só servidor, só o assistente. Slug do preset da OpenRouter com a voz da especialista (hoje: `ana-shop-studio-leads-behavior`). Com ele, a persona (`PERSONA`) sai do prompt do assistente. Vazio = sem preset | não |
 | `WEBHOOK_CONTA_SEGREDO` | só servidor (`/api/webhook/conta`). A plataforma de venda manda no `Authorization: Bearer`. Sem ele, o webhook responde 500 | **sim** |
 | `WEBHOOK_CONTA_ORIGENS` | só servidor. Origens liberadas no CORS do webhook, separadas por vírgula. Vazio = nenhuma | não |
 | `APPLYFY_WEBHOOK_TOKEN` | só servidor (`/api/webhook/applyfy`). Token do webhook na Applyfy, que ela manda no campo `token` do corpo. Sem ele, o webhook responde 500 | **sim** |
@@ -149,9 +149,9 @@ docs/superpowers/             design e plano da migração do Enter
 ## IA: assistente, roteiros e custos
 
 ### Assistente (`/api/assistente`)
-- Cada pergunta envia ao modelo as regras, o **resumo dos 12 capítulos**, a **transcrição das aulas** e o **dossiê da especialista** (~78 mil tokens). Junto vão as últimas 12 mensagens da conversa.
+- Cada pergunta envia ao modelo as regras, o **resumo dos 12 capítulos**, a **transcrição das aulas** e o **dossiê da especialista** (~78 mil tokens). Junto vão a persona (`PERSONA`, em `src/lib/persona.ts`) e as últimas 12 mensagens da conversa.
 - A IA usa primeiro o material e cita a aula e o minuto ("Aula 7, 3:12"). Quando o material não cobre o assunto, ela responde mesmo assim com o que se sabe em geral e diz que aquela parte não está nas aulas. Não abre com "o material não cobre", não atribui à Ana o que não é dela e não dá número, prazo ou regra inventados como certos. A resposta chega aos poucos (SSE).
-- **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
+- **Voz da especialista:** com `OPENROUTER_PRESET`, o modelo vai como `<modelo>@preset/<slug>`, e o system prompt do preset (o jeito de falar da Ana) entra **antes** do nosso. Nesse caso, a `PERSONA` não vai, para as duas não brigarem. O preset leva **só o system prompt**: provedores, `temperature` e `max_tokens` ficam no código. O campo `preset` no corpo é ignorado pela OpenRouter (testado). Cada edição do preset zera o cache uma vez.
 - **Créditos:** cada pergunta gasta créditos da semana (ver [Créditos semanais](#créditos-semanais)).
 
 ### Créditos semanais
@@ -189,7 +189,7 @@ A tela de Roteiros abre nos **ganchos** (a aba "Criar roteiro" vem depois, em `?
 Toda aluna dá nota de 1 a 5 a qualquer gancho (`POST /api/ganchos/nota`; dar de novo troca a nota), e cada cartão mostra a média e quantas notas tem. Quem está em `admins` vê o lápis (muda o texto e o tipo) e a lixeira (pede confirmação) em todos os ganchos, do banco e da comunidade; `PATCH` e `DELETE` passam por `admin()`, e a aluna recebe 403. Apagar leva as notas junto.
 
 ### Gerador de roteiros (`/api/roteiro`)
-Usa o método 5×5 do capítulo 10 e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags, formato e o **gatilho** do gancho escolhido (um dos slugs de `gatilhos`). **Voz da Ana** (desde 2026-11-11):
+Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de estilo). Devolve JSON com ganchos, problemas, soluções, CTAs, roteiro, hashtags, formato e o **gatilho** do gancho escolhido (um dos slugs de `gatilhos`). **Voz da Ana** (desde 2026-11-11):
 - **Marcas de fala obrigatórias:** pelo menos 2 vocativos ("amiga", "miga", "gente", "menina"), as expressões dela ("porque assim…", "né?", "juro"), de 2 a 4 palavras em CAIXA ALTA, 1 ou 2 palavras esticadas ("suuuper"), português falado e instrução de cena entre colchetes ("[mostrar de perto]").
 - **Frases proibidas:** "produto incrível", "não perca", "confira" e parecidas.
 - **Ganchos:** os 5 são de tipos diferentes. Um é de **fofoca com prova social** ("minha irmã pegou minha escova…"), que fica só entre as opções, porque a aluna pode não ter vivido aquilo; o gancho do roteiro nunca é esse.
@@ -277,7 +277,7 @@ Migrations em `supabase/migrations/`:
 | `fichas_roteiro` | fichas de roteiro da expert, com embedding (pgvector, 1536) só de produto + tipo. Sem `user_id` de aluna | servidor (`/api/fichas`, só admin) |
 | `treinamento_conversas` | uma conversa do assistente = um item na fila. O `user_id` só serve para o servidor achar a conversa certa e nunca sai nas rotas | servidor (`/api/assistente`) |
 
-No app, a administração tem a página de treinamento da IA, o cadastro na aba de Campeões e a edição dos ganchos. Admins, códigos e vídeos dos capítulos continuam sendo editados no painel do Supabase.
+No app, a administração tem a página de treinamento da IA, o cadastro na aba de Campeões e a edição dos ganchos. Admins, códigos e vídeos dos capítulos continuam sendo editados no painel do Supabase; a persona da IA fica no código (`src/lib/persona.ts`).
 
 Para criar uma migration nova: crie `supabase/migrations/AAAAMMDDHHMMSS_nome.sql`, rode `pnpm supabase migration up` e depois `pnpm db:types`.
 

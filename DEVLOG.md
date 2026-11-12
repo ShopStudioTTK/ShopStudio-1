@@ -4,15 +4,16 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
-## 2026-11-12: Saem a persona `ai_config` e os vídeos "campeão" do `chapter_videos`
+## 2026-11-12: A persona sai do banco (`ai_config` → `src/lib/persona.ts`) e os vídeos "campeão" do `chapter_videos`
 
-**Pedido:** a dona perguntou se o `ai_config` (uma linha só, lida em toda pergunta e todo roteiro) precisava ficar no banco, e se o `chapter_videos` estava em uso.
+**Pedido:** a dona achou que não fazia sentido uma tabela de uma linha só, lida em toda pergunta e todo roteiro. Pediu para manter a regra (a voz da Ana com "gnt", "pq", emoji) e aplicá-la de outro jeito. Também perguntou se o `chapter_videos` estava em uso.
 
-**`ai_config` (decisão: remover):**
-- No assistente, com `OPENROUTER_PRESET`, a persona já não entrava no prompt: a consulta era jogada fora.
-- No gerador, ela entrava como "TOM DE VOZ DEFINIDO PELA ADMINISTRAÇÃO", em estilo de conversa de WhatsApp ("gnt", "pq", emoji, 2 ou 3 frases). Isso competia com a voz da Ana para vídeo falado (2026-11-11).
-- Saíram `configDaIA`, o parâmetro `config` de `buildAssistantSystemPrompt` e `buildSystemPrompt` e o bloco da persona. A migration `20261112030000_remove_ai_config` apaga a tabela.
-- **Efeito:** sem o preset, o assistente usa o estilo padrão do `BASE_PROMPT` (que não mudou, então o cache segue). No roteiro, a voz fica só com as regras da Ana e as fichas de exemplo fixo.
+**`ai_config` → constante:**
+- O texto da linha (o mesmo da migration inicial) virou `PERSONA` em `src/lib/persona.ts`, `server-only`. Os prompts ficaram iguais, sem a consulta ao banco.
+- O assistente usa a persona só sem `OPENROUTER_PRESET`, como antes. O roteiro usa sempre.
+- Saiu `configDaIA`. A migration `20261112030000_remove_ai_config` apaga a tabela.
+- **Custo:** mudar a persona agora exige deploy, em vez do painel do Supabase.
+- Primeiro a persona saiu inteira dos prompts. A dona corrigiu: a regra fica, só a tabela sai.
 
 **`chapter_videos` (decisão: só tirar o código morto):** a página do capítulo continua mostrando os vídeos cadastrados pelo painel. Saiu a coleção "campeão" (`?colecao=campeao` e `useChampionVideos`), sem uso desde que os Campeões ganharam tabela própria. A coluna `colecao` ficou no banco, sem uso.
 
