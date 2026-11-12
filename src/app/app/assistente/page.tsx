@@ -175,7 +175,10 @@ const Assistant = () => {
         >
           <p>{error}</p>
           {podeTentarDeNovo ? (
-            <Button variant="outline" size="sm" onClick={tentarDeNovo} disabled={isLoading || esgotado} className="shrink-0">
+            <Button variant="outline" size="sm" onClick={() => {
+                seguindo.current = true;
+                tentarDeNovo();
+              }} disabled={isLoading || esgotado} className="shrink-0">
               <RotateCcw className="h-3.5 w-3.5" />
               Tentar de novo
             </Button>
