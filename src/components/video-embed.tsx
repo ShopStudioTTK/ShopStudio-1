@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ExternalLink, Play } from "lucide-react";
+import { criarFila, INTERVALO_ENTRE_PLAYERS_MS } from "@/lib/fila-de-players";
 import { parseVideoUrl, providerLabel } from "@/lib/video";
 import { cn } from "@/lib/utils";
 
@@ -7,8 +8,44 @@ type VideoEmbedProps = {
   url: string;
   titulo?: string;
   className?: string;
-  /** Carrega o player já (sem autoplay), que mostra a capa do vídeo. O iframe é lazy: só carrega perto da tela. */
+  /**
+   * Carrega o player sozinho (sem autoplay), que mostra a capa do vídeo. Só carrega perto da tela
+   * e na vez dele na fila (`fila-de-players.ts`): todos juntos, o TikTok responde 429.
+   */
   previa?: boolean;
+};
+
+/** Uma fila para a página toda: os players de prévia carregam um de cada vez. */
+const filaDosPlayers = criarFila(INTERVALO_ENTRE_PLAYERS_MS);
+
+/** Entra na fila quando o cartão chega perto da tela; sai dela se o cartão sair antes da vez. */
+const useVezNaFila = (ligado: boolean) => {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [liberado, setLiberado] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!ligado || liberado || !el) return;
+    let cancelar: (() => void) | null = null;
+    const observador = new IntersectionObserver(
+      ([entrada]) => {
+        if (entrada.isIntersecting) {
+          cancelar ??= filaDosPlayers.pedir(() => setLiberado(true));
+        } else {
+          cancelar?.();
+          cancelar = null;
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observador.observe(el);
+    return () => {
+      observador.disconnect();
+      cancelar?.();
+    };
+  }, [ligado, liberado]);
+
+  return { ref, liberado };
 };
 
 const comAutoplay = (provider: string, embedUrl: string) =>
@@ -21,6 +58,7 @@ const comAutoplay = (provider: string, embedUrl: string) =>
 export const VideoEmbed = ({ url, titulo, className, previa = false }: VideoEmbedProps) => {
   const video = parseVideoUrl(url);
   const [ativo, setAtivo] = useState(false);
+  const fila = useVezNaFila(previa && Boolean(video.embedUrl));
 
   const formato = video.vertical ? "mx-auto w-full max-w-[320px] aspect-[9/16]" : "aspect-video";
 
@@ -60,10 +98,12 @@ export const VideoEmbed = ({ url, titulo, className, previa = false }: VideoEmbe
     );
   }
 
-  // O player só é carregado quando a aluna toca em assistir — deixa a abertura do app leve.
-  if (!ativo && !previa) {
+  // Sem prévia, o player só carrega quando a aluna toca em assistir. Com prévia, este quadro
+  // fica até a vez do cartão na fila; o toque carrega na hora.
+  if (!ativo && !(previa && fila.liberado)) {
     return (
       <button
+        ref={previa ? fila.ref : undefined}
         type="button"
         onClick={() => setAtivo(true)}
         aria-label={titulo ? `Assistir: ${titulo}` : "Assistir vídeo"}
@@ -101,7 +141,7 @@ export const VideoEmbed = ({ url, titulo, className, previa = false }: VideoEmbe
       )}
     >
       <iframe
-        src={previa ? video.embedUrl : comAutoplay(video.provider, video.embedUrl)}
+        src={ativo ? comAutoplay(video.provider, video.embedUrl) : video.embedUrl}
         title={titulo ?? "Vídeo"}
         loading="lazy"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
