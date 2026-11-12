@@ -3,7 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { temAcesso } from "@/lib/access";
 import { estadoDaSenhaTemporaria } from "@/lib/contas";
 import { db } from "@/lib/db";
-import { CREDITOS_POR_SEMANA, MSG_SEM_CREDITOS, precoEmCreditos, semanaSP } from "@/lib/limite";
+import { LIMITE_SEMANAL, MSG_SEM_CREDITOS, semanaSP, type TipoDeCredito } from "@/lib/limite";
 import type { Uso } from "@/lib/uso";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -122,20 +122,18 @@ export type Rota = "assistente" | "roteiro";
 /** Reserva de uma chamada de IA. `semana` nula = admin, sem créditos. */
 export type Reserva = { id: string; userId: string; rota: Rota; semana: string | null };
 
-const ajustarCreditos = (userId: string, semana: string, delta: number) => db()`
-  update public.creditos_semana set gastos = least(${CREDITOS_POR_SEMANA}, greatest(0, gastos + ${delta}))
-  where user_id = ${userId} and semana = ${semana}`;
-
-/** Créditos que restam à aluna nesta semana (semana sem linha = nada gasto). */
-export const creditosRestantes = async (userId: string): Promise<number> => {
-  const [linha] = await db()`
-    select gastos::float8 as gastos from public.creditos_semana where user_id = ${userId} and semana = ${semanaSP()}`;
-  return CREDITOS_POR_SEMANA - Number(linha?.gastos ?? 0);
+/** Quanto resta de cada tipo à aluna nesta semana (tipo sem linha = nada gasto). */
+export const creditosRestantes = async (userId: string): Promise<Record<TipoDeCredito, number>> => {
+  const linhas = await db()`
+    select rota, gastos from public.creditos_semana where user_id = ${userId} and semana = ${semanaSP()}`;
+  const gasto = (tipo: TipoDeCredito) => Number(linhas.find((l) => l.rota === tipo)?.gastos ?? 0);
+  return { assistente: LIMITE_SEMANAL.assistente - gasto("assistente"), roteiro: LIMITE_SEMANAL.roteiro - gasto("roteiro") };
 };
 
 /**
- * Reserva 1 crédito da semana (numa consulta só, que só soma se ainda couber no total) e grava a
- * chamada em ai_perguntas. Admin (`ilimitada`) não mexe em créditos.
+ * Reserva 1 crédito da semana do tipo da rota (numa consulta só, que só soma se ainda couber no
+ * limite dela) e grava a chamada em ai_perguntas. Cada pedido gasta 1, do tamanho que for.
+ * Admin (`ilimitada`) não mexe em créditos.
  */
 export async function reservarChamada(
   userId: string,
@@ -149,15 +147,15 @@ export async function reservarChamada(
     let reservou: boolean;
     try {
       reservou = (await db()`
-        insert into public.creditos_semana (user_id, semana, gastos) values (${userId}, ${reserva.semana}, 1)
-        on conflict (user_id, semana) do update set gastos = creditos_semana.gastos + 1
-        where creditos_semana.gastos + 1 <= ${CREDITOS_POR_SEMANA}
+        insert into public.creditos_semana (user_id, semana, rota, gastos) values (${userId}, ${reserva.semana}, ${rota}, 1)
+        on conflict (user_id, semana, rota) do update set gastos = creditos_semana.gastos + 1
+        where creditos_semana.gastos + 1 <= ${LIMITE_SEMANAL[rota]}
         returning gastos`).length > 0;
     } catch (e) {
       console.error(`${rota}: falha ao reservar crédito`, e);
       return erro("Não consegui verificar seus créditos agora.", 500);
     }
-    if (!reservou) return erro(MSG_SEM_CREDITOS, 429);
+    if (!reservou) return erro(MSG_SEM_CREDITOS[rota], 429);
   }
   try {
     const [{ id }] = await db()`
@@ -174,14 +172,11 @@ export async function reservarChamada(
 /** A aluna não recebeu resposta: o crédito reservado volta. */
 export const devolverCredito = async (r: Reserva) => {
   if (!r.semana) return;
-  await ajustarCreditos(r.userId, r.semana, -1).catch((e) => console.error(`${r.rota}: falha ao devolver crédito`, e));
-};
-
-/** Cobra o que o preço real (pelos tokens de saída) passou do crédito reservado. */
-export const cobrarCreditos = async (r: Reserva, tokensSaida: number | null | undefined) => {
-  const extra = precoEmCreditos(r.rota, tokensSaida) - 1;
-  if (!r.semana || extra <= 0) return;
-  await ajustarCreditos(r.userId, r.semana, extra).catch((e) => console.error(`${r.rota}: falha ao cobrar créditos`, e));
+  await db()`
+    update public.creditos_semana set gastos = greatest(0, gastos - 1)
+    where user_id = ${r.userId} and semana = ${r.semana} and rota = ${r.rota}`.catch((e) =>
+    console.error(`${r.rota}: falha ao devolver crédito`, e),
+  );
 };
 
 /** Chamada que a IA não atendeu: some de ai_perguntas e não gasta crédito. */

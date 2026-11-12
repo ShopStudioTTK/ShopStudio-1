@@ -2,7 +2,6 @@ import { getChapter } from "@/content/chapters";
 import {
   autorizar,
   chamarOpenRouter,
-  cobrarCreditos,
   devolverCredito,
   ehAdmin,
   erro,
@@ -84,7 +83,6 @@ export async function POST(req: Request) {
     // também não entra na fila de treinamento, para meia resposta nunca ser aprovada como exemplo.
     // ponytail: se o stream de cima quebrar (conexão caída), o flush não roda e o crédito não volta.
     if (!fim.texto.trim() || fim.finishReason !== "stop") return devolverCredito(reserva);
-    await cobrarCreditos(reserva, uso?.completion_tokens);
     if (!conversa) return;
     await registrarNaFila({ userId, conversa, contexto: anteriores, pergunta, respostaIa: fim.texto, vetor: expert.vetor })
       .catch((e) => console.error("assistente: falha ao gravar na fila de treinamento", e));

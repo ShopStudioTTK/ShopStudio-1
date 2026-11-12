@@ -157,14 +157,14 @@ isOneToOne: false
                   ]
                 },"creditos_semana": {
                   Row: {
-                    "gastos": number,"semana": string,"user_id": string
+                    "gastos": number,"rota": string,"semana": string,"user_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "gastos"?: number,"semana": string,"user_id": string
+                    "gastos"?: number,"rota": string,"semana": string,"user_id": string
                   }
                   Update: {
-                    "gastos"?: number,"semana"?: string,"user_id"?: string
+                    "gastos"?: number,"rota"?: string,"semana"?: string,"user_id"?: string
                   }
                   Relationships: [
                     
