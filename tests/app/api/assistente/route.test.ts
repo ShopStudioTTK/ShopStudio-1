@@ -341,6 +341,31 @@ describe("respostas da expert e fila de treinamento", () => {
     }
   });
 
+  it("no fim do stream, acrescenta a pergunta e a resposta ao histórico da aluna logada (Conversas anteriores)", async () => {
+    const res = await POST(req({ messages: conversa, conversa: CONV, user_id: "u2" }));
+    await fim(res);
+    const h = naTabela("conversas")[0];
+    expect(h.sql).toContain("on conflict (user_id, id) do update set mensagens = conversas.mensagens || excluded.mensagens");
+    expect(h.valores.slice(0, 3)).toEqual(["u1", CONV, "Como pedir amostra?"]);
+    expect(JSON.parse(h.valores[3] as string)).toEqual([
+      { role: "user", content: "Como pedir amostra?" },
+      { role: "assistant", content: "Oi" },
+    ]);
+  });
+
+  it("sem conversa válida, nada vai para o histórico; falha ao gravar o histórico não atrapalha a aluna", async () => {
+    await fim(await POST(req({ messages: conversa })));
+    expect(naTabela("conversas")).toHaveLength(0);
+    responderCom([
+      ["from public.entitlements", [{}]],
+      ["insert into public.creditos_semana", [{ gastos: 5 }]],
+      ["insert into public.ai_perguntas", [{ id: "p1" }]],
+      ["insert into public.conversas", new Error("db")],
+    ]);
+    const res = await POST(req({ messages: conversa, conversa: CONV }));
+    expect(await res.text()).toBe(sse);
+  });
+
   it("resposta cortada, com erro, interrompida ou vazia não entra na fila", async () => {
     for (const corpo of [
       'data: {"choices":[{"delta":{"content":"Oi"},"finish_reason":"length"}]}\n\ndata: [DONE]\n\n',
@@ -354,6 +379,7 @@ describe("respostas da expert e fila de treinamento", () => {
         String(url).endsWith("/embeddings") ? new Response(JSON.stringify({ data: [{ embedding: vetor }] })) : new Response(corpo));
       await fim(await POST(req({ messages: conversa, conversa: CONV })));
       expect(daFila()).toBeUndefined();
+      expect(naTabela("conversas")).toHaveLength(0);
     }
   });
 

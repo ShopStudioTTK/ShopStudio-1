@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { CartaoDaExpert } from "@/components/fichas-da-expert";
 import { Confirmacao } from "@/components/confirmacao";
@@ -14,6 +15,7 @@ import { CREDITOS_KEY, useCreditos } from "@/hooks/use-creditos";
 import { useAuth } from "@/hooks/use-auth";
 import { useGuardaDeSaida } from "@/hooks/use-guarda-de-saida";
 import { api } from "@/lib/api-cliente";
+import { LIMITE_SEMANAL } from "@/lib/limite";
 import { esperarPedido, esquecer, lembrado, lembrar } from "@/lib/pedido";
 import { sair } from "@/lib/saida";
 import { cn } from "@/lib/utils";
@@ -515,10 +517,17 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
               {save.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
               Salvar
             </Button>
-            <Button variant="ghost" onClick={() => generate.mutate()} disabled={escrevendo || creditos.esgotado}>
-              {escrevendo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-              Outra versão
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" onClick={() => generate.mutate()} disabled={escrevendo || creditos.esgotado}>
+                  {escrevendo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Outra versão
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[240px] text-[12.5px] leading-snug">
+                Gera um roteiro novo e usa mais 1 crédito (1 dos seus {LIMITE_SEMANAL.roteiro} roteiros da semana).
+              </TooltipContent>
+            </Tooltip>
           </div>
         </section>
       ) : null}

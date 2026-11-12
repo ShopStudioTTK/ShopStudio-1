@@ -155,6 +155,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"conversas": {
+                  Row: {
+                    "atualizado_em": string,"criado_em": string,"id": string,"mensagens": NonNullable<Json>,"titulo": string,"user_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "atualizado_em"?: string,"criado_em"?: string,"id": string,"mensagens"?: NonNullable<Json>,"titulo": string,"user_id": string
+                  }
+                  Update: {
+                    "atualizado_em"?: string,"criado_em"?: string,"id"?: string,"mensagens"?: NonNullable<Json>,"titulo"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"creditos_semana": {
                   Row: {
                     "gastos": number,"rota": string,"semana": string,"user_id": string
