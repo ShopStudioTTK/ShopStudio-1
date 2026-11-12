@@ -104,7 +104,7 @@ export async function admin(req: Request, rotulo: string): Promise<Logada | Resp
  * nos testes), DeepInfra de reserva. Só fp8: as versões fp4 respondem pior.
  * Revisar ao trocar OPENROUTER_MODEL — outros modelos têm outros provedores.
  */
-export const PROVEDORES = { order: ["morph/fp8", "deepinfra/fp8"], quantizations: ["fp8"] };
+export const PROVEDORES = { order: ["deepinfra/fp8", "morph/fp8"], quantizations: ["fp8"] };
 
 export const chamarOpenRouter = (apiKey: string, body: object) =>
   fetch("https://openrouter.ai/api/v1/chat/completions", {
