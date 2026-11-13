@@ -79,6 +79,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"alunas_curso": {
+                  Row: {
+                    "criado_em": string,"email": string,"origem": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"email": string,"origem"?: string
+                  }
+                  Update: {
+                    "criado_em"?: string,"email"?: string,"origem"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"campeoes": {
                   Row: {
                     "criado_em": string,"id": string,"nicho": string,"titulo": string,"url": string
@@ -171,14 +185,14 @@ isOneToOne: false
                   ]
                 },"creditos_comprados": {
                   Row: {
-                    "comprado_em": string,"gastos": number,"id": string,"quantidade": number,"rota": string,"user_id": string,"vale_ate": string
+                    "comprado_em": string,"gastos": number,"id": string,"quantidade": number,"rota": string,"transacao": string,"user_id": string,"vale_ate": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "comprado_em"?: string,"gastos"?: number,"id"?: string,"quantidade": number,"rota": string,"user_id": string,"vale_ate": string
+                    "comprado_em"?: string,"gastos"?: number,"id"?: string,"quantidade": number,"rota": string,"transacao": string,"user_id": string,"vale_ate": string
                   }
                   Update: {
-                    "comprado_em"?: string,"gastos"?: number,"id"?: string,"quantidade"?: number,"rota"?: string,"user_id"?: string,"vale_ate"?: string
+                    "comprado_em"?: string,"gastos"?: number,"id"?: string,"quantidade"?: number,"rota"?: string,"transacao"?: string,"user_id"?: string,"vale_ate"?: string
                   }
                   Relationships: [
                     
@@ -230,6 +244,20 @@ isOneToOne: false
       referencedRelation: "gatilhos"
       referencedColumns: ["slug"]
     }
+                  ]
+                },"frases_musica": {
+                  Row: {
+                    "categoria": string,"cena": string,"criado_em": string,"criado_por": string | null,"frase": string,"id": string,"produto": string,"tipo": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "categoria": string,"cena": string,"criado_em"?: string,"criado_por"?: string | null,"frase": string,"id"?: string,"produto": string,"tipo": string
+                  }
+                  Update: {
+                    "categoria"?: string,"cena"?: string,"criado_em"?: string,"criado_por"?: string | null,"frase"?: string,"id"?: string,"produto"?: string,"tipo"?: string
+                  }
+                  Relationships: [
+                    
                   ]
                 },"gancho_notas": {
                   Row: {

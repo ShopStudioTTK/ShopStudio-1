@@ -148,15 +148,20 @@ export const creditosRestantes = async (userId: string): Promise<Saldo> => {
 
 /**
  * Credita uma compra: um lote por tipo com quantidade, que vale 30 dias a partir de agora, numa
- * consulta só (o combo entra inteiro ou nada). Para a plataforma de venda chamar quando existir.
+ * consulta só (o combo entra inteiro ou nada). `transacao` é o id da plataforma de venda: o mesmo
+ * aviso repetido não credita de novo. Devolve se creditou.
  */
-export const darCreditos = async (userId: string, q: Quantidades) => {
+export const darCreditos = async (userId: string, q: Quantidades, transacao: string): Promise<boolean> => {
   if (![q.assistente, q.roteiro].every((n) => Number.isInteger(n) && n >= 0)) throw new Error("quantidade inválida");
-  await db()`
-    insert into public.creditos_comprados (user_id, rota, quantidade, vale_ate)
-    select ${userId}, r, q, now() + interval '30 days'
+  if (!transacao) throw new Error("transação vazia");
+  const lotes = await db()`
+    insert into public.creditos_comprados (user_id, rota, quantidade, vale_ate, transacao)
+    select ${userId}, r, q, now() + interval '30 days', ${transacao}
     from unnest(array['assistente', 'roteiro']::text[], array[${q.assistente}, ${q.roteiro}]::int[]) as t(r, q)
-    where q > 0`;
+    where q > 0
+    on conflict (transacao, rota) do nothing
+    returning id`;
+  return lotes.length > 0;
 };
 
 /**

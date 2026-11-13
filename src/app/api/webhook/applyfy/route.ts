@@ -16,6 +16,9 @@ export const runtime = "nodejs";
  *   constante com APPLYFY_WEBHOOK_TOKEN.
  * - Só age em TRANSACTION_PAID de um produto de APPLYFY_PRODUTO_IDS (`product.id` ou
  *   `externalId`, separados por vírgula). Atenção: TRANSACTION_CANCELED é cartão recusado.
+ * - Compra de um produto de APPLYFY_PRODUTOS_CURSO (o curso, ou o combo curso + Shop Studio)
+ *   grava o e-mail em `alunas_curso`, a lista que a página /checkout consulta. O combo também
+ *   precisa estar em APPLYFY_PRODUTO_IDS para liberar o Shop Studio.
  * - Idempotente por `transaction.id` (`compras_applyfy`): aviso repetido não gera outra senha.
  *   Se a conta ou o e-mail falharem, libera a transação e responde 500 para a Applyfy reenviar.
  * - Dado inválido (sem e-mail, sem transação) responde 200 com erro no log: reenviar não resolve.
@@ -57,10 +60,13 @@ export async function POST(req: Request) {
     console.error("webhook/applyfy: APPLYFY_PRODUTO_IDS não configurado");
     return erro("Webhook não configurado.", 500);
   }
-  const doProduto = (c.orderItems ?? []).some((i) =>
-    [i?.product?.id, i?.product?.externalId].some((id) => id != null && produtos.includes(String(id))),
-  );
-  if (!doProduto) return ok("ignorado");
+  const temAlgum = (ids: string[]) =>
+    (c.orderItems ?? []).some((i) =>
+      [i?.product?.id, i?.product?.externalId].some((id) => id != null && ids.includes(String(id))),
+    );
+  const doProduto = temAlgum(produtos);
+  const doCurso = temAlgum(lista(process.env.APPLYFY_PRODUTOS_CURSO));
+  if (!doProduto && !doCurso) return ok("ignorado");
 
   const email = typeof c.client?.email === "string" ? c.client.email.trim().toLowerCase() : "";
   const transacao = c.transaction?.id != null ? String(c.transaction.id).trim() : "";
@@ -70,6 +76,17 @@ export async function POST(req: Request) {
   }
   const nome = typeof c.client?.name === "string" ? c.client.name.slice(0, 120) : null;
 
+  // Comprou o curso (sozinho ou no combo): entra na lista que a página /checkout consulta.
+  // Só informativo; repetir não faz mal. Falha aqui não segura a liberação do Shop Studio.
+  if (doCurso) {
+    await db()`
+      insert into public.alunas_curso (email, origem) values (${email}, 'compra')
+      on conflict (email) do nothing`.catch((e) =>
+      console.error("webhook/applyfy: falha ao registrar aluna do curso", { transacao, erro: (e as Error).message }),
+    );
+    if (!doProduto) return ok("aluna_registrada");
+  }
+
   const reservada = await db()`
     insert into public.compras_applyfy (transaction_id, email) values (${transacao}, ${email})
     on conflict (transaction_id) do nothing returning transaction_id`;
@@ -77,7 +94,7 @@ export async function POST(req: Request) {
 
   try {
     const r = await criarConta(email);
-    await enviarEmailDeAcesso({ email, nome, senhaTemporaria: r === "existe" ? null : r.senhaTemporaria });
+    await enviarEmailDeAcesso({ email, nome, senhaTemporaria: r === "existe" ? null : r.senhaTemporaria, combo: doCurso });
     return ok(r === "existe" ? "ja_tinha_conta" : "conta_criada");
   } catch (e) {
     console.error("webhook/applyfy: falha ao criar a conta ou mandar o e-mail", { transacao, erro: (e as Error).message });

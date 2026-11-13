@@ -66,6 +66,7 @@ Preencha também no `.env.local`:
 | `OPENROUTER_EMBEDDING_MODEL` | só servidor. Modelo de embedding do treinamento da IA. Padrão `openai/text-embedding-3-small` (1536 dimensões, acoplado à coluna `treinamento.embedding`) | não |
 | `OPENROUTER_PRESET` | só servidor, só o assistente. Slug do preset da OpenRouter com a voz da especialista (hoje: `ana-shop-studio-leads-behavior`). Com ele, a persona (`PERSONA`) sai do prompt do assistente. Vazio = sem preset | não |
 | `WEBHOOK_CONTA_SEGREDO` | só servidor (`/api/webhook/conta`). A plataforma de venda manda no `Authorization: Bearer`. Sem ele, o webhook responde 500 | **sim** |
+| `WEBHOOK_CREDITOS_SEGREDO` | só servidor (`/api/webhook/creditos`). A plataforma de pagamento manda no `Authorization: Bearer` ao creditar um pacote. Sem ele, o webhook responde 500 | **sim** |
 | `WEBHOOK_CONTA_ORIGENS` | só servidor. Origens liberadas no CORS do webhook, separadas por vírgula. Vazio = nenhuma | não |
 | `APPLYFY_WEBHOOK_TOKEN` | só servidor (`/api/webhook/applyfy`). Token do webhook na Applyfy, que ela manda no campo `token` do corpo. Sem ele, o webhook responde 500 | **sim** |
 | `APPLYFY_PRODUTO_IDS` | só servidor. Ids dos produtos da Applyfy que liberam o app (`product.id` ou `externalId`), separados por vírgula. Vazio = o webhook recusa tudo | não |
@@ -162,7 +163,7 @@ docs/superpowers/             design e plano da migração do Enter
 Cada aluna tem, por semana, **15 perguntas** ao assistente e **7 roteiros** no gerador. São dois saldos separados: acabar os roteiros não trava as perguntas. **Cada pedido gasta 1**, do tamanho que for. A semana começa **no domingo à 0h de Brasília**, e o que sobrou não acumula. Admin não gasta créditos. Os números ficam em `LIMITE_SEMANAL` (`src/lib/limite.ts`).
 
 - **Como conta:** o pedido reserva 1 do saldo do tipo dele antes da IA, numa consulta só na tabela `creditos_semana` (uma linha por aluna, semana e tipo), que só soma se ainda couber no limite. Sem saldo, a resposta é 429 ("Suas 15 perguntas da semana acabaram. Domingo tem mais." ou "Seus 7 roteiros da semana acabaram…"). Se a IA falhar, ou se o roteiro vier cortado ou fora do formato, o crédito volta.
-- **Na tela:** nada enquanto sobra bastante. Com 4 perguntas ou menos aparece "Restam N perguntas nesta semana. Renova no domingo." no assistente; com 2 roteiros ou menos, "Restam N roteiros…" no gerador. Sem saldo, o campo ou o botão travam.
+- **Na tela:** um cartão perto do botão que gasta (`CartaoDeCredito`, embaixo de "Criar meu roteiro" e em cima do campo do assistente) diz "Cada roteiro usa 1 crédito. Você ainda tem N créditos nesta semana." (ou "Cada pergunta…"). Com 4 perguntas ou menos, ou 2 roteiros ou menos, o cartão fica rosa e troca o saldo por "Restam N perguntas nesta semana. Renova no domingo.". Sem saldo, o campo ou o botão travam. A admin vê "créditos ilimitados". Embaixo do logo (no celular, no topo) fica o contador da semana: "12 perguntas · 5 roteiros".
 - **Histórico:** de 2026-11-11 a 2026-11-12 foi um saldo só de 40 créditos, com meio crédito a mais nos pedidos grandes (pelos tokens de saída). A dona trocou por saldos por tipo e 1 por pedido, para a aluna entender quanto resta.
 
 ### Créditos comprados (avulsos)
@@ -172,7 +173,18 @@ Além dos semanais, a aluna vai poder **comprar** perguntas e roteiros. **A comp
 - **Pacotes (nesta ordem na tela):** **Combo Pro**, 10 perguntas + 20 roteiros, de R$ 39,00 por R$ 29,90 ("Melhor custo-benefício"); **Combo Criador**, 5 perguntas + 10 roteiros, de R$ 19,50 por R$ 17,90 ("Mais vendido"); **5 roteiros** por R$ 8,00; **10 perguntas** por R$ 7,00. O "de" dos combos sai do valor unitário (R$ 0,70 a pergunta, R$ 1,60 o roteiro). Os combos têm cartões grandes, e os avulsos ficam embaixo, em "Ou só o que faltar". Tudo em `PRECO_AVULSO` e `PACOTES` (`src/lib/limite.ts`); comprar um combo soma cada quantidade no tipo dela.
 - **Validade:** cada compra vale **30 dias a partir da compra**; o que sobra expira.
 - **Ordem:** primeiro os da semana; esgotados, os comprados, começando pelo lote que vence primeiro. Se a IA falhar, o crédito volta para o mesmo lugar de onde saiu.
-- **Banco:** `creditos_comprados`, um lote por compra e tipo (`quantidade`, `gastos`, `vale_ate`). A compra vai chamar `darCreditos` (`src/lib/api-auth.ts`).
+- **Banco:** `creditos_comprados`, um lote por compra e tipo (`quantidade`, `gastos`, `vale_ate`, `transacao`).
+- **Webhook da compra:** `POST /api/webhook/creditos`, com `Authorization: Bearer <WEBHOOK_CREDITOS_SEGREDO>` e `{ "email", "pacote", "transacao" }` (`pacote` = `combo-pro`, `combo-criador`, `roteiros-5` ou `perguntas-10`). Credita o pacote e responde quantos créditos a aluna tem agora. A plataforma de pagamento ainda não chama este webhook.
+  - Respostas: `201` creditado · `200` transação repetida, sem creditar de novo · `400` e-mail, pacote ou transação inválidos · `401` segredo errado · `404` nenhuma conta com o e-mail · `500` segredo não configurado ou falha.
+- **Na tela:** quando o cartão de créditos avisa que está acabando (ou acabou), ele mostra o botão **Comprar mais créditos**, que leva à página Créditos. O contador ao lado do logo soma os comprados e também leva para lá.
+
+```bash
+curl -X POST http://localhost:3000/api/webhook/creditos \
+  -H "Authorization: Bearer $WEBHOOK_CREDITOS_SEGREDO" -H "Content-Type: application/json" \
+  -d '{"email":"aluna@exemplo.com","pacote":"combo-pro","transacao":"venda-123"}'
+# 201 {"email":"aluna@exemplo.com","pacote":"combo-pro","creditado":true,
+#      "creditos":{"restantes":{"assistente":15,"roteiro":7},"comprados":{"assistente":10,"roteiro":20},"vencimento":"…"}}
+```
 - **Custo medido (2026-11-12, 20 chamadas reais):** pergunta ~US$ 0,00037 com cache e ~US$ 0,0083 sem; roteiro ~US$ 0,00030 e ~US$ 0,0016. Detalhes no [`DEVLOG.md`](DEVLOG.md).
 
 ```sql
@@ -215,6 +227,7 @@ Usa o método 5×5 do capítulo 10, a persona e o dossiê (como referência de e
 - **Marcas de fala obrigatórias:** pelo menos 2 vocativos ("amiga", "miga", "gente", "menina"), as expressões dela ("porque assim…", "né?", "juro"), de 2 a 4 palavras em CAIXA ALTA, 1 ou 2 palavras esticadas ("suuuper"), português falado e instrução de cena entre colchetes ("[mostrar de perto]").
 - **Frases proibidas:** "produto incrível", "não perca", "confira" e parecidas.
 - **Ganchos:** os 5 são de tipos diferentes. Um é de **fofoca com prova social** ("minha irmã pegou minha escova…"), que fica só entre as opções, porque a aluna pode não ter vivido aquilo; o gancho do roteiro nunca é esse.
+- **Música viral fora da tela da aluna (2026-11-12, por enquanto):** o gerador e o Studio mostram só 4 formatos (`FORMATOS_DA_ALUNA` em `src/content/formatos.ts`), e o `?formato=Música viral` na URL é ignorado. As regras dela continuam no prompt, nas fichas da admin e no filtro dos Roteiros expert, para voltar depois.
 - **Regras por formato:** no Unboxing, o gancho vem antes de abrir a caixa; na Tela verde, a criadora aponta para os prints; o Storytelling segue cena, conflito, descoberta e frase final; a **Música viral é sem fala**, só com "Texto na tela: …", e dura de 7 a 15 segundos (a tela mostra "7 a 15s · sem fala"; os outros formatos, "30 a 60s").
 - **Preço (opcional):** só com o **preço** preenchido o roteiro fala de valor, comparando apenas com ele (nunca com preço inventado de outra loja ou do shopping). Sem preço, nenhum valor aparece.
 - **Continua valendo:** nada de cor, tamanho, variação, promoção, frete, estoque ou tempo de uso que a aluna não informou, e o resultado vem como experiência dela ("senti que desliza"), nunca como garantia.

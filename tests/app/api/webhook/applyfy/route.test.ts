@@ -129,4 +129,40 @@ describe("POST /api/webhook/applyfy", () => {
     await POST(req(pago()));
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("Temp123");
   });
+
+  describe("curso (APPLYFY_PRODUTOS_CURSO)", () => {
+    beforeEach(() => vi.stubEnv("APPLYFY_PRODUTOS_CURSO", "curso-1, combo-1"));
+    const alunas = () => naTabela("alunas_curso");
+
+    it("compra só do curso: grava a aluna e não cria conta do Shop Studio", async () => {
+      const res = await POST(req(pago({ orderItems: [{ product: { id: "curso-1" } }] })));
+      expect(await res.json()).toEqual({ status: "aluna_registrada" });
+      expect(alunas()[0].valores).toEqual(["aluna@x.com"]);
+      expect(criarConta).not.toHaveBeenCalled();
+      expect(naTabela("compras_applyfy")).toHaveLength(0);
+    });
+
+    it("combo (nas duas listas): grava a aluna e libera o Shop Studio", async () => {
+      vi.stubEnv("APPLYFY_PRODUTO_IDS", "prod-1, combo-1");
+      await POST(req(pago({ orderItems: [{ product: { id: "combo-1" } }] })));
+      expect(alunas()).toHaveLength(1);
+      expect(criarConta).toHaveBeenCalledWith("aluna@x.com");
+    });
+
+    it("falha ao gravar a aluna não segura a liberação", async () => {
+      vi.stubEnv("APPLYFY_PRODUTO_IDS", "prod-1, combo-1");
+      responderCom([
+        ["insert into public.alunas_curso", new Error("caiu")],
+        ["insert into public.compras_applyfy", [{ transaction_id: "tx1" }]],
+      ]);
+      const res = await POST(req(pago({ orderItems: [{ product: { id: "combo-1" } }] })));
+      expect(res.status).toBe(200);
+      expect(criarConta).toHaveBeenCalled();
+    });
+
+    it("produto só do Shop Studio não grava aluna", async () => {
+      await POST(req(pago()));
+      expect(alunas()).toHaveLength(0);
+    });
+  });
 });

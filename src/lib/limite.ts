@@ -82,3 +82,11 @@ export const precoDoPacote = (p: Pacote): { cheio: number; preco: number } => ({
 });
 
 export const reais = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+/** Cartão perto do botão (pedido da dona, 2026-11-12): quanto a ação gasta e quanto ainda resta. */
+export const usoPorAcao = (tipo: TipoDeCredito) => `Cada ${NOME[tipo][0]} usa 1 crédito.`;
+const creditos = (n: number) => `${n} ${n === 1 ? "crédito" : "créditos"}`;
+/** `semana` + `comprados`: com comprados, soma e diz de onde vem cada parte. */
+export const saldoDeCreditos = (semana: number, comprados = 0) =>
+  comprados > 0
+    ? `Você ainda tem ${creditos(semana + comprados)}: ${semana} da semana e ${comprados} ${comprados === 1 ? "comprado" : "comprados"}.`
+    : `Você ainda tem ${creditos(semana)} nesta semana.`;

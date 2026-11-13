@@ -22,6 +22,7 @@ import {
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/brand";
+import { ContadorDeCreditos } from "@/components/cartao-de-credito";
 import { useAccess } from "@/hooks/use-access";
 import { useAuth } from "@/hooks/use-auth";
 import { useChapterProgress } from "@/hooks/use-progress";
@@ -297,6 +298,9 @@ const AppShell = ({ children }: { children: ReactNode }) => {
           <Link href="/app" className={cn("block", compacto ? "text-center" : "px-3")} aria-label="Shop Studio, início">
             <Wordmark className={compacto ? "text-[17px]" : "text-[26px]"} stacked={compacto} />
           </Link>
+          <div className={cn("mt-3", compacto ? "text-center" : "px-3")}>
+            <ContadorDeCreditos empilhado={compacto} comNomes={!compacto} />
+          </div>
           <div className="mt-7">{navegacao(undefined, compacto)}</div>
         </div>
         <div className="mt-6">{account(compacto)}</div>
@@ -329,6 +333,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
           <Link href="/app">
             <Wordmark className="text-[22px]" />
           </Link>
+          <ContadorDeCreditos className="ml-auto mr-2" />
           <Sheet open={menuAberto} onOpenChange={setMenuAberto}>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" aria-label="Abrir menu" className="bg-card">

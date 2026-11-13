@@ -77,21 +77,27 @@ describe("creditosRestantes", () => {
 });
 
 describe("darCreditos", () => {
-  it("um lote por tipo comprado, numa consulta só, com validade de 30 dias no banco", async () => {
-    await darCreditos("u1", { assistente: 10, roteiro: 5 });
+  it("um lote por tipo, numa consulta só, com validade de 30 dias e a transação", async () => {
+    responderCom([["insert into public.creditos_comprados", [{ id: "L1" }, { id: "L2" }]]]);
+    expect(await darCreditos("u1", { assistente: 10, roteiro: 5 }, "tx1")).toBe(true);
     const c = naTabela("creditos_comprados");
     expect(c).toHaveLength(1);
     expect(c[0].sql).toContain("interval '30 days'");
     expect(c[0].sql).toContain("where q > 0");
-    expect(c[0].valores).toEqual(["u1", 10, 5]);
+    expect(c[0].sql).toContain("on conflict (transacao, rota) do nothing");
+    expect(c[0].valores).toEqual(["u1", "tx1", 10, 5]);
   });
   it("combo: soma as quantidades do pacote em cada categoria", async () => {
-    await darCreditos("u1", PACOTES[0]);
-    expect(naTabela("creditos_comprados")[0].valores).toEqual(["u1", 10, 20]);
+    await darCreditos("u1", PACOTES[0], "tx1");
+    expect(naTabela("creditos_comprados")[0].valores).toEqual(["u1", "tx1", 10, 20]);
   });
-  it("quantidade inválida não grava nada", async () => {
-    await expect(darCreditos("u1", { assistente: -1, roteiro: 0 })).rejects.toThrow();
-    await expect(darCreditos("u1", { assistente: 1.5, roteiro: 0 })).rejects.toThrow();
+  it("transação repetida: não credita de novo (false)", async () => {
+    expect(await darCreditos("u1", PACOTES[0], "tx1")).toBe(false);
+  });
+  it("quantidade ou transação inválidas não gravam nada", async () => {
+    await expect(darCreditos("u1", { assistente: -1, roteiro: 0 }, "tx")).rejects.toThrow();
+    await expect(darCreditos("u1", { assistente: 1.5, roteiro: 0 }, "tx")).rejects.toThrow();
+    await expect(darCreditos("u1", { assistente: 1, roteiro: 0 }, "")).rejects.toThrow();
     expect(naTabela("creditos_comprados")).toHaveLength(0);
   });
 });

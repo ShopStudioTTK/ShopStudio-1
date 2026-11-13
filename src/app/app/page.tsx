@@ -24,7 +24,7 @@ import { useGanchos } from "@/hooks/use-ganchos";
 import { useNichos } from "@/hooks/use-nichos";
 import { useChapterProgress } from "@/hooks/use-progress";
 import { chapters, chapterPath } from "@/content/chapters";
-import { FORMATOS, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
+import { FORMATOS, FORMATOS_DA_ALUNA, FORMATO_PADRAO, SUGESTOES_DE_PRODUTO, type Formato } from "@/content/formatos";
 import { hookCategorias } from "@/content/hooks";
 import { primeiroNome } from "@/lib/nome";
 import { cn } from "@/lib/utils";
@@ -98,7 +98,7 @@ const Compositor = () => {
 
       <div className="mt-4 flex flex-wrap items-center gap-1.5">
         <span className="mr-1 text-[12px] font-medium text-muted-foreground">Formato:</span>
-        {FORMATOS.map((f) => (
+        {FORMATOS_DA_ALUNA.map((f) => (
           <button
             key={f.id}
             type="button"

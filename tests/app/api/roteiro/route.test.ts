@@ -390,3 +390,44 @@ describe("POST /api/roteiro", () => {
     });
   });
 });
+
+describe("POST /api/roteiro, Música viral (sem fala)", () => {
+  const musica = { produto: "Pijama americano", formato: "Música viral" };
+  const cinco = JSON.stringify({
+    frases: Array.from({ length: 5 }, (_, i) => ({ frase: `frase ${i}`, tipo: `Tipo ${i}`, cena: "Pijama em cima da cama" })),
+  });
+  const sistema = () => JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).messages[0].content as string;
+
+  it("devolve só as frases (frase, tipo, cena), sem roteiro falado e sem fichas faladas", async () => {
+    responderCom([
+      ...regras(),
+      ["from public.frases_musica", [{ categoria: "Pijama", produto: "Pijama de cetim", frase: "EXEMPLO-DA-MUSICA", tipo: "Fofoca", cena: "Na cama" }]],
+    ]);
+    vi.mocked(fetch).mockResolvedValue(ia(cinco));
+    const res = await POST(req(musica));
+    expect(res.status).toBe(200);
+    const corpo = await res.json();
+    expect(corpo.formato).toBe("Música viral");
+    expect(corpo.frases).toHaveLength(5);
+    expect(corpo.frases[0]).toEqual({ frase: "frase 0", tipo: "Tipo 0", cena: "Pijama em cima da cama" });
+    expect(corpo.roteiro).toBeUndefined();
+    expect(buscarParecidas).not.toHaveBeenCalled();
+    expect(sistema()).toContain("EXEMPLO-DA-MUSICA");
+    expect(sistema()).not.toContain("PORQUE-DA-ANA");
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string).max_tokens).toBe(1200);
+  });
+
+  it("banco de frases fora do ar: gera assim mesmo, com os tipos padrão", async () => {
+    responderCom([...regras(), ["from public.frases_musica", new Error("caiu")]]);
+    vi.mocked(fetch).mockResolvedValue(ia(cinco));
+    expect((await POST(req(musica))).status).toBe(200);
+    expect(sistema()).toContain("POV identidade");
+  });
+
+  it("resposta sem frases válidas → 502 e o crédito volta", async () => {
+    vi.mocked(fetch).mockResolvedValue(ia('{"frases":[{"frase":"sem cena"}]}'));
+    const res = await POST(req(musica));
+    expect(res.status).toBe(502);
+    expect(creditos("update public.creditos_semana set gastos = greatest")).toHaveLength(1);
+  });
+});

@@ -7,6 +7,8 @@ import {
   inicioDoDiaSP,
   precoDoPacote,
   mensagemDeCreditos,
+  saldoDeCreditos,
+  usoPorAcao,
   semanaSP,
   semCreditos,
 } from "@/lib/limite";
@@ -99,5 +101,20 @@ describe("pacotes de créditos", () => {
       const combo = p.assistente > 0 && p.roteiro > 0;
       expect(combo ? preco < cheio : preco === cheio).toBe(true);
     }
+  });
+});
+
+describe("cartão de créditos", () => {
+  it("diz quanto cada ação gasta", () => {
+    expect(usoPorAcao("assistente")).toBe("Cada pergunta usa 1 crédito.");
+    expect(usoPorAcao("roteiro")).toBe("Cada roteiro usa 1 crédito.");
+  });
+  it("diz quanto ainda resta na semana", () => {
+    expect(saldoDeCreditos(12)).toBe("Você ainda tem 12 créditos nesta semana.");
+    expect(saldoDeCreditos(1)).toBe("Você ainda tem 1 crédito nesta semana.");
+  });
+  it("com comprados, soma e mostra de onde vem", () => {
+    expect(saldoDeCreditos(2, 10)).toBe("Você ainda tem 12 créditos: 2 da semana e 10 comprados.");
+    expect(saldoDeCreditos(0, 1)).toBe("Você ainda tem 1 crédito: 0 da semana e 1 comprado.");
   });
 });

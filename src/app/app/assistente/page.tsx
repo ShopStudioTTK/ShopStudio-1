@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAiChat } from "@/hooks/use-ai-chat";
 import { useAuth } from "@/hooks/use-auth";
+import { CartaoDeCredito } from "@/components/cartao-de-credito";
 import { useCreditos } from "@/hooks/use-creditos";
 import { useGuardaDeSaida } from "@/hooks/use-guarda-de-saida";
 import { getChapter } from "@/content/chapters";
@@ -32,7 +33,7 @@ const Assistant = () => {
   const { session } = useAuth();
   const { messages, isLoading, error, podeTentarDeNovo, tentarDeNovo, sendMessage, reset, abrir, conversaAtual } =
     useAiChat(chapter?.slug);
-  const { pronto: contagemPronta, esgotado, aviso } = useCreditos("assistente");
+  const { pronto: contagemPronta, esgotado } = useCreditos("assistente");
   // Com a IA escrevendo, sair da página pergunta antes (o F5 retoma; sair pelo app perde a resposta).
   const guarda = useGuardaDeSaida(isLoading);
   const [input, setInput] = useState("");
@@ -201,11 +202,7 @@ const Assistant = () => {
       ) : null}
 
       <div className="sticky bottom-0 -mx-1 border-t border-border bg-background/95 px-1 pb-2 pt-4 backdrop-blur">
-        {aviso ? (
-          <p className="mb-2 text-center text-[12px] text-rose" role="status">
-            {aviso}
-          </p>
-        ) : null}
+        <CartaoDeCredito tipo="assistente" className="mb-2" />
         <div className="flex items-end gap-2 rounded-2xl border border-border bg-card p-2 shadow-soft focus-within:border-rose/50">
           <Textarea
             disabled={esgotado}

@@ -4,6 +4,45 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: Música viral (sem fala) de volta e página de vendas /checkout
+
+**Pedido:**
+- Música viral com saída própria: só a frase na tela e a cena sugerida (5 por vez, cada uma de um tipo), sem gancho, problema, solução, CTA nem entonação. Os exemplos vêm só da planilha "Banco de Frases - Música Viral", nunca dos roteiros falados.
+- Página pública `shopstudio.app.br/checkout` com as duas ofertas (curso + Shop Studio, R$ 247; só o Shop Studio, R$ 197). "Já é aluna?" → e-mail → se estiver na lista do curso, mostra o checkout de R$ 197; se não, destaca o combo. **Não é trava:** qualquer pessoa pode comprar só a ferramenta.
+
+**Como ficou:**
+- **Banco de frases** (`frases_musica`): a admin cola as linhas da planilha em Treinamento → Música viral (colunas Categoria · Produto · Frase na tela · Tipo de frase · Cena sugerida). Repetida (mesmo produto + frase) não entra de novo.
+- **Gerador:** a Música viral volta para `FORMATOS_DA_ALUNA`. Com ela, o formulário pede só o produto, e `/api/roteiro` segue um ramo próprio (`src/lib/musica.ts`): prompt curto, sem dossiê nem fichas faladas, até 24 exemplos do banco (parecidos primeiro, depois um de cada tipo). Gasta 1 crédito de roteiro e devolve o crédito se a IA não mandar frases válidas.
+- **Alunas do curso** (`alunas_curso`): entram por import da admin (Treinamento → Alunas do curso, cola qualquer texto com e-mails) e pelo webhook da Applyfy quando o produto está em `APPLYFY_PRODUTOS_CURSO`. O combo vai também em `APPLYFY_PRODUTO_IDS` para liberar o Shop Studio.
+- **`POST /api/checkout/aluna`**: pública, responde só `{ aluna: true | false }`. Decisão minha: sem limite de chamadas (risco aceito: dá para testar e-mails um por um; a resposta é só sim/não).
+- **Checkout:** links (`<a>`) para a Applyfy, vindos de `NEXT_PUBLIC_CHECKOUT_FERRAMENTA_URL` e `NEXT_PUBLIC_CHECKOUT_COMBO_URL`. Sem formulário, por causa do CSP `form-action 'self'`.
+
+**Verificado:** só a sintaxe (transpilação do TypeScript) e a lógica pura de `frases-musica` e `alunas-curso` rodada à parte. Testes, lint e build **não** rodaram aqui (sem rede para instalar as dependências): rodar `pnpm test && pnpm lint && pnpm build` antes de subir.
+
+---
+
+## 2026-11-12: Cartão "1 crédito por ação" e Música viral fora da tela da aluna
+
+**Pedido (para subir para produção antes dos créditos comprados):**
+- no gerador e no assistente, um cartão avisando que cada ação gasta 1 crédito e quantos ainda restam;
+- tirar a Música viral do gerador da aluna por enquanto.
+
+**Como ficou:**
+- **`CartaoDeCredito`**: fica embaixo de "Criar meu roteiro" e em cima do campo do assistente, sempre visível, porque a aluna vê antes de gastar. Ele diz "Cada roteiro usa 1 crédito. Você ainda tem N créditos nesta semana.". Perto do fim, o cartão fica rosa e mostra o aviso de antes ("Restam 4 perguntas nesta semana. Renova no domingo."). A admin não vê o cartão.
+- **Decisão minha:** o cartão fica fixo na tela, e não num pop-up a cada pergunta, para não travar a conversa no chat.
+- **Ajuste (mesmo dia):** a dona não via o cartão porque estava logada com uma conta admin, e a primeira versão o escondia para admin. Agora:
+  - o cartão aparece para todo mundo (para admin, "Sua conta é admin: créditos ilimitados." e ∞);
+  - ele ficou mais visível, com fundo rosa e o número grande à direita ("5 de 7");
+  - ganhou o `ContadorDeCreditos` ao lado do logo: "12 perguntas · 5 roteiros" no menu, só os ícones no menu estreito e no topo do celular.
+- **Música viral:** sai das escolhas do gerador e do Studio (`FORMATOS_DA_ALUNA`), e o `?formato=Música viral` na URL é ignorado. O resto continua igual, para voltar fácil: o prompt, as fichas da admin, o filtro dos Roteiros expert e os roteiros salvos nesse formato.
+
+**Verificado:**
+- Testes (686), lint e build.
+- No navegador (build em `localhost:3005`, Playwright, a 1366 px e a 375 px):
+  - o cartão aparece com o saldo normal e, perto do fim, no estado rosa;
+  - os dois lugares mostram só 4 formatos;
+  - sem rolagem lateral e sem erro no console.
+
 ## 2026-11-12: Créditos comprados (estrutura e página; compra ainda não existe)
 
 **Pedido:** além do crédito semanal grátis, a aluna vai comprar mais. Primeiro, medir quanto cada pedido custa em tokens para basear a cobrança; depois, estruturar os créditos comprados e fazer uma página explicando.
@@ -27,8 +66,8 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 - Um lote por compra e tipo, e os que vencem primeiro saem primeiro.
 
 **Como ficou:**
-- Migration `20261112070000_creditos_comprados`. `reservarChamada` tenta a semana; esgotada, gasta 1 do lote válido que vence primeiro (`for update skip locked`, e o `check gastos <= quantidade` segura o resto). A `Reserva` guarda `semana` ou `lote`, e `devolverCredito` devolve ao mesmo lugar.
-- `darCreditos` cria os lotes do combo numa consulta só. Ninguém a chama ainda.
+- Migration `20261112090000_creditos_comprados` (criada como `…070000`). `reservarChamada` tenta a semana; esgotada, gasta 1 do lote válido que vence primeiro (`for update skip locked`, e o `check gastos <= quantidade` segura o resto). A `Reserva` guarda `semana` ou `lote`, e `devolverCredito` devolve ao mesmo lugar.
+- `darCreditos` cria os lotes do combo numa consulta só.
 - `GET /api/creditos` → `{ restantes, comprados, vencimento }`. O aviso conta o total ("Restam 3 perguntas, contando as compradas.").
 - Página **Créditos** (`/app/creditos`, no menu): saldo, como funciona e os pacotes, com "Em breve".
 
@@ -69,7 +108,38 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 - **Código:** o preço de cada pacote agora é fixo (`preco`), e o `FATOR_COMBO` saiu.
 - **Ressalva:** o selo "Mais vendido" entrou como pedido, mas antes de existir venda ele não é verdade. Trocar até haver números.
 
-**Falta:** a compra (plataforma de venda → `darCreditos`, com idempotência pela transação) e a decisão final sobre a ordem de gasto.
+**Webhook, CTA e a `main` (mesmo dia, quarta rodada):**
+- **Decisões da dona:**
+  - o selo "Mais vendido" fica;
+  - a ordem fica: primeiro os da semana, depois os comprados;
+  - a integração com o pagamento fica para depois, mas o webhook já entra.
+- **`POST /api/webhook/creditos`:**
+  - recebe `{ email, pacote, transacao }`, credita o pacote e responde o saldo da aluna (`creditado` + `creditos`);
+  - usa um segredo próprio (`WEBHOOK_CREDITOS_SEGREDO`), porque gera crédito pago e não deve ser o mesmo de criar conta;
+  - é idempotente pela transação: coluna `transacao` e único `(transacao, rota)`. O aviso repetido responde 200 com o saldo, sem creditar.
+- **CTA "Comprar mais créditos":** fica dentro do `CartaoDeCredito` quando ele avisa (perto do fim ou sem saldo) e leva a `/app/creditos`. O cartão e o contador somam os comprados ("27 créditos: 2 da semana e 25 comprados"), e o contador virou link para a página.
+- **Atualizada com a `main`:**
+  - os conflitos foram no `limite.ts`, no `use-creditos.ts` e nas docs;
+  - a migration virou `20261112090000`, porque a `main` ganhou `20261112070000_frases_musica`, com o mesmo número;
+  - no banco local, a tabela foi recriada (só tinha dados de teste).
+- **Já falhavam na `main`, sem relação com os créditos:** 3 testes do e-mail de acesso e do webhook da Applyfy. Os commits "Add files via upload" mudaram o texto do e-mail (saiu o "Atenção"), e os testes não foram atualizados.
+
+**Verificado (quarta rodada):**
+- Testes: 784 passam; falham só os 3 que já falhavam na `main`. Lint e build passam.
+- **Webhook,** com `curl` no `next dev`:
+  - sem segredo: 401;
+  - Combo Pro: 201, com 10 + 20 comprados;
+  - repetido: 200, sem creditar de novo;
+  - 5 roteiros: 201, somando 25;
+  - sem conta: 404;
+  - pacote inválido: 400;
+  - lotes de 30 dias.
+- **No navegador** (Playwright):
+  - com comprados, o cartão mostra "27 créditos: 2 da semana e 25 comprados";
+  - perto do fim, a CTA aparece no gerador e no assistente e leva a `/app/creditos`;
+  - a 375 px, sem rolagem lateral e sem erro no console.
+
+**Falta:** a plataforma de pagamento chamar o webhook.
 
 ## 2026-11-12: Conversas anteriores no assistente; "Outra versão" avisa do crédito
 
