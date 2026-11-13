@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AlunasCurso } from "@/components/alunas-curso";
 import { FichasRoteiro } from "@/components/fichas-roteiro";
 import { FrasesMusica } from "@/components/frases-musica";
+import { LiberarAcesso } from "@/components/liberar-acesso";
 import { CartaoPergunta, NovaPergunta, ROTULO_ORIGEM, type Fila, type Origem, type Status } from "@/components/treinamento";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
@@ -110,7 +111,7 @@ const Perguntas = () => {
   );
 };
 
-type Secao = "perguntas" | "roteiros" | "musica" | "alunas";
+type Secao = "perguntas" | "roteiros" | "musica" | "alunas" | "acesso";
 
 const TEXTO_DA_SECAO: Record<Secao, string> = {
   perguntas:
@@ -121,6 +122,8 @@ const TEXTO_DA_SECAO: Record<Secao, string> = {
     "Frases de tela para a Música viral (sem fala). Quando a aluna escolhe esse formato, a IA cria frases só no estilo destas aqui, nunca misturadas com os roteiros falados.",
   alunas:
     "Quem já é aluna do curso. A página de checkout consulta esta lista quando alguém digita o e-mail em “já sou aluna”. Compras do curso pela Applyfy entram sozinhas.",
+  acesso:
+    "Para quem pagou e não recebeu o e-mail. Cole os e-mails e o app cria a conta e manda o acesso, como depois da compra.",
 };
 
 /**
@@ -149,6 +152,7 @@ const Treinamento = () => {
             ["roteiros", "Roteiros"],
             ["musica", "Música viral"],
             ["alunas", "Alunas do curso"],
+            ["acesso", "Liberar acesso"],
           ] as const
         ).map(([id, rotulo]) => (
           <button key={id} type="button" className="chip" data-ativo={secao === id} onClick={() => setSecao(id)}>
@@ -163,8 +167,10 @@ const Treinamento = () => {
         <FichasRoteiro />
       ) : secao === "musica" ? (
         <FrasesMusica />
-      ) : (
+      ) : secao === "alunas" ? (
         <AlunasCurso />
+      ) : (
+        <LiberarAcesso />
       )}
     </div>
   );
