@@ -106,7 +106,7 @@ src/
       conta/                  minha conta: nome, e-mail e senha
     api/
       assistente/route.ts     chat com streaming, créditos, registro de custo
-      creditos/route.ts       quantos créditos restam na semana (para o aviso na tela)
+      creditos/route.ts       quantos créditos restam (da semana e comprados)
       roteiro/route.ts        gerador de roteiros (JSON)
       treinamento/route.ts    fila de treinamento da IA (só admin, admin() em api-auth.ts)
       fichas/route.ts         fichas de roteiro da expert (só admin)
@@ -128,7 +128,7 @@ src/
     contas.ts                 criarConta: usuário + senha temporária + acesso (só servidor)
     email.ts                  e-mail de acesso (link, e-mail e senha temporária) pela Resend
     roteiro.ts                prompt do gerador de roteiros
-    limite.ts                 créditos semanais (40), preço por tokens e aviso (10 ou menos)
+    limite.ts                 créditos semanais (15/7), aviso, preços e pacotes dos créditos avulsos
     uso.ts  sse.ts            leitura do stream e do custo da OpenRouter
     conhecimento/             material da IA: transcricao.md, dossie.md (só servidor)
     supabase/admin.ts         cliente service role (só servidor)
@@ -164,6 +164,23 @@ Cada aluna tem, por semana, **15 perguntas** ao assistente e **7 roteiros** no g
 - **Como conta:** o pedido reserva 1 do saldo do tipo dele antes da IA, numa consulta só na tabela `creditos_semana` (uma linha por aluna, semana e tipo), que só soma se ainda couber no limite. Sem saldo, a resposta é 429 ("Suas 15 perguntas da semana acabaram. Domingo tem mais." ou "Seus 7 roteiros da semana acabaram…"). Se a IA falhar, ou se o roteiro vier cortado ou fora do formato, o crédito volta.
 - **Na tela:** nada enquanto sobra bastante. Com 4 perguntas ou menos aparece "Restam N perguntas nesta semana. Renova no domingo." no assistente; com 2 roteiros ou menos, "Restam N roteiros…" no gerador. Sem saldo, o campo ou o botão travam.
 - **Histórico:** de 2026-11-11 a 2026-11-12 foi um saldo só de 40 créditos, com meio crédito a mais nos pedidos grandes (pelos tokens de saída). A dona trocou por saldos por tipo e 1 por pedido, para a aluna entender quanto resta.
+
+### Créditos comprados (avulsos)
+
+Além dos semanais, a aluna vai poder **comprar** perguntas e roteiros. **A compra ainda não existe:** a página **Créditos** (`/app/creditos`, no menu) mostra o saldo, como funciona e os pacotes, com os botões em "Em breve".
+
+- **Pacotes (nesta ordem na tela):** **Combo Pro**, 10 perguntas + 20 roteiros, de R$ 39,00 por R$ 29,90 ("Melhor custo-benefício"); **Combo Criador**, 5 perguntas + 10 roteiros, de R$ 19,50 por R$ 17,90 ("Mais vendido"); **5 roteiros** por R$ 8,00; **10 perguntas** por R$ 7,00. O "de" dos combos sai do valor unitário (R$ 0,70 a pergunta, R$ 1,60 o roteiro). Os combos têm cartões grandes, e os avulsos ficam embaixo, em "Ou só o que faltar". Tudo em `PRECO_AVULSO` e `PACOTES` (`src/lib/limite.ts`); comprar um combo soma cada quantidade no tipo dela.
+- **Validade:** cada compra vale **30 dias a partir da compra**; o que sobra expira.
+- **Ordem:** primeiro os da semana; esgotados, os comprados, começando pelo lote que vence primeiro. Se a IA falhar, o crédito volta para o mesmo lugar de onde saiu.
+- **Banco:** `creditos_comprados`, um lote por compra e tipo (`quantidade`, `gastos`, `vale_ate`). A compra vai chamar `darCreditos` (`src/lib/api-auth.ts`).
+- **Custo medido (2026-11-12, 20 chamadas reais):** pergunta ~US$ 0,00037 com cache e ~US$ 0,0083 sem; roteiro ~US$ 0,00030 e ~US$ 0,0016. Detalhes no [`DEVLOG.md`](DEVLOG.md).
+
+```sql
+-- créditos comprados ainda válidos por aluna
+select u.email, c.rota, sum(c.quantidade - c.gastos) restam, min(c.vale_ate) vence
+from public.creditos_comprados c join auth.users u on u.id = c.user_id
+where c.vale_ate > now() and c.gastos < c.quantidade group by 1, 2;
+```
 
 ```sql
 -- créditos gastos na semana atual (semana = o domingo em que ela começou)
@@ -278,6 +295,7 @@ Migrations em `supabase/migrations/`:
 | `gancho_notas` | nota de 1 a 5 de cada aluna em cada gancho | servidor (`/api/ganchos/nota`) |
 | `ai_perguntas` | perguntas ao assistente e roteiros gerados, tokens e custo | servidor (`/api/assistente`, `/api/roteiro`) |
 | `creditos_semana` | pedidos gastos por aluna em cada semana e tipo (`rota` = assistente ou roteiro; `semana` = o domingo em que ela começou) | servidor (`reservarChamada`) |
+| `creditos_comprados` | créditos avulsos: um lote por compra e tipo, com `quantidade`, `gastos` e `vale_ate` (30 dias) | servidor (`darCreditos`, `reservarChamada`) |
 | `admins` | quem acessa o treinamento da IA e cadastra as abas e os vídeos campeões | só service role (painel do Supabase) |
 | `treinamento` | perguntas e respostas da expert, com embedding (pgvector, 1536). Sem `user_id` de aluna | servidor (`/api/treinamento`, só admin; `/api/assistente` grava as conversas) |
 | `gatilhos` | gatilhos do gancho das fichas (slug + rótulo) | servidor (`/api/gatilhos`, só admin) |
@@ -348,7 +366,7 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 | Aluna escrever na conversa de outra na fila de treinamento | A conversa é sempre o par (`user_id` do token, id do navegador). A linha do treinamento não tem `user_id`, e a expert não vê quem perguntou. |
 | Aluna liberar o próprio acesso, criar código ou mexer na IA | Essas tabelas não têm política de escrita: só a service role escreve. |
 | Chutar códigos de acesso | `resgatar_codigo` (só o servidor executa) bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
-| Gastar IA sem limite | 15 perguntas e 7 roteiros por semana por aluna, reservados no servidor numa consulta atômica (`creditos_semana`). |
+| Gastar IA sem limite | 15 perguntas e 7 roteiros por semana por aluna, mais os comprados, reservados no servidor numa consulta atômica (`creditos_semana`, `creditos_comprados`). |
 | Injetar instruções na IA | O navegador só manda o slug do capítulo; o título vem do conteúdo. O prompt proíbe copiar o material pago. |
 | Roubo do token (a sessão fica no `localStorage`) | CSP com `connect-src` limitado ao app e ao Supabase: um script injetado não consegue mandar o token para fora. Sem `dangerouslySetInnerHTML`; respostas da IA são texto puro. O token vale 15 min. |
 | E-mails de recuperação/link mágico disparados por qualquer um | Os modelos não têm link nem código (`supabase/templates/sem-link.html`). |

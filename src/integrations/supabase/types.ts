@@ -169,6 +169,20 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"creditos_comprados": {
+                  Row: {
+                    "comprado_em": string,"gastos": number,"id": string,"quantidade": number,"rota": string,"user_id": string,"vale_ate": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "comprado_em"?: string,"gastos"?: number,"id"?: string,"quantidade": number,"rota": string,"user_id": string,"vale_ate": string
+                  }
+                  Update: {
+                    "comprado_em"?: string,"gastos"?: number,"id"?: string,"quantidade"?: number,"rota"?: string,"user_id"?: string,"vale_ate"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"creditos_semana": {
                   Row: {
                     "gastos": number,"rota": string,"semana": string,"user_id": string

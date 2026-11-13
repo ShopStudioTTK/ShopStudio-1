@@ -4,6 +4,73 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-12: Créditos comprados (estrutura e página; compra ainda não existe)
+
+**Pedido:** além do crédito semanal grátis, a aluna vai comprar mais. Primeiro, medir quanto cada pedido custa em tokens para basear a cobrança; depois, estruturar os créditos comprados e fazer uma página explicando.
+
+**Medição (build em `localhost:3005`, OpenRouter de verdade, conta de teste apagada):** 12 perguntas (4 conversas de 3 turnos) e 8 roteiros (os 5 formatos).
+
+| | Entrada | Saída (média, mín–máx) | Com cache | Sem cache |
+|---|---|---|---|---|
+| Pergunta | ~83,4 mil | 358 (142–708) | US$ 0,00037 | US$ 0,0083 |
+| Roteiro | ~13,9 mil | 856 (684–984) | US$ 0,00030 | US$ 0,0016 |
+
+- Só a 1ª de cada tipo pegou o cache vazio. O cache vazio da pergunta ficou 4,6× o de 2026-11-04 (US$ 0,0018), provavelmente porque a DeepInfra foi para a frente da Morph (o provedor que atendeu não fica gravado).
+- Tempo: perguntas de 5 a 12 s, roteiros de 8,5 a 14,7 s. Embedding: ~US$ 0,000002 por chamada.
+- Crédito semanal gasto todo: ~R$ 0,18/mês por aluna com cache, ~R$ 3,20 no pior caso (tudo sem cache; câmbio R$ 5,50). O custo da IA quase não pesa no preço: pesam a taxa da plataforma de venda e a da OpenRouter na compra de créditos. O que decide o custo real é a taxa de acerto do cache em produção.
+
+**Decisões da dona:** R$ 0,90 por pergunta e R$ 1,00 por roteiro; combo (perguntas + roteiros) por 90% do valor; os comprados valem 1 mês e expiram; primeiro gasta os da semana (pode mudar). A plataforma de venda fica para depois.
+
+**Decisões minhas:**
+- "1 mês" conta **a partir da compra** (`vale_ate`), e não pelo mês do calendário: quem compra no dia 30 não perde tudo no dia seguinte.
+- Pacotes fixos (10 perguntas, 5 roteiros, combos 10 + 5 e 20 + 10), porque cada um vira um produto na plataforma de venda. Ficam em `PACOTES`.
+- Um lote por compra e tipo, e os que vencem primeiro saem primeiro.
+
+**Como ficou:**
+- Migration `20261112070000_creditos_comprados`. `reservarChamada` tenta a semana; esgotada, gasta 1 do lote válido que vence primeiro (`for update skip locked`, e o `check gastos <= quantidade` segura o resto). A `Reserva` guarda `semana` ou `lote`, e `devolverCredito` devolve ao mesmo lugar.
+- `darCreditos` cria os lotes do combo numa consulta só. Ninguém a chama ainda.
+- `GET /api/creditos` → `{ restantes, comprados, vencimento }`. O aviso conta o total ("Restam 3 perguntas, contando as compradas.").
+- Página **Créditos** (`/app/creditos`, no menu): saldo, como funciona e os pacotes, com "Em breve".
+
+**Verificado:**
+- Testes (695), lint e build.
+- Ponta a ponta no build, com OpenRouter de verdade, conta de teste apagada no fim, 7 cenários certos:
+  - o saldo de uma conta nova;
+  - lote válido conta, lote vencido não;
+  - com a semana esgotada, a pergunta passa e gasta do lote, e a semana fica em 15;
+  - o saldo mostra 0 da semana e 2 comprados;
+  - um roteiro só com lote vencido dá 429, e o lote fica intocado.
+- No navegador (Playwright, 1366 px e 375 px): sem rolagem lateral e sem erro no console.
+
+**Preços novos e a página redesenhada (mesmo dia):** a dona trocou para **R$ 0,50 por pergunta e R$ 1,25 por roteiro**, pediu menos ofertas e achou a página pouco atraente.
+- **Pacotes:** só 3. Ficam 20 perguntas (R$ 10,00), 8 roteiros (R$ 10,00) e o combo 20 + 8 (de R$ 20,00 por R$ 18,00), no meio e em destaque. Os dois avulsos custam o mesmo, para o combo ser a conta fácil.
+- **Pesquisa:** as referências de páginas de créditos repetem quatro pontos:
+  - mostrar o que o crédito compra, e não só o número;
+  - destacar uma oferta só, com um selo discreto;
+  - deixar claro quando os créditos vencem;
+  - ligar a compra à tarefa.
+- **Página:**
+  - título "Acabou a semana? *Continue criando.*", com o saldo ao lado;
+  - o saldo é uma fila de bolinhas, uma por crédito, na ordem em que são gastos: as rosas são da semana e os quadrados escuros são os comprados. Isso mostra a regra "primeiro os da semana" sem texto;
+  - 3 cartões. Cada um diz para que serve e mostra o preço como etiqueta (reais grandes, centavos pequenos) e o preço por unidade. O combo é escuro, mais alto e leva o selo "Mais vantajoso"; no celular, ele vem primeiro;
+  - no rodapé, 3 regras curtas.
+- `precoDoPacote` passou a contar em centavos inteiros: em ponto flutuante, 2,475 virava 2,47.
+
+**Pacotes da dona (mesmo dia, terceira versão):** prioridade para os roteiros e para os combos.
+- **Valores unitários:** R$ 0,70 a pergunta e R$ 1,60 o roteiro.
+- **Pacotes, na ordem da tela:**
+  - **Combo Pro:** 10 perguntas + 20 roteiros por R$ 29,90 ("Melhor custo-benefício");
+  - **Combo Criador:** 5 + 10 por R$ 17,90 ("Mais vendido");
+  - **5 roteiros:** R$ 8,00;
+  - **10 perguntas:** R$ 7,00.
+- **O "de" do Combo Pro:** o pedido dizia "de R$ 34,00", mas pelos valores unitários dá R$ 39,00 (10 × 0,70 + 20 × 1,60). Ficou o calculado: o desconto real é de 23%, e não 12,1%. Mostrar R$ 34,00 contradiria o preço unitário da própria página.
+- **Validade:** passou de "1 mês" para **30 dias** (`interval '30 days'`), como no pedido.
+- **Tela:** os combos ganham cartões grandes, o Pro escuro e o Criador com a borda rosa. Os avulsos ficam embaixo, em cartões menores, em "Ou só o que faltar".
+- **Código:** o preço de cada pacote agora é fixo (`preco`), e o `FATOR_COMBO` saiu.
+- **Ressalva:** o selo "Mais vendido" entrou como pedido, mas antes de existir venda ele não é verdade. Trocar até haver números.
+
+**Falta:** a compra (plataforma de venda → `darCreditos`, com idempotência pela transação) e a decisão final sobre a ordem de gasto.
+
 ## 2026-11-12: Conversas anteriores no assistente; "Outra versão" avisa do crédito
 
 **Pedido:** no gerador, o hover do "Outra versão" deve deixar claro que gasta outro crédito. No assistente, se as perguntas já estavam guardadas, dar um histórico para a aluna voltar e ver a conversa; se não, criar isso.

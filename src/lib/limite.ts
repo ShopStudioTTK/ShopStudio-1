@@ -36,11 +36,49 @@ export const MSG_SEM_CREDITOS: Record<TipoDeCredito, string> = {
 
 const NOME: Record<TipoDeCredito, [string, string]> = { assistente: ["pergunta", "perguntas"], roteiro: ["roteiro", "roteiros"] };
 
-export const mensagemDeCreditos = (tipo: TipoDeCredito, restantes: number): string | null => {
-  if (restantes > AVISO_COM_RESTANTES[tipo]) return null;
-  if (semCreditos(restantes)) return MSG_SEM_CREDITOS[tipo];
+/**
+ * `comprados`: créditos avulsos ainda válidos, gastos depois dos da semana. Com eles, o aviso conta o
+ * total e não fala em domingo (os comprados não renovam).
+ */
+export const mensagemDeCreditos = (tipo: TipoDeCredito, restantes: number, comprados = 0): string | null => {
+  const total = restantes + comprados;
+  if (total > AVISO_COM_RESTANTES[tipo]) return null;
+  if (semCreditos(total)) return MSG_SEM_CREDITOS[tipo];
   const [um, varios] = NOME[tipo];
-  return restantes === 1
+  if (comprados > 0) {
+    const contando = tipo === "assistente" ? "contando as compradas" : "contando os comprados";
+    return total === 1 ? `Resta 1 ${um}, ${contando}.` : `Restam ${total} ${varios}, ${contando}.`;
+  }
+  return total === 1
     ? `Resta 1 ${um} nesta semana. Renova no domingo.`
-    : `Restam ${restantes} ${varios} nesta semana. Renova no domingo.`;
+    : `Restam ${total} ${varios} nesta semana. Renova no domingo.`;
 };
+
+/**
+ * Créditos avulsos (pedido da dona, 2026-11-12): valem 30 dias a partir da compra (`vale_ate` em
+ * `creditos_comprados`), são gastos depois dos da semana e ficam separados por tipo. A compra ainda
+ * não existe: os pacotes só aparecem na página Créditos (/app/creditos).
+ */
+/** Valor unitário de cada tipo; o "de" dos combos sai daqui. */
+export const PRECO_AVULSO: Record<TipoDeCredito, number> = { assistente: 0.7, roteiro: 1.6 };
+
+export type Quantidades = Record<TipoDeCredito, number>;
+/** Saldo da aluna (`GET /api/creditos`). `vencimento`: o lote comprado que vence primeiro (ISO). */
+export type Saldo = { restantes: Quantidades; comprados: Quantidades; vencimento: string | null };
+export type Pacote = Quantidades & { id: string; nome: string; preco: number; selo?: string };
+// ponytail: pacotes fixos porque cada um vira um produto na plataforma de venda; trocar à vontade.
+// Na ordem da vitrine: os combos primeiro (é o que a dona quer vender), roteiros antes de perguntas.
+export const PACOTES: Pacote[] = [
+  { id: "combo-pro", nome: "Combo Pro", assistente: 10, roteiro: 20, preco: 29.9, selo: "Melhor custo-benefício" },
+  { id: "combo-criador", nome: "Combo Criador", assistente: 5, roteiro: 10, preco: 17.9, selo: "Mais vendido" },
+  { id: "roteiros-5", nome: "Roteiros", assistente: 0, roteiro: 5, preco: 8 },
+  { id: "perguntas-10", nome: "Perguntas", assistente: 10, roteiro: 0, preco: 7 },
+];
+
+/** `cheio` = o mesmo pacote pelo valor unitário (o "de"), em centavos inteiros para não errar no arredondamento. */
+export const precoDoPacote = (p: Pacote): { cheio: number; preco: number } => ({
+  cheio: Math.round(p.assistente * PRECO_AVULSO.assistente * 100 + p.roteiro * PRECO_AVULSO.roteiro * 100) / 100,
+  preco: p.preco,
+});
+
+export const reais = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

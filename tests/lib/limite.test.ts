@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   AVISO_COM_RESTANTES,
   LIMITE_SEMANAL,
+  PACOTES,
+  PRECO_AVULSO,
   inicioDoDiaSP,
+  precoDoPacote,
   mensagemDeCreditos,
   semanaSP,
   semCreditos,
@@ -54,5 +57,47 @@ describe("mensagemDeCreditos", () => {
     expect(semCreditos(0)).toBe(true);
     expect(mensagemDeCreditos("assistente", 0)).toBe("Suas 15 perguntas da semana acabaram. Domingo tem mais.");
     expect(mensagemDeCreditos("roteiro", 0)).toBe("Seus 7 roteiros da semana acabaram. Domingo tem mais.");
+  });
+});
+
+describe("mensagemDeCreditos com créditos comprados", () => {
+  it("conta os comprados no total e avisa só perto do fim", () => {
+    expect(mensagemDeCreditos("assistente", 0, 10)).toBeNull();
+    expect(mensagemDeCreditos("assistente", 1, 2)).toBe("Restam 3 perguntas, contando as compradas.");
+    expect(mensagemDeCreditos("roteiro", 0, 1)).toBe("Resta 1 roteiro, contando os comprados.");
+  });
+  it("semana e comprados no zero: acabou", () => {
+    expect(mensagemDeCreditos("assistente", 0, 0)).toBe("Suas 15 perguntas da semana acabaram. Domingo tem mais.");
+  });
+});
+
+describe("pacotes de créditos", () => {
+  it("valor unitário: R$ 0,70 por pergunta e R$ 1,60 por roteiro", () => {
+    expect(PRECO_AVULSO).toEqual({ assistente: 0.7, roteiro: 1.6 });
+  });
+  it("na ordem da vitrine: Combo Pro, Combo Criador, roteiros, perguntas", () => {
+    expect(PACOTES.map((p) => [p.id, p.assistente, p.roteiro, p.preco])).toEqual([
+      ["combo-pro", 10, 20, 29.9],
+      ["combo-criador", 5, 10, 17.9],
+      ["roteiros-5", 0, 5, 8],
+      ["perguntas-10", 10, 0, 7],
+    ]);
+  });
+  it("selos só nos combos", () => {
+    expect(PACOTES.map((p) => p.selo ?? null)).toEqual(["Melhor custo-benefício", "Mais vendido", null, null]);
+  });
+  it("o \"de\" sai dos valores unitários, em centavos redondos", () => {
+    const [pro, criador, roteiros, perguntas] = PACOTES.map(precoDoPacote);
+    expect(pro).toEqual({ cheio: 39, preco: 29.9 });
+    expect(criador).toEqual({ cheio: 19.5, preco: 17.9 });
+    expect(roteiros).toEqual({ cheio: 8, preco: 8 });
+    expect(perguntas).toEqual({ cheio: 7, preco: 7 });
+  });
+  it("combo nunca custa mais que o avulso; avulso custa exatamente o unitário", () => {
+    for (const p of PACOTES) {
+      const { cheio, preco } = precoDoPacote(p);
+      const combo = p.assistente > 0 && p.roteiro > 0;
+      expect(combo ? preco < cheio : preco === cheio).toBe(true);
+    }
   });
 });

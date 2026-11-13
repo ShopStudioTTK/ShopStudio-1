@@ -27,20 +27,29 @@ describe("GET /api/creditos", () => {
       ["from public.entitlements", [{}]],
       ["from public.creditos_semana", [{ rota: "assistente", gastos: 11 }, { rota: "roteiro", gastos: 2 }]],
     ]);
-    expect(await (await GET(req())).json()).toEqual({ restantes: { assistente: 4, roteiro: 5 } });
+    expect(await (await GET(req())).json()).toEqual({
+      restantes: { assistente: 4, roteiro: 5 },
+      comprados: { assistente: 0, roteiro: 0 },
+      vencimento: null,
+    });
     const leitura = naTabela("creditos_semana")[0];
     expect(leitura.valores).toEqual(["u1", semanaSP()]);
   });
 
   it("semana sem uso = 15 perguntas e 7 roteiros", async () => {
     responderCom([["from public.entitlements", [{}]]]);
-    expect(await (await GET(req())).json()).toEqual({ restantes: { assistente: 15, roteiro: 7 } });
+    expect(await (await GET(req())).json()).toEqual({
+      restantes: { assistente: 15, roteiro: 7 },
+      comprados: { assistente: 0, roteiro: 0 },
+      vencimento: null,
+    });
   });
 
   it("admin: ilimitado, sem ler créditos", async () => {
     responderCom([["from public.entitlements", [{}]], ["from public.admins", [{}]]]);
     expect(await (await GET(req())).json()).toEqual({ ilimitado: true });
     expect(naTabela("creditos_semana")).toHaveLength(0);
+    expect(naTabela("creditos_comprados")).toHaveLength(0);
   });
 
   it("500 se o banco falhar", async () => {

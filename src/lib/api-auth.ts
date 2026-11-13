@@ -3,7 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { temAcesso } from "@/lib/access";
 import { estadoDaSenhaTemporaria } from "@/lib/contas";
 import { db } from "@/lib/db";
-import { LIMITE_SEMANAL, MSG_SEM_CREDITOS, semanaSP, type TipoDeCredito } from "@/lib/limite";
+import { LIMITE_SEMANAL, MSG_SEM_CREDITOS, semanaSP, type Quantidades, type Saldo, type TipoDeCredito } from "@/lib/limite";
 import type { Uso } from "@/lib/uso";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -119,20 +119,49 @@ export const chamarOpenRouter = (apiKey: string, body: object) =>
 
 export type Rota = "assistente" | "roteiro";
 
-/** Reserva de uma chamada de IA. `semana` nula = admin, sem créditos. */
-export type Reserva = { id: string; userId: string; rota: Rota; semana: string | null };
+/**
+ * Reserva de uma chamada de IA: de onde saiu o crédito, para devolver ao mesmo lugar. `semana` =
+ * crédito da semana; `lote` = crédito comprado (creditos_comprados.id); os dois nulos = admin.
+ */
+export type Reserva = { id: string; userId: string; rota: Rota; semana: string | null; lote: string | null };
 
-/** Quanto resta de cada tipo à aluna nesta semana (tipo sem linha = nada gasto). */
-export const creditosRestantes = async (userId: string): Promise<Record<TipoDeCredito, number>> => {
-  const linhas = await db()`
-    select rota, gastos from public.creditos_semana where user_id = ${userId} and semana = ${semanaSP()}`;
-  const gasto = (tipo: TipoDeCredito) => Number(linhas.find((l) => l.rota === tipo)?.gastos ?? 0);
-  return { assistente: LIMITE_SEMANAL.assistente - gasto("assistente"), roteiro: LIMITE_SEMANAL.roteiro - gasto("roteiro") };
+/**
+ * Quanto resta à aluna: da semana (tipo sem linha = nada gasto) e dos comprados ainda válidos, com o
+ * vencimento do lote que vence primeiro.
+ */
+export const creditosRestantes = async (userId: string): Promise<Saldo> => {
+  const [semana, lotes] = await Promise.all([
+    db()`select rota, gastos from public.creditos_semana where user_id = ${userId} and semana = ${semanaSP()}`,
+    db()`
+      select rota, sum(quantidade - gastos)::int restantes, min(vale_ate) vence from public.creditos_comprados
+      where user_id = ${userId} and vale_ate > now() and gastos < quantidade group by rota`,
+  ]);
+  const gasto = (tipo: TipoDeCredito) => Number(semana.find((l) => l.rota === tipo)?.gastos ?? 0);
+  const comprado = (tipo: TipoDeCredito) => Number(lotes.find((l) => l.rota === tipo)?.restantes ?? 0);
+  const vence = lotes.map((l) => new Date(l.vence).getTime()).sort((a, b) => a - b)[0];
+  return {
+    restantes: { assistente: LIMITE_SEMANAL.assistente - gasto("assistente"), roteiro: LIMITE_SEMANAL.roteiro - gasto("roteiro") },
+    comprados: { assistente: comprado("assistente"), roteiro: comprado("roteiro") },
+    vencimento: vence ? new Date(vence).toISOString() : null,
+  };
 };
 
 /**
- * Reserva 1 crédito da semana do tipo da rota (numa consulta só, que só soma se ainda couber no
- * limite dela) e grava a chamada em ai_perguntas. Cada pedido gasta 1, do tamanho que for.
+ * Credita uma compra: um lote por tipo com quantidade, que vale 30 dias a partir de agora, numa
+ * consulta só (o combo entra inteiro ou nada). Para a plataforma de venda chamar quando existir.
+ */
+export const darCreditos = async (userId: string, q: Quantidades) => {
+  if (![q.assistente, q.roteiro].every((n) => Number.isInteger(n) && n >= 0)) throw new Error("quantidade inválida");
+  await db()`
+    insert into public.creditos_comprados (user_id, rota, quantidade, vale_ate)
+    select ${userId}, r, q, now() + interval '30 days'
+    from unnest(array['assistente', 'roteiro']::text[], array[${q.assistente}, ${q.roteiro}]::int[]) as t(r, q)
+    where q > 0`;
+};
+
+/**
+ * Reserva 1 crédito do tipo da rota (numa consulta só, que só soma se ainda couber no limite da
+ * semana; esgotada, numa consulta só no lote comprado) e grava a chamada em ai_perguntas. Cada pedido gasta 1, do tamanho que for.
  * Admin (`ilimitada`) não mexe em créditos. `pedido` (uuid do navegador) é o que a tela usa para
  * retomar a resposta depois do F5 (GET /api/pedidos).
  */
@@ -144,20 +173,32 @@ export async function reservarChamada(
   capitulo: string | null = null,
   pedido: string | null = null,
 ): Promise<Reserva | Response> {
-  const reserva: Reserva = { id: "", userId, rota, semana: ilimitada ? null : semanaSP() };
-  if (reserva.semana) {
-    let reservou: boolean;
+  const reserva: Reserva = { id: "", userId, rota, semana: null, lote: null };
+  if (!ilimitada) {
+    const semana = semanaSP();
     try {
-      reservou = (await db()`
-        insert into public.creditos_semana (user_id, semana, rota, gastos) values (${userId}, ${reserva.semana}, ${rota}, 1)
+      // Primeiro a semana; esgotada, o lote comprado válido que vence primeiro.
+      const daSemana = await db()`
+        insert into public.creditos_semana (user_id, semana, rota, gastos) values (${userId}, ${semana}, ${rota}, 1)
         on conflict (user_id, semana, rota) do update set gastos = creditos_semana.gastos + 1
         where creditos_semana.gastos + 1 <= ${LIMITE_SEMANAL[rota]}
-        returning gastos`).length > 0;
+        returning gastos`;
+      if (daSemana.length > 0) reserva.semana = semana;
+      else {
+        const [lote] = await db()`
+          update public.creditos_comprados set gastos = gastos + 1
+          where id = (
+            select id from public.creditos_comprados
+            where user_id = ${userId} and rota = ${rota} and vale_ate > now() and gastos < quantidade
+            order by vale_ate limit 1 for update skip locked)
+          returning id`;
+        reserva.lote = lote?.id ?? null;
+      }
     } catch (e) {
       console.error(`${rota}: falha ao reservar crédito`, e);
       return erro("Não consegui verificar seus créditos agora.", 500);
     }
-    if (!reservou) return erro(MSG_SEM_CREDITOS[rota], 429);
+    if (!reserva.semana && !reserva.lote) return erro(MSG_SEM_CREDITOS[rota], 429);
   }
   try {
     const [{ id }] = await db()`
@@ -173,15 +214,17 @@ export async function reservarChamada(
 
 /** A aluna não recebeu resposta: o crédito reservado volta. */
 export const devolverCredito = async (r: Reserva) => {
-  if (!r.semana) return;
-  await db()`
-    update public.creditos_semana set gastos = greatest(0, gastos - 1)
-    where user_id = ${r.userId} and semana = ${r.semana} and rota = ${r.rota}`.catch((e) =>
-    console.error(`${r.rota}: falha ao devolver crédito`, e),
-  );
+  const falhou = (e: unknown) => console.error(`${r.rota}: falha ao devolver crédito`, e);
+  if (r.lote)
+    await db()`
+      update public.creditos_comprados set gastos = greatest(0, gastos - 1)
+      where id = ${r.lote} and user_id = ${r.userId}`.catch(falhou);
+  else if (r.semana)
+    await db()`
+      update public.creditos_semana set gastos = greatest(0, gastos - 1)
+      where user_id = ${r.userId} and semana = ${r.semana} and rota = ${r.rota}`.catch(falhou);
 };
 
-/** Chamada que a IA não atendeu: some de ai_perguntas e não gasta crédito. */
 export const liberarChamada = async (r: Reserva) => {
   await devolverCredito(r);
   await db()`delete from public.ai_perguntas where id = ${r.id}`;

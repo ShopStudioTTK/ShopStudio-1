@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   BookOpen,
   Clapperboard,
+  Coins,
   GraduationCap,
   Home,
   ListChecks,
@@ -40,6 +41,7 @@ const criar: NavItem[] = [
   { to: "/app/roteiros-expert", label: "Roteiros expert", icon: BadgeCheck },
   { to: "/app/campeoes", label: "Vídeos campeões", icon: Clapperboard },
   { to: "/app/assistente", label: "Pergunte pra IA", icon: Sparkles },
+  { to: "/app/creditos", label: "Créditos", icon: Coins },
 ];
 
 const aprender: NavItem[] = [
