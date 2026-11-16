@@ -4,6 +4,14 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-15: Página "Alunas e avisos", separada do Treinamento
+
+**Pedido:** tirar do Treinamento as abas Notificações, Alunas do curso e Liberar acesso, que não são treinamento da IA, e pôr numa página separada.
+
+**Como ficou:** `/app/administracao`, com "Alunas e avisos" no menu de admin (ícone de pessoas), logo depois de "Treinamento da IA". Ela abre em Notificações. O Treinamento ficou com Perguntas, Roteiros e Música viral. As rotas não mudaram. **De carona:** `liberar-acesso POST` entrou no `ADMIN` do `protecao.test.ts`. A rota já passava pelo `admin()`, mas o teste de "aluna leva 403" não a cobria.
+
+---
+
 ## 2026-11-15: Notificações com data para aparecer, modal com o laço e prévia da admin
 
 **Pedido:** uma data para a notificação aparecer; o modal um pouco mais bonito, com a "florzinha" do painel inicial (é o laço 🎀 ao lado de "vender hoje?"); e um botão para a admin ver como a notificação fica, só quando ela quiser.

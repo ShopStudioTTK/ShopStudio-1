@@ -15,6 +15,7 @@ import {
   Plus,
   Sparkles,
   Trophy,
+  Users,
   Wand2,
   type LucideIcon,
 } from "lucide-react";
@@ -50,8 +51,11 @@ const aprender: NavItem[] = [
   { to: "/app/resultados", label: "Mural das alunas", icon: Trophy },
 ];
 
-/** Só aparece para admin; quem bloqueia de verdade é admin() nas rotas de /api/treinamento. */
-const administracao: NavItem[] = [{ to: "/app/treinamento", label: "Treinamento da IA", icon: GraduationCap }];
+/** Só aparece para admin; quem bloqueia de verdade é admin() nas rotas. */
+const administracao: NavItem[] = [
+  { to: "/app/treinamento", label: "Treinamento da IA", icon: GraduationCap },
+  { to: "/app/administracao", label: "Alunas e avisos", icon: Users },
+];
 
 const ativo = (pathname: string, item: NavItem) =>
   // com a barra: /app/roteiros não pode acender em /app/roteiros-expert

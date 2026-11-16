@@ -28,7 +28,7 @@ const ADMIN = new Set([
   "campeoes POST", "campeoes DELETE", "nichos POST", "nichos DELETE", "ganchos PATCH", "ganchos DELETE",
   "fichas GET", "fichas POST", "fichas PATCH", "fichas DELETE", "gatilhos GET", "gatilhos POST", "resultados PATCH", "fichas/reindexar POST",
   "frases-musica GET", "frases-musica POST", "frases-musica DELETE", "alunas-curso GET", "alunas-curso POST",
-  "notificacoes POST", "notificacoes DELETE",
+  "notificacoes POST", "notificacoes DELETE", "liberar-acesso POST",
 ]);
 const DE_ALUNA_COM_ACESSO = (h: { nome: string }) => !SO_LOGIN.has(h.nome) && !WEBHOOK.has(h.nome) && !PUBLICA.has(h.nome);
 const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE"];

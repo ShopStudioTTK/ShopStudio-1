@@ -4,11 +4,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AlunasCurso } from "@/components/alunas-curso";
 import { FichasRoteiro } from "@/components/fichas-roteiro";
 import { FrasesMusica } from "@/components/frases-musica";
-import { LiberarAcesso } from "@/components/liberar-acesso";
-import { NotificacoesAdmin } from "@/components/notificacoes-admin";
 import { CartaoPergunta, NovaPergunta, ROTULO_ORIGEM, type Fila, type Origem, type Status } from "@/components/treinamento";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
@@ -112,7 +109,7 @@ const Perguntas = () => {
   );
 };
 
-type Secao = "perguntas" | "roteiros" | "musica" | "alunas" | "acesso" | "notificacoes";
+type Secao = "perguntas" | "roteiros" | "musica";
 
 const TEXTO_DA_SECAO: Record<Secao, string> = {
   perguntas:
@@ -121,17 +118,12 @@ const TEXTO_DA_SECAO: Record<Secao, string> = {
     "Mostre como você pensaria o roteiro de um produto. O gerador usa o seu jeito nos produtos parecidos, e a aluna vê as suas fichas embaixo do roteiro.",
   musica:
     "Frases de tela para a Música viral (sem fala). Quando a aluna escolhe esse formato, a IA cria frases só no estilo destas aqui, nunca misturadas com os roteiros falados.",
-  alunas:
-    "Quem já é aluna do curso. A página de checkout consulta esta lista quando alguém digita o e-mail em “já sou aluna”. Compras do curso pela Applyfy entram sozinhas.",
-  acesso:
-    "Para quem pagou e não recebeu o e-mail. Cole os e-mails e o app cria a conta e manda o acesso, como depois da compra.",
-  notificacoes:
-    "Avisos para as alunas: aparecem uma vez num pop-up, assim que elas abrem o app, e ficam guardados no sininho.",
 };
 
 /**
  * Treinamento da IA, só para admin. A tela não decide nada: quem bloqueia é admin() no servidor,
- * em toda rota de /api/treinamento, /api/fichas, /api/gatilhos, /api/frases-musica, /api/alunas-curso e /api/notificacoes.
+ * em toda rota de /api/treinamento, /api/fichas, /api/gatilhos e /api/frases-musica. Notificações, alunas do
+ * curso e liberar acesso ficam em /app/administracao.
  */
 const Treinamento = () => {
   // ponytail: a seção fica só no estado; recarregar volta para Perguntas. URL se isso incomodar.
@@ -154,9 +146,6 @@ const Treinamento = () => {
             ["perguntas", "Perguntas"],
             ["roteiros", "Roteiros"],
             ["musica", "Música viral"],
-            ["alunas", "Alunas do curso"],
-            ["acesso", "Liberar acesso"],
-            ["notificacoes", "Notificações"],
           ] as const
         ).map(([id, rotulo]) => (
           <button key={id} type="button" className="chip" data-ativo={secao === id} onClick={() => setSecao(id)}>
@@ -169,14 +158,8 @@ const Treinamento = () => {
         <Perguntas />
       ) : secao === "roteiros" ? (
         <FichasRoteiro />
-      ) : secao === "musica" ? (
-        <FrasesMusica />
-      ) : secao === "alunas" ? (
-        <AlunasCurso />
-      ) : secao === "acesso" ? (
-        <LiberarAcesso />
       ) : (
-        <NotificacoesAdmin />
+        <FrasesMusica />
       )}
     </div>
   );

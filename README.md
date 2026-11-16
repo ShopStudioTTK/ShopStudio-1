@@ -102,7 +102,8 @@ src/
       roteiros/               banco de ganchos (com notas e comunidade) + gerador 5×5
       checklist/  resultados/
       campeoes/               vídeos campeões por nicho (admin adiciona e remove ali mesmo)
-      treinamento/            treinamento da IA (só admin): fila de perguntas e fichas de roteiro
+      treinamento/            treinamento da IA (só admin): perguntas, fichas de roteiro e frases da Música viral
+      administracao/          alunas e avisos (só admin): notificações, alunas do curso e liberar acesso
       conta/                  minha conta: nome, e-mail e senha
     api/
       assistente/route.ts     chat com streaming, créditos, registro de custo
@@ -183,7 +184,7 @@ O gerador e o assistente continuam o trabalho no servidor mesmo quando a aluna s
 Saindo pelo app, depois de confirmar, o pedido é descartado: o crédito fica gasto e o resultado não volta. No assistente, a conversa da aba também sobrevive ao F5; sair da página pelo app ou "Nova conversa" a apagam, como antes.
 
 ### Notificações (`/api/notificacoes`)
-A admin publica em **Treinamento da IA → Notificações**: título, descrição e, se quiser, um link (só `https://`) com um texto ("Ver a aula nova"; sem texto, aparece o endereço) e a **data para aparecer** (vazio = na hora; a agendada fica marcada na lista). **"Ver como fica"** abre o pop-up como a aluna vai ver, sem publicar. Cada aluna vê a notificação a partir da data dela, e só se já tinha conta nessa data: quem chega depois não vê as antigas. Assim que ela abre o app, em qualquer página, aparece um pop-up com o laço do painel e a data ("Novidade · 16 de novembro"), um por notificação ainda não vista (a mais nova primeiro); fechar marca como vista no banco, e ela não volta nem em outro aparelho. Depois, a notificação fica no **sininho** ao lado do logo (no celular, no topo), com um pontinho quando há alguma não vista. A admin apaga pela lixeira (com confirmação), e a notificação some de todas. `POST` e `DELETE` passam por `admin()`; `GET` e `PATCH` (marcar vista) usam o `user_id` do token.
+A admin publica em **Alunas e avisos → Notificações** (`/app/administracao`, no menu de admin): título, descrição e, se quiser, um link (só `https://`) com um texto ("Ver a aula nova"; sem texto, aparece o endereço) e a **data para aparecer** (vazio = na hora; a agendada fica marcada na lista). **"Ver como fica"** abre o pop-up como a aluna vai ver, sem publicar. Cada aluna vê a notificação a partir da data dela, e só se já tinha conta nessa data: quem chega depois não vê as antigas. Assim que ela abre o app, em qualquer página, aparece um pop-up com o laço do painel e a data ("Novidade · 16 de novembro"), um por notificação ainda não vista (a mais nova primeiro); fechar marca como vista no banco, e ela não volta nem em outro aparelho. Depois, a notificação fica no **sininho** ao lado do logo (no celular, no topo), com um pontinho quando há alguma não vista. A admin apaga pela lixeira (com confirmação), e a notificação some de todas. `POST` e `DELETE` passam por `admin()`; `GET` e `PATCH` (marcar vista) usam o `user_id` do token.
 
 ### Mural das alunas (`/api/resultados`)
 A aluna conta o resultado dela: **resultado em uma linha** (até 80 caracteres), **depoimento** e, se quiser, o **link do vídeo no TikTok** (o link curto do celular também vale). Pelo menos o depoimento ou o vídeo. Não há campo de nome: aparece o nome da conta (Minha conta), ou "Aluna do Shop Studio". Até 10 publicações por dia. Ela apaga só as dela, com confirmação. Quem está em `admins` vê um alfinete em todos os cartões para fixar no topo ou desafixar.
