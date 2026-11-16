@@ -1,4 +1,5 @@
 import { autenticar, creditosRestantes, ehAdmin, erro } from "@/lib/api-auth";
+import { limiteSemanal } from "@/lib/limite";
 
 /** Quantos créditos restam à aluna nesta semana (para o aviso na tela). Admin: ilimitado. */
 export async function GET(req: Request) {
@@ -6,7 +7,8 @@ export async function GET(req: Request) {
   if (auth instanceof Response) return auth;
   try {
     if (await ehAdmin(auth.userId)) return Response.json({ ilimitado: true });
-    return Response.json({ restantes: await creditosRestantes(auth.userId) });
+    const limite = limiteSemanal(auth.user.created_at);
+    return Response.json({ restantes: await creditosRestantes(auth.userId, limite), limite });
   } catch (e) {
     console.error("creditos: falha ao ler os créditos", e);
     return erro("Não consegui ler seus créditos agora.", 500);

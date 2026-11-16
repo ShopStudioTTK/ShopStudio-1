@@ -237,9 +237,18 @@ describe("POST /api/roteiro", () => {
     responderCom(regras({ semCredito: true }));
     const res = await POST(req());
     expect(res.status).toBe(429);
-    expect(await msg(res)).toBe("Seus 7 roteiros da semana acabaram. Domingo tem mais.");
+    expect(await msg(res)).toBe("Seus 10 roteiros da semana acabaram. Domingo tem mais.");
     expect(gravou("insert")).toBeUndefined();
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("conta de antes de dezembro: reserva com o limite de 15 roteiros (e a mensagem diz 15)", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "u1", created_at: "2026-11-10T10:00:00Z" } }, error: null });
+    await POST(req());
+    expect(creditos("insert")[0].valores).toEqual(["u1", semanaSP(), "roteiro", 15]);
+    reiniciarDb();
+    responderCom(regras({ semCredito: true }));
+    expect(await msg(await POST(req()))).toBe("Seus 15 roteiros da semana acabaram. Domingo tem mais.");
   });
 
   it("grava a geração como rota roteiro e registra tokens e custo", async () => {
@@ -247,7 +256,7 @@ describe("POST /api/roteiro", () => {
     expect(res.status).toBe(200);
     expect(gravou("insert")?.valores).toEqual(["u1", "roteiro", "Sérum", null, null]);
     expect(gravou("update")?.valores).toEqual([12000, 900, 11000, 0.0007, "r1"]);
-    expect(creditos("insert")[0].valores).toEqual(["u1", semanaSP(), "roteiro", 7]);
+    expect(creditos("insert")[0].valores).toEqual(["u1", semanaSP(), "roteiro", 10]);
     // 900 tokens de saída: fica no 1 crédito reservado
     expect(creditos("update")).toHaveLength(0);
   });

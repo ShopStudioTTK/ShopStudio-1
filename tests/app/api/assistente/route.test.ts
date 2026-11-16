@@ -97,6 +97,12 @@ describe("POST /api/assistente", () => {
     expect(reserva.sql).toContain("where creditos_semana.gastos + 1 <= ?");
   });
 
+  it("conta de antes de dezembro: limite de 20 perguntas", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "u1", created_at: "2026-11-10T10:00:00Z" } }, error: null });
+    await (await POST(req())).text();
+    expect(creditos("insert")[0].valores).toEqual(["u1", semanaSP(), "assistente", 20]);
+  });
+
   it("grava a pergunta, registra tokens e custo e, no fim, cobra o que passou de 1 crédito", async () => {
     const res = await POST(req({ messages: conversa, capitulo: "mentalidade-de-shop-girl" }));
     expect(res.status).toBe(200);

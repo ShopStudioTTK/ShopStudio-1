@@ -16,7 +16,6 @@ import { CREDITOS_KEY, useCreditos } from "@/hooks/use-creditos";
 import { useAuth } from "@/hooks/use-auth";
 import { useGuardaDeSaida } from "@/hooks/use-guarda-de-saida";
 import { api } from "@/lib/api-cliente";
-import { LIMITE_SEMANAL } from "@/lib/limite";
 import { esperarPedido, esquecer, lembrado, lembrar } from "@/lib/pedido";
 import { sair } from "@/lib/saida";
 import { cn } from "@/lib/utils";
@@ -606,7 +605,7 @@ export const ScriptGenerator = ({ inicial, gerarAoAbrir = false, onGerou }: Prop
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="max-w-[240px] text-[12.5px] leading-snug">
-                Gera um roteiro novo e usa mais 1 crédito (1 dos seus {LIMITE_SEMANAL.roteiro} roteiros da semana).
+                Gera um roteiro novo e usa mais 1 crédito{creditos.limite != null && ` (1 dos seus ${creditos.limite} roteiros da semana)`}.
               </TooltipContent>
             </Tooltip>
           </div>

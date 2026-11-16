@@ -27,14 +27,27 @@ describe("GET /api/creditos", () => {
       ["from public.entitlements", [{}]],
       ["from public.creditos_semana", [{ rota: "assistente", gastos: 11 }, { rota: "roteiro", gastos: 2 }]],
     ]);
-    expect(await (await GET(req())).json()).toEqual({ restantes: { assistente: 4, roteiro: 5 } });
+    expect(await (await GET(req())).json()).toEqual({
+      restantes: { assistente: 4, roteiro: 8 },
+      limite: { assistente: 15, roteiro: 10 },
+    });
     const leitura = naTabela("creditos_semana")[0];
     expect(leitura.valores).toEqual(["u1", semanaSP()]);
   });
 
-  it("semana sem uso = 15 perguntas e 7 roteiros", async () => {
+  it("conta nova (a partir de dezembro), semana sem uso = 15 perguntas e 10 roteiros", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "u1", created_at: "2026-12-02T10:00:00Z" } }, error: null });
     responderCom([["from public.entitlements", [{}]]]);
-    expect(await (await GET(req())).json()).toEqual({ restantes: { assistente: 15, roteiro: 7 } });
+    expect((await (await GET(req())).json()).restantes).toEqual({ assistente: 15, roteiro: 10 });
+  });
+
+  it("conta de antes de dezembro: 20 perguntas e 15 roteiros", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "u1", created_at: "2026-11-10T10:00:00Z" } }, error: null });
+    responderCom([["from public.entitlements", [{}]], ["from public.creditos_semana", [{ rota: "roteiro", gastos: 3 }]]]);
+    expect(await (await GET(req())).json()).toEqual({
+      restantes: { assistente: 20, roteiro: 12 },
+      limite: { assistente: 20, roteiro: 15 },
+    });
   });
 
   it("admin: ilimitado, sem ler créditos", async () => {

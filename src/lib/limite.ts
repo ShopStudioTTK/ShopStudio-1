@@ -15,7 +15,20 @@ export const inicioDoDiaSP = (agora: Date = new Date()): Date => {
  * Cada semana e cada tipo são uma linha nova em `creditos_semana`.
  */
 export type TipoDeCredito = "assistente" | "roteiro";
-export const LIMITE_SEMANAL: Record<TipoDeCredito, number> = { assistente: 15, roteiro: 7 };
+export type Limite = Record<TipoDeCredito, number>;
+
+/**
+ * Pedido da dona (2026-11-15): quem tem conta até 30/11/2026 às 23h59 de Brasília fica com o limite
+ * maior para sempre; contas a partir de 1/12 ficam com o menor. A data é a de criação da conta (que
+ * só nasce pela compra), vinda do usuário do token conferido no Supabase.
+ */
+const LIMITE_ANTIGAS: Limite = { assistente: 20, roteiro: 15 };
+const LIMITE_NOVAS: Limite = { assistente: 15, roteiro: 10 };
+const CORTE = new Date("2026-12-01T03:00:00Z");
+
+/** Sem data (ou inválida): o limite menor. */
+export const limiteSemanal = (contaCriadaEm: string | undefined): Limite =>
+  new Date(contaCriadaEm ?? "") < CORTE ? LIMITE_ANTIGAS : LIMITE_NOVAS;
 /** O aviso na tela só aparece quando restam isto ou menos. */
 export const AVISO_COM_RESTANTES: Record<TipoDeCredito, number> = { assistente: 4, roteiro: 2 };
 
@@ -29,16 +42,16 @@ export const semanaSP = (agora: Date = new Date()): string => {
 /** Um pedido precisa de pelo menos 1 crédito do tipo dele. */
 export const semCreditos = (restantes: number) => restantes < 1;
 
-export const MSG_SEM_CREDITOS: Record<TipoDeCredito, string> = {
-  assistente: `Suas ${LIMITE_SEMANAL.assistente} perguntas da semana acabaram. Domingo tem mais.`,
-  roteiro: `Seus ${LIMITE_SEMANAL.roteiro} roteiros da semana acabaram. Domingo tem mais.`,
-};
+export const msgSemCreditos = (tipo: TipoDeCredito, limite: number) =>
+  tipo === "assistente"
+    ? `Suas ${limite} perguntas da semana acabaram. Domingo tem mais.`
+    : `Seus ${limite} roteiros da semana acabaram. Domingo tem mais.`;
 
 const NOME: Record<TipoDeCredito, [string, string]> = { assistente: ["pergunta", "perguntas"], roteiro: ["roteiro", "roteiros"] };
 
-export const mensagemDeCreditos = (tipo: TipoDeCredito, restantes: number): string | null => {
+export const mensagemDeCreditos = (tipo: TipoDeCredito, restantes: number, limite: number): string | null => {
   if (restantes > AVISO_COM_RESTANTES[tipo]) return null;
-  if (semCreditos(restantes)) return MSG_SEM_CREDITOS[tipo];
+  if (semCreditos(restantes)) return msgSemCreditos(tipo, limite);
   const [um, varios] = NOME[tipo];
   return restantes === 1
     ? `Resta 1 ${um} nesta semana. Renova no domingo.`
