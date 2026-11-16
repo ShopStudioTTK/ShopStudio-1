@@ -79,6 +79,20 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"alunas_curso": {
+                  Row: {
+                    "criado_em": string,"email": string,"origem": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"email": string,"origem"?: string
+                  }
+                  Update: {
+                    "criado_em"?: string,"email"?: string,"origem"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"campeoes": {
                   Row: {
                     "criado_em": string,"id": string,"nicho": string,"titulo": string,"url": string
@@ -217,6 +231,20 @@ isOneToOne: false
       referencedColumns: ["slug"]
     }
                   ]
+                },"frases_musica": {
+                  Row: {
+                    "categoria": string,"cena": string,"criado_em": string,"criado_por": string | null,"frase": string,"id": string,"produto": string,"tipo": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "categoria": string,"cena": string,"criado_em"?: string,"criado_por"?: string | null,"frase": string,"id"?: string,"produto": string,"tipo": string
+                  }
+                  Update: {
+                    "categoria"?: string,"cena"?: string,"criado_em"?: string,"criado_por"?: string | null,"frase"?: string,"id"?: string,"produto"?: string,"tipo"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"gancho_notas": {
                   Row: {
                     "atualizado_em": string,"gancho_id": string,"nota": number,"user_id": string
@@ -278,6 +306,40 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"notificacoes": {
+                  Row: {
+                    "criado_em": string,"descricao": string,"id": string,"link": string | null,"link_texto": string | null,"titulo": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"descricao": string,"id"?: string,"link"?: string | null,"link_texto"?: string | null,"titulo": string
+                  }
+                  Update: {
+                    "criado_em"?: string,"descricao"?: string,"id"?: string,"link"?: string | null,"link_texto"?: string | null,"titulo"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"notificacoes_vistas": {
+                  Row: {
+                    "notificacao_id": string,"user_id": string,"vista_em": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "notificacao_id": string,"user_id": string,"vista_em"?: string
+                  }
+                  Update: {
+                    "notificacao_id"?: string,"user_id"?: string,"vista_em"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notificacoes_vistas_notificacao_id_fkey"
+      columns: ["notificacao_id"]
+isOneToOne: false
+      referencedRelation: "notificacoes"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"profiles": {
                   Row: {

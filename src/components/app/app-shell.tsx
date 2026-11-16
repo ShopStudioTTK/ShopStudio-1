@@ -22,6 +22,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/brand";
 import { ContadorDeCreditos } from "@/components/cartao-de-credito";
+import { AvisoDeNotificacao, SininhoDeNotificacoes } from "@/components/notificacoes";
 import { useAccess } from "@/hooks/use-access";
 import { useAuth } from "@/hooks/use-auth";
 import { useChapterProgress } from "@/hooks/use-progress";
@@ -284,6 +285,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
 
   return (
     <div className="flex min-h-dvh w-full max-w-full overflow-x-clip">
+      <AvisoDeNotificacao />
       <aside
         ref={asideRef}
         style={{ width: largura }}
@@ -296,8 +298,9 @@ const AppShell = ({ children }: { children: ReactNode }) => {
           <Link href="/app" className={cn("block", compacto ? "text-center" : "px-3")} aria-label="Shop Studio, início">
             <Wordmark className={compacto ? "text-[17px]" : "text-[26px]"} stacked={compacto} />
           </Link>
-          <div className={cn("mt-3", compacto ? "text-center" : "px-3")}>
+          <div className={cn("mt-3 flex items-center gap-2", compacto ? "flex-col" : "px-3")}>
             <ContadorDeCreditos empilhado={compacto} comNomes={!compacto} />
+            <SininhoDeNotificacoes />
           </div>
           <div className="mt-7">{navegacao(undefined, compacto)}</div>
         </div>
@@ -332,6 +335,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
             <Wordmark className="text-[22px]" />
           </Link>
           <ContadorDeCreditos className="ml-auto mr-2" />
+          <SininhoDeNotificacoes className="mr-2 h-10 w-10" />
           <Sheet open={menuAberto} onOpenChange={setMenuAberto}>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" aria-label="Abrir menu" className="bg-card">
