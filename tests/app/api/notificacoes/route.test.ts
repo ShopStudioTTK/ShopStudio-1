@@ -19,7 +19,7 @@ const req = (method = "GET", body?: unknown, url = "/api/notificacoes") =>
     headers: { Authorization: "Bearer tok", "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-const linha = { id: ID, titulo: "Aula nova", descricao: "Saiu", link: null, link_texto: null, criado_em: "2026-11-15T10:00:00Z", vista: false };
+const linha = { id: ID, titulo: "Aula nova", descricao: "Saiu", link: null, link_texto: null, aparece_em: "2026-11-15T10:00:00Z", vista: false };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -29,12 +29,12 @@ beforeEach(() => {
 });
 
 describe("GET /api/notificacoes", () => {
-  it("aluna: só as publicadas depois que a conta dela foi criada, com o que ela já viu", async () => {
+  it("aluna: só as que já apareceram e depois que a conta dela foi criada, com o que ela já viu", async () => {
     responderCom([["from public.entitlements", [{}]], ["from public.notificacoes n", [linha]]]);
     expect(await (await GET(req())).json()).toEqual({ notificacoes: [linha] });
     const [leitura] = naTabela("notificacoes");
     expect(leitura.sql).toContain("v.user_id = ?");
-    expect(leitura.sql).toContain("n.criado_em > ?");
+    expect(leitura.sql).toContain("n.aparece_em <= now() and n.aparece_em > ?");
     expect(leitura.valores).toEqual(["u1", false, CRIADA]);
   });
 
@@ -77,8 +77,15 @@ describe("POST /api/notificacoes (só admin)", () => {
     responderCom([["from public.entitlements", [{}]], ["from public.admins", [{}]], ["insert into public.notificacoes", [linha]]]);
     const res = await POST(req("POST", { titulo: "Aula nova", descricao: "Saiu", link: "https://a.com/x", linkTexto: "Ver" }));
     expect(res.status).toBe(201);
-    // e já nasce vista para quem publicou
-    expect(naTabela("notificacoes")[0].valores).toEqual(["Aula nova", "Saiu", "https://a.com/x", "Ver", "u1"]);
+    // sem data, aparece já (o banco usa now()); e já nasce vista para quem publicou
+    expect(naTabela("notificacoes")[0].valores).toEqual(["Aula nova", "Saiu", "https://a.com/x", "Ver", null, "u1"]);
+  });
+
+  it("admin agenda para uma data futura", async () => {
+    responderCom([["from public.entitlements", [{}]], ["from public.admins", [{}]], ["insert into public.notificacoes", [linha]]]);
+    const quando = new Date(Date.now() + 86_400_000).toISOString();
+    expect((await POST(req("POST", { titulo: "x", descricao: "y", apareceEm: quando }))).status).toBe(201);
+    expect(naTabela("notificacoes")[0].valores[4]).toBe(quando);
   });
 
   it("400 com o motivo, sem gravar", async () => {

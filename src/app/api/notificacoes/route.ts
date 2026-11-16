@@ -4,8 +4,9 @@ import { uuid } from "@/lib/entrada";
 import { novaNotificacao } from "@/lib/notificacoes";
 
 /**
- * Notificações da aluna: só as publicadas depois que a conta dela foi criada (data do usuário do
- * token), as mais novas primeiro, com `vista`. Admin vê todas, para poder apagar.
+ * Notificações da aluna: só as que já apareceram (`aparece_em`) e cuja data é depois da criação da
+ * conta dela (data do usuário do token), as mais novas primeiro, com `vista`. Admin vê todas, até as
+ * agendadas, para poder apagar.
  */
 export async function GET(req: Request) {
   const auth = await autenticar(req, "notificacoes", "Faça login.");
@@ -13,11 +14,11 @@ export async function GET(req: Request) {
   const adm = await ehAdmin(auth.userId).catch(() => false);
   try {
     const notificacoes = await db()`
-      select n.id, n.titulo, n.descricao, n.link, n.link_texto, n.criado_em, (v.user_id is not null) as vista
+      select n.id, n.titulo, n.descricao, n.link, n.link_texto, n.criado_em, n.aparece_em, (v.user_id is not null) as vista
       from public.notificacoes n
       left join public.notificacoes_vistas v on v.notificacao_id = n.id and v.user_id = ${auth.userId}
-      where ${adm} or n.criado_em > ${auth.user.created_at ?? "infinity"}::timestamptz
-      order by n.criado_em desc limit 50`;
+      where ${adm} or (n.aparece_em <= now() and n.aparece_em > ${auth.user.created_at ?? "infinity"}::timestamptz)
+      order by n.aparece_em desc limit 50`;
     return Response.json({ notificacoes });
   } catch (e) {
     console.error("notificacoes: falha ao ler", e);
@@ -52,9 +53,9 @@ export async function POST(req: Request) {
   try {
     const [notificacao] = await db()`
       with n as (
-        insert into public.notificacoes (titulo, descricao, link, link_texto)
-        values (${nova.titulo}, ${nova.descricao}, ${nova.link}, ${nova.linkTexto})
-        returning id, titulo, descricao, link, link_texto, criado_em
+        insert into public.notificacoes (titulo, descricao, link, link_texto, aparece_em)
+        values (${nova.titulo}, ${nova.descricao}, ${nova.link}, ${nova.linkTexto}, coalesce(${nova.apareceEm}::timestamptz, now()))
+        returning id, titulo, descricao, link, link_texto, criado_em, aparece_em
       ), vista as (insert into public.notificacoes_vistas (notificacao_id, user_id) select id, ${auth.userId} from n)
       select * from n`;
     return Response.json({ notificacao }, { status: 201 });

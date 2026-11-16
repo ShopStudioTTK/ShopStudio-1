@@ -8,6 +8,7 @@ describe("novaNotificacao", () => {
       descricao: "Saiu a aula 13.",
       link: null,
       linkTexto: null,
+      apareceEm: null,
     });
     expect(novaNotificacao({ titulo: "", descricao: "x" })).toBe("Escreva o título.");
     expect(novaNotificacao({ titulo: "x", descricao: "  " })).toBe("Escreva a descrição.");
@@ -35,5 +36,19 @@ describe("novaNotificacao", () => {
 
   it("sem link, o texto do link é ignorado", () => {
     expect(novaNotificacao({ titulo: "x", descricao: "y", link: " ", linkTexto: "Ver" })).toMatchObject({ link: null, linkTexto: null });
+  });
+
+  it("data para aparecer: opcional; no futuro fica, no passado vira agora; inválida dá erro", () => {
+    const agora = new Date("2026-11-15T12:00:00Z");
+    const base = { titulo: "x", descricao: "y" };
+    expect(novaNotificacao({ ...base, apareceEm: "2026-11-20T12:00:00.000Z" }, agora)).toMatchObject({
+      apareceEm: "2026-11-20T12:00:00.000Z",
+    });
+    expect(novaNotificacao({ ...base, apareceEm: "2026-11-10T12:00:00.000Z" }, agora)).toMatchObject({ apareceEm: null });
+    expect(novaNotificacao({ ...base, apareceEm: "" }, agora)).toMatchObject({ apareceEm: null });
+    expect(novaNotificacao({ ...base, apareceEm: "amanhã" }, agora)).toBe("Data para aparecer inválida.");
+    expect(novaNotificacao({ ...base, apareceEm: "2028-01-01T00:00:00.000Z" }, agora)).toBe(
+      "A data para aparecer pode ser no máximo daqui a um ano.",
+    );
   });
 });

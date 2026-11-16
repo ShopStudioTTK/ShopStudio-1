@@ -309,14 +309,14 @@ isOneToOne: false
                   ]
                 },"notificacoes": {
                   Row: {
-                    "criado_em": string,"descricao": string,"id": string,"link": string | null,"link_texto": string | null,"titulo": string
+                    "aparece_em": string,"criado_em": string,"descricao": string,"id": string,"link": string | null,"link_texto": string | null,"titulo": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "criado_em"?: string,"descricao": string,"id"?: string,"link"?: string | null,"link_texto"?: string | null,"titulo": string
+                    "aparece_em"?: string,"criado_em"?: string,"descricao": string,"id"?: string,"link"?: string | null,"link_texto"?: string | null,"titulo": string
                   }
                   Update: {
-                    "criado_em"?: string,"descricao"?: string,"id"?: string,"link"?: string | null,"link_texto"?: string | null,"titulo"?: string
+                    "aparece_em"?: string,"criado_em"?: string,"descricao"?: string,"id"?: string,"link"?: string | null,"link_texto"?: string | null,"titulo"?: string
                   }
                   Relationships: [
                     

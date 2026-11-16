@@ -4,6 +4,20 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-15: Notificações com data para aparecer, modal com o laço e prévia da admin
+
+**Pedido:** uma data para a notificação aparecer; o modal um pouco mais bonito, com a "florzinha" do painel inicial (é o laço 🎀 ao lado de "vender hoje?"); e um botão para a admin ver como a notificação fica, só quando ela quiser.
+
+**Como ficou:**
+- **Data:** coluna `aparece_em` (migration `20261115010000`), vazia = na hora. A regra de quem vê passou a usar essa data: a aluna vê a partir dela, e só se a conta já existia nela. **Decisão minha:** data no passado vira "na hora", senão quem ganhou conta entre a data e agora ficaria de fora; e o limite é de 1 ano. Na lista da admin, a agendada aparece com "Agendada para …".
+- **Modal:** `ModalDaNotificacao` (Radix Dialog), com borda em degradê, um topo rosa com "Novidade · <data>", o laço flutuando (o mesmo `animate-floaty` do painel), a descrição e os botões embaixo. O pop-up deixou de usar o `Confirmacao`, que voltou a ser como era.
+- **Prévia:** "Ver como fica", ao lado de "Publicar" (que vira "Agendar" com data), abre o mesmo modal com o que está no formulário e o selo "Prévia: só você está vendo". Não grava nada.
+- **Bug achado no teste:** a regra do banco para o texto do link recusava qualquer notificação **sem link** (`link is not null and …` dá falso quando o link é nulo). A mesma migration troca a regra por `link_texto is null or (…)`.
+
+**Verificado:** testes, lint e build (os 3 testes de e-mail/Applyfy que já falhavam na `main` seguem falhando). No navegador: a aluna vê o modal novo da notificação publicada agora e não vê a agendada para amanhã; a admin vê as duas, com a marca de agendada, e a prévia abre e fecha sem publicar. Pela API: notificação sem link agendada → 201; texto de link sem link → recusado pelo banco.
+
+---
+
 ## 2026-11-15: Créditos maiores para quem já tem conta e notificações da admin
 
 **Pedido:**

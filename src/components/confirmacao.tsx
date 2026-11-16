@@ -18,9 +18,9 @@ export const Confirmacao = ({ aberta, titulo, descricao, onFechar, children }: P
   <Dialog.Root open={aberta} onOpenChange={(abrir) => !abrir && onFechar()}>
     <Dialog.Portal>
       <Dialog.Overlay className="fixed inset-0 z-50 bg-foreground/40 backdrop-blur-[2px]" />
-      <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-h-[85dvh] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[26px] border border-border bg-card p-6 shadow-editorial">
+      <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-[26px] border border-border bg-card p-6 shadow-editorial">
         <Dialog.Title className="font-display text-xl font-semibold tracking-tight">{titulo}</Dialog.Title>
-        <Dialog.Description className="mt-2 whitespace-pre-line text-[14px] leading-relaxed text-muted-foreground">{descricao}</Dialog.Description>
+        <Dialog.Description className="mt-2 text-[14px] leading-relaxed text-muted-foreground">{descricao}</Dialog.Description>
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row-reverse sm:flex-wrap">{children}</div>
       </Dialog.Content>
     </Dialog.Portal>
