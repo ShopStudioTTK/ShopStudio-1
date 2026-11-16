@@ -4,6 +4,14 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-15: Os limites novos só valem a partir da meia-noite
+
+**Pedido:** a mudança dos créditos não deve valer na hora do deploy, e sim a partir da meia-noite (era domingo, 15/11, 23h11).
+
+**Como ficou:** `VIRADA` = 2026-11-16T03:00Z (segunda, 16/11, à 0h de Brasília) em `limiteSemanal`. Antes dela, todo mundo continua com 15 perguntas e 7 roteiros; depois, vale a regra pela data da conta. O que já foi gasto na semana continua contando, porque a semana começou no domingo, 15/11. Nos testes das rotas, o relógio fica fixo depois da virada (só o `Date` é falso).
+
+---
+
 ## 2026-11-15: Página "Alunas e avisos", separada do Treinamento
 
 **Pedido:** tirar do Treinamento as abas Notificações, Alunas do curso e Liberar acesso, que não são treinamento da IA, e pôr numa página separada.

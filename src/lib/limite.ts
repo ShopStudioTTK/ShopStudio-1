@@ -18,17 +18,22 @@ export type TipoDeCredito = "assistente" | "roteiro";
 export type Limite = Record<TipoDeCredito, number>;
 
 /**
- * Pedido da dona (2026-11-15): quem tem conta até 30/11/2026 às 23h59 de Brasília fica com o limite
- * maior para sempre; contas a partir de 1/12 ficam com o menor. A data é a de criação da conta (que
- * só nasce pela compra), vinda do usuário do token conferido no Supabase.
+ * Pedido da dona (2026-11-15): a partir de 16/11/2026 à 0h de Brasília (`VIRADA`), quem tem conta até
+ * 30/11/2026 às 23h59 fica com o limite maior para sempre, e contas a partir de 1/12 ficam com o menor.
+ * Antes da virada, todo mundo com o limite de antes. A data é a de criação da conta (que só nasce pela
+ * compra), vinda do usuário do token conferido no Supabase.
  */
+const LIMITE_ANTERIOR: Limite = { assistente: 15, roteiro: 7 };
 const LIMITE_ANTIGAS: Limite = { assistente: 20, roteiro: 15 };
 const LIMITE_NOVAS: Limite = { assistente: 15, roteiro: 10 };
+const VIRADA = new Date("2026-11-16T03:00:00Z");
 const CORTE = new Date("2026-12-01T03:00:00Z");
 
-/** Sem data (ou inválida): o limite menor. */
-export const limiteSemanal = (contaCriadaEm: string | undefined): Limite =>
-  new Date(contaCriadaEm ?? "") < CORTE ? LIMITE_ANTIGAS : LIMITE_NOVAS;
+/** Sem data de criação (ou inválida): o limite menor. */
+export const limiteSemanal = (contaCriadaEm: string | undefined, agora: Date = new Date()): Limite => {
+  if (agora < VIRADA) return LIMITE_ANTERIOR;
+  return new Date(contaCriadaEm ?? "") < CORTE ? LIMITE_ANTIGAS : LIMITE_NOVAS;
+};
 /** O aviso na tela só aparece quando restam isto ou menos. */
 export const AVISO_COM_RESTANTES: Record<TipoDeCredito, number> = { assistente: 4, roteiro: 2 };
 

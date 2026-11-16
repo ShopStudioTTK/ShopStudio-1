@@ -33,17 +33,23 @@ describe("semanaSP", () => {
 });
 
 describe("limites semanais", () => {
-  it("conta criada até 30/11 às 23h59 de Brasília: 20 perguntas e 15 roteiros, para sempre", () => {
-    expect(limiteSemanal("2026-11-04T12:00:00Z")).toEqual({ assistente: 20, roteiro: 15 });
-    expect(limiteSemanal("2026-12-01T02:59:59Z")).toEqual({ assistente: 20, roteiro: 15 });
+  const depois = new Date("2026-11-16T03:00:00Z");
+  it("até 15/11 às 23h59 de Brasília, todo mundo com os limites de antes: 15 perguntas e 7 roteiros", () => {
+    const antes = new Date("2026-11-16T02:59:59Z");
+    expect(limiteSemanal("2026-11-04T12:00:00Z", antes)).toEqual({ assistente: 15, roteiro: 7 });
+    expect(limiteSemanal(undefined, antes)).toEqual({ assistente: 15, roteiro: 7 });
+  });
+  it("a partir de 16/11 0h: conta criada até 30/11 às 23h59 de Brasília = 20 perguntas e 15 roteiros, para sempre", () => {
+    expect(limiteSemanal("2026-11-04T12:00:00Z", depois)).toEqual({ assistente: 20, roteiro: 15 });
+    expect(limiteSemanal("2026-12-01T02:59:59Z", new Date("2027-05-01T00:00:00Z"))).toEqual({ assistente: 20, roteiro: 15 });
   });
   it("conta criada a partir de 1/12 0h de Brasília: 15 perguntas e 10 roteiros", () => {
-    expect(limiteSemanal("2026-12-01T03:00:00Z")).toEqual({ assistente: 15, roteiro: 10 });
-    expect(limiteSemanal("2027-03-01T00:00:00Z")).toEqual({ assistente: 15, roteiro: 10 });
+    expect(limiteSemanal("2026-12-01T03:00:00Z", new Date("2026-12-02T00:00:00Z"))).toEqual({ assistente: 15, roteiro: 10 });
+    expect(limiteSemanal("2027-03-01T00:00:00Z", new Date("2027-03-02T00:00:00Z"))).toEqual({ assistente: 15, roteiro: 10 });
   });
   it("sem data de criação: o limite menor", () => {
-    expect(limiteSemanal(undefined)).toEqual({ assistente: 15, roteiro: 10 });
-    expect(limiteSemanal("lixo")).toEqual({ assistente: 15, roteiro: 10 });
+    expect(limiteSemanal(undefined, depois)).toEqual({ assistente: 15, roteiro: 10 });
+    expect(limiteSemanal("lixo", depois)).toEqual({ assistente: 15, roteiro: 10 });
   });
   it("aviso perto do fim", () => {
     expect(AVISO_COM_RESTANTES).toEqual({ assistente: 4, roteiro: 2 });

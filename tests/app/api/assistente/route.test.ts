@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 // after(): a leitura do stream segue mesmo sem a aluna. Aqui só se confere que a rota a entrega.
@@ -38,6 +38,15 @@ const daFila = () => consultas.find((c) => c.sql.includes("insert into public.tr
 const sse =
   'data: {"choices":[{"delta":{"content":"Oi"},"finish_reason":"stop"}]}\n\n' +
   'data: {"choices":[],"usage":{"prompt_tokens":90000,"completion_tokens":800,"cost":0.0081,"prompt_tokens_details":{"cached_tokens":89000}}}\n\ndata: [DONE]\n\n';
+
+// Relógio fixo depois da virada dos limites (16/11/2026 0h de Brasília); só o Date é falso.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-20T15:00:00Z"));
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 beforeEach(() => {
   vi.restoreAllMocks();

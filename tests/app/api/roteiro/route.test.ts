@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 // after(): o trabalho segue mesmo sem a aluna. Aqui só se confere que a rota o entrega.
@@ -67,6 +67,15 @@ const regras = (o: { entitlements?: R; semCredito?: boolean; admins?: R } = {}):
   ["insert into public.creditos_semana", o.semCredito ? [] : [{ gastos: 1 }]],
   ["insert into public.ai_perguntas", [{ id: "r1" }]],
 ];
+
+// Relógio fixo depois da virada dos limites (16/11/2026 0h de Brasília); só o Date é falso.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-20T15:00:00Z"));
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 beforeEach(() => {
   vi.restoreAllMocks();
