@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/lib/api-cliente";
-import { mensagemDeCreditos, semCreditos, type TipoDeCredito } from "@/lib/limite";
+import { mensagemDeCreditos, semCreditos, type Limite, type TipoDeCredito } from "@/lib/limite";
 
 export const CREDITOS_KEY = "creditos";
 
@@ -16,15 +16,18 @@ export const useCreditos = (tipo: TipoDeCredito) => {
   const query = useQuery({
     queryKey: [CREDITOS_KEY, user?.id],
     enabled: Boolean(user?.id),
-    queryFn: () => api<{ restantes?: Record<TipoDeCredito, number>; ilimitado?: true }>("/api/creditos"),
+    queryFn: () => api<{ restantes?: Limite; limite?: Limite; ilimitado?: true }>("/api/creditos"),
   });
   const restantes = query.data?.ilimitado ? null : query.data?.restantes?.[tipo];
+  const limite = query.data?.limite?.[tipo] ?? null;
   return {
     pronto: query.isSuccess,
     /** null = carregando ou admin (ilimitado). */
     restantes: restantes ?? null,
+    /** O limite semanal da conta (depende de quando ela foi criada); null = carregando ou admin. */
+    limite,
     ilimitado: Boolean(query.data?.ilimitado),
     esgotado: restantes != null && semCreditos(restantes),
-    aviso: restantes != null ? mensagemDeCreditos(tipo, restantes) : null,
+    aviso: restantes != null && limite != null ? mensagemDeCreditos(tipo, restantes, limite) : null,
   };
 };

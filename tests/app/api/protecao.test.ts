@@ -28,6 +28,7 @@ const ADMIN = new Set([
   "campeoes POST", "campeoes DELETE", "nichos POST", "nichos DELETE", "ganchos PATCH", "ganchos DELETE",
   "fichas GET", "fichas POST", "fichas PATCH", "fichas DELETE", "gatilhos GET", "gatilhos POST", "resultados PATCH", "fichas/reindexar POST",
   "frases-musica GET", "frases-musica POST", "frases-musica DELETE", "alunas-curso GET", "alunas-curso POST",
+  "notificacoes POST", "notificacoes DELETE", "liberar-acesso POST",
 ]);
 const DE_ALUNA_COM_ACESSO = (h: { nome: string }) => !SO_LOGIN.has(h.nome) && !WEBHOOK.has(h.nome) && !PUBLICA.has(h.nome);
 const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE"];
@@ -100,7 +101,7 @@ describe("toda rota da API", () => {
   it.each(handlers.filter((h) => ADMIN.has(h.nome)))("$nome: aluna com acesso, fora de admins → 403", async ({ chamar }) => {
     responderCom([["from public.entitlements", [{}]]]);
     expect((await chamar("Bearer tok")).status).toBe(403);
-    expect(consultas.some((c) => /public\.(treinamento|campeoes|nichos|fichas_roteiro|gatilhos|success_cases|frases_musica|alunas_curso)/.test(c.sql))).toBe(false);
+    expect(consultas.some((c) => /public\.(treinamento|campeoes|nichos|fichas_roteiro|gatilhos|success_cases|frases_musica|alunas_curso|notificacoes)/.test(c.sql))).toBe(false);
   });
 
   it.each(handlers.filter(DE_ALUNA_COM_ACESSO))("$nome: sem acesso → 403", async ({ chamar }) => {

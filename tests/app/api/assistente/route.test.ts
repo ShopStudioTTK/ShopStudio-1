@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 // after(): a leitura do stream segue mesmo sem a aluna. Aqui só se confere que a rota a entrega.
@@ -38,6 +38,15 @@ const daFila = () => consultas.find((c) => c.sql.includes("insert into public.tr
 const sse =
   'data: {"choices":[{"delta":{"content":"Oi"},"finish_reason":"stop"}]}\n\n' +
   'data: {"choices":[],"usage":{"prompt_tokens":90000,"completion_tokens":800,"cost":0.0081,"prompt_tokens_details":{"cached_tokens":89000}}}\n\ndata: [DONE]\n\n';
+
+// Relógio fixo depois da virada dos limites (16/11/2026 0h de Brasília); só o Date é falso.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-20T15:00:00Z"));
+});
+afterAll(() => {
+  vi.useRealTimers();
+});
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -95,6 +104,12 @@ describe("POST /api/assistente", () => {
     expect(reserva.valores).toEqual(["u1", semanaSP(), "assistente", 15]);
     expect(reserva.sql).toContain("on conflict (user_id, semana, rota) do update set gastos = creditos_semana.gastos + 1");
     expect(reserva.sql).toContain("where creditos_semana.gastos + 1 <= ?");
+  });
+
+  it("conta de antes de dezembro: limite de 20 perguntas", async () => {
+    getUser.mockResolvedValue({ data: { user: { id: "u1", created_at: "2026-11-10T10:00:00Z" } }, error: null });
+    await (await POST(req())).text();
+    expect(creditos("insert")[0].valores).toEqual(["u1", semanaSP(), "assistente", 20]);
   });
 
   it("grava a pergunta, registra tokens e custo e, no fim, cobra o que passou de 1 crédito", async () => {

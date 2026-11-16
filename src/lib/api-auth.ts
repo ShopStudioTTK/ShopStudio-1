@@ -3,7 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { temAcesso } from "@/lib/access";
 import { estadoDaSenhaTemporaria } from "@/lib/contas";
 import { db } from "@/lib/db";
-import { LIMITE_SEMANAL, MSG_SEM_CREDITOS, semanaSP, type TipoDeCredito } from "@/lib/limite";
+import { msgSemCreditos, semanaSP, type Limite } from "@/lib/limite";
 import type { Uso } from "@/lib/uso";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -123,41 +123,41 @@ export type Rota = "assistente" | "roteiro";
 export type Reserva = { id: string; userId: string; rota: Rota; semana: string | null };
 
 /** Quanto resta de cada tipo à aluna nesta semana (tipo sem linha = nada gasto). */
-export const creditosRestantes = async (userId: string): Promise<Record<TipoDeCredito, number>> => {
+export const creditosRestantes = async (userId: string, limite: Limite): Promise<Limite> => {
   const linhas = await db()`
     select rota, gastos from public.creditos_semana where user_id = ${userId} and semana = ${semanaSP()}`;
-  const gasto = (tipo: TipoDeCredito) => Number(linhas.find((l) => l.rota === tipo)?.gastos ?? 0);
-  return { assistente: LIMITE_SEMANAL.assistente - gasto("assistente"), roteiro: LIMITE_SEMANAL.roteiro - gasto("roteiro") };
+  const gasto = (tipo: Rota) => Number(linhas.find((l) => l.rota === tipo)?.gastos ?? 0);
+  return { assistente: limite.assistente - gasto("assistente"), roteiro: limite.roteiro - gasto("roteiro") };
 };
 
 /**
  * Reserva 1 crédito da semana do tipo da rota (numa consulta só, que só soma se ainda couber no
  * limite dela) e grava a chamada em ai_perguntas. Cada pedido gasta 1, do tamanho que for.
- * Admin (`ilimitada`) não mexe em créditos. `pedido` (uuid do navegador) é o que a tela usa para
+ * `limite` é o da conta (`limiteSemanal`) para o tipo da rota; null = admin, que não mexe em créditos. `pedido` (uuid do navegador) é o que a tela usa para
  * retomar a resposta depois do F5 (GET /api/pedidos).
  */
 export async function reservarChamada(
   userId: string,
   rota: Rota,
-  ilimitada: boolean,
+  limite: number | null,
   pergunta: string,
   capitulo: string | null = null,
   pedido: string | null = null,
 ): Promise<Reserva | Response> {
-  const reserva: Reserva = { id: "", userId, rota, semana: ilimitada ? null : semanaSP() };
+  const reserva: Reserva = { id: "", userId, rota, semana: limite == null ? null : semanaSP() };
   if (reserva.semana) {
     let reservou: boolean;
     try {
       reservou = (await db()`
         insert into public.creditos_semana (user_id, semana, rota, gastos) values (${userId}, ${reserva.semana}, ${rota}, 1)
         on conflict (user_id, semana, rota) do update set gastos = creditos_semana.gastos + 1
-        where creditos_semana.gastos + 1 <= ${LIMITE_SEMANAL[rota]}
+        where creditos_semana.gastos + 1 <= ${limite}
         returning gastos`).length > 0;
     } catch (e) {
       console.error(`${rota}: falha ao reservar crédito`, e);
       return erro("Não consegui verificar seus créditos agora.", 500);
     }
-    if (!reservou) return erro(MSG_SEM_CREDITOS[rota], 429);
+    if (!reservou) return erro(msgSemCreditos(rota, limite!), 429);
   }
   try {
     const [{ id }] = await db()`

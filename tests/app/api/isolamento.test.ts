@@ -15,6 +15,7 @@ import * as conversas from "@/app/api/conversas/route";
 import * as creditos from "@/app/api/creditos/route";
 import * as ganchos from "@/app/api/ganchos/route";
 import * as notaDoGancho from "@/app/api/ganchos/nota/route";
+import * as notificacoes from "@/app/api/notificacoes/route";
 import * as pedidos from "@/app/api/pedidos/route";
 import * as perfil from "@/app/api/perfil/route";
 import * as progresso from "@/app/api/progresso/route";
@@ -206,6 +207,14 @@ describe("cada conta só vê e mexe no que é dela", () => {
     responderCom([["from public.entitlements", [{}]]]);
     await creditos.GET(req("/api/creditos?user_id=u2"));
     expect(naTabela("creditos_semana")[0].valores[0]).toBe("u1");
+  });
+
+  it("notificações: lê e marca como vista só em nome da aluna logada", async () => {
+    responderCom([["from public.entitlements", [{}]]]);
+    await notificacoes.GET(req("/api/notificacoes?user_id=u2"));
+    expect(naTabela("notificacoes")[0].valores[0]).toBe("u1");
+    await notificacoes.PATCH(req("/api/notificacoes", "PATCH", { id: ID, user_id: OUTRA }));
+    expect(naTabela("notificacoes_vistas").at(-1)?.valores).toEqual(["u1", ID]);
   });
 
   it("vídeos: arquivo do bucket sai assinado com a validade do .env; link externo passa direto", async () => {

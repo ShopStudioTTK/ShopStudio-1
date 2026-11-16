@@ -15,6 +15,7 @@ import type { FichaCartao, Gatilho } from "@/lib/fichas-tipos";
 import { uuid } from "@/lib/entrada";
 import { FORMATO_MUSICA } from "@/content/formatos";
 import { frasesDaIa, type ExemploDeMusica } from "@/lib/frases-musica";
+import { limiteSemanal } from "@/lib/limite";
 import { buildMusicaPrompt, buildMusicaUser, listarFrasesDeMusica } from "@/lib/musica";
 import { buildSystemPrompt, buildUserPrompt, extractScriptJson, RASCUNHO_BLOCK } from "@/lib/roteiro";
 
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
 
   // Id do navegador para retomar depois do F5 (GET /api/pedidos). Só vale junto com o userId do token.
   const pedido = uuid(body?.pedido);
-  const reserva = await reservarChamada(userId, "roteiro", adm, input.produto, null, pedido);
+  const reserva = await reservarChamada(userId, "roteiro", adm ? null : limiteSemanal(auth.user.created_at).roteiro, input.produto, null, pedido);
   if (reserva instanceof Response) return reserva;
   const descontar = () => liberarChamada(reserva);
   // Depois que a IA respondeu, o que a aluna recebe fica guardado (com pedido) para ela retomar.

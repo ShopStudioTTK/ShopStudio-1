@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   AVISO_COM_RESTANTES,
-  LIMITE_SEMANAL,
   inicioDoDiaSP,
+  limiteSemanal,
   mensagemDeCreditos,
   saldoDeCreditos,
   usoPorAcao,
@@ -33,29 +33,46 @@ describe("semanaSP", () => {
 });
 
 describe("limites semanais", () => {
-  it("15 perguntas e 7 roteiros por semana, saldos separados; cada pedido gasta 1", () => {
-    expect(LIMITE_SEMANAL).toEqual({ assistente: 15, roteiro: 7 });
+  const depois = new Date("2026-11-16T03:00:00Z");
+  it("até 15/11 às 23h59 de Brasília, todo mundo com os limites de antes: 15 perguntas e 7 roteiros", () => {
+    const antes = new Date("2026-11-16T02:59:59Z");
+    expect(limiteSemanal("2026-11-04T12:00:00Z", antes)).toEqual({ assistente: 15, roteiro: 7 });
+    expect(limiteSemanal(undefined, antes)).toEqual({ assistente: 15, roteiro: 7 });
+  });
+  it("a partir de 16/11 0h: conta criada até 30/11 às 23h59 de Brasília = 20 perguntas e 15 roteiros, para sempre", () => {
+    expect(limiteSemanal("2026-11-04T12:00:00Z", depois)).toEqual({ assistente: 20, roteiro: 15 });
+    expect(limiteSemanal("2026-12-01T02:59:59Z", new Date("2027-05-01T00:00:00Z"))).toEqual({ assistente: 20, roteiro: 15 });
+  });
+  it("conta criada a partir de 1/12 0h de Brasília: 15 perguntas e 10 roteiros", () => {
+    expect(limiteSemanal("2026-12-01T03:00:00Z", new Date("2026-12-02T00:00:00Z"))).toEqual({ assistente: 15, roteiro: 10 });
+    expect(limiteSemanal("2027-03-01T00:00:00Z", new Date("2027-03-02T00:00:00Z"))).toEqual({ assistente: 15, roteiro: 10 });
+  });
+  it("sem data de criação: o limite menor", () => {
+    expect(limiteSemanal(undefined, depois)).toEqual({ assistente: 15, roteiro: 10 });
+    expect(limiteSemanal("lixo", depois)).toEqual({ assistente: 15, roteiro: 10 });
+  });
+  it("aviso perto do fim", () => {
     expect(AVISO_COM_RESTANTES).toEqual({ assistente: 4, roteiro: 2 });
   });
 });
 
 describe("mensagemDeCreditos", () => {
   it("escondida enquanto sobra bastante", () => {
-    expect(mensagemDeCreditos("assistente", 15)).toBeNull();
-    expect(mensagemDeCreditos("assistente", 5)).toBeNull();
-    expect(mensagemDeCreditos("roteiro", 3)).toBeNull();
+    expect(mensagemDeCreditos("assistente", 15, 20)).toBeNull();
+    expect(mensagemDeCreditos("assistente", 5, 20)).toBeNull();
+    expect(mensagemDeCreditos("roteiro", 3, 15)).toBeNull();
   });
   it("perto do fim, diz quanto resta de cada tipo", () => {
-    expect(mensagemDeCreditos("assistente", 4)).toBe("Restam 4 perguntas nesta semana. Renova no domingo.");
-    expect(mensagemDeCreditos("assistente", 1)).toBe("Resta 1 pergunta nesta semana. Renova no domingo.");
-    expect(mensagemDeCreditos("roteiro", 2)).toBe("Restam 2 roteiros nesta semana. Renova no domingo.");
-    expect(mensagemDeCreditos("roteiro", 1)).toBe("Resta 1 roteiro nesta semana. Renova no domingo.");
+    expect(mensagemDeCreditos("assistente", 4, 20)).toBe("Restam 4 perguntas nesta semana. Renova no domingo.");
+    expect(mensagemDeCreditos("assistente", 1, 20)).toBe("Resta 1 pergunta nesta semana. Renova no domingo.");
+    expect(mensagemDeCreditos("roteiro", 2, 15)).toBe("Restam 2 roteiros nesta semana. Renova no domingo.");
+    expect(mensagemDeCreditos("roteiro", 1, 15)).toBe("Resta 1 roteiro nesta semana. Renova no domingo.");
   });
   it("acabou", () => {
     expect(semCreditos(1)).toBe(false);
     expect(semCreditos(0)).toBe(true);
-    expect(mensagemDeCreditos("assistente", 0)).toBe("Suas 15 perguntas da semana acabaram. Domingo tem mais.");
-    expect(mensagemDeCreditos("roteiro", 0)).toBe("Seus 7 roteiros da semana acabaram. Domingo tem mais.");
+    expect(mensagemDeCreditos("assistente", 0, 20)).toBe("Suas 20 perguntas da semana acabaram. Domingo tem mais.");
+    expect(mensagemDeCreditos("roteiro", 0, 10)).toBe("Seus 10 roteiros da semana acabaram. Domingo tem mais.");
   });
 });
 

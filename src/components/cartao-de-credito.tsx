@@ -2,7 +2,7 @@
 
 import { Coins, Sparkles, Wand2 } from "lucide-react";
 import { useCreditos } from "@/hooks/use-creditos";
-import { LIMITE_SEMANAL, saldoDeCreditos, usoPorAcao, type TipoDeCredito } from "@/lib/limite";
+import { saldoDeCreditos, usoPorAcao, type TipoDeCredito } from "@/lib/limite";
 import { cn } from "@/lib/utils";
 
 const ILIMITADO = "Sua conta é admin: créditos ilimitados.";
@@ -13,7 +13,7 @@ const ILIMITADO = "Sua conta é admin: créditos ilimitados.";
  * Admin vê o mesmo cartão, com "ilimitado". Carregando: nada.
  */
 export const CartaoDeCredito = ({ tipo, className }: { tipo: TipoDeCredito; className?: string }) => {
-  const { restantes, aviso, ilimitado } = useCreditos(tipo);
+  const { restantes, limite, aviso, ilimitado } = useCreditos(tipo);
   if (restantes == null && !ilimitado) return null;
   return (
     <div
@@ -37,7 +37,7 @@ export const CartaoDeCredito = ({ tipo, className }: { tipo: TipoDeCredito; clas
         <span className={cn("block font-display text-[28px] font-semibold", aviso ? "text-rose" : "text-foreground")}>
           {ilimitado ? "∞" : restantes}
         </span>
-        {!ilimitado && <span className="text-[11px] text-muted-foreground">de {LIMITE_SEMANAL[tipo]}</span>}
+        {!ilimitado && limite != null && <span className="text-[11px] text-muted-foreground">de {limite}</span>}
       </span>
     </div>
   );

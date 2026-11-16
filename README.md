@@ -102,11 +102,13 @@ src/
       roteiros/               banco de ganchos (com notas e comunidade) + gerador 5×5
       checklist/  resultados/
       campeoes/               vídeos campeões por nicho (admin adiciona e remove ali mesmo)
-      treinamento/            treinamento da IA (só admin): fila de perguntas e fichas de roteiro
+      treinamento/            treinamento da IA (só admin): perguntas, fichas de roteiro e frases da Música viral
+      administracao/          alunas e avisos (só admin): notificações, alunas do curso e liberar acesso
       conta/                  minha conta: nome, e-mail e senha
     api/
       assistente/route.ts     chat com streaming, créditos, registro de custo
-      creditos/route.ts       quantos créditos restam na semana (para o aviso na tela)
+      creditos/route.ts       quantos créditos restam na semana e o limite da conta (para o aviso na tela)
+      notificacoes/route.ts   notificações: a aluna lê e marca vista; a admin publica e apaga
       roteiro/route.ts        gerador de roteiros (JSON)
       treinamento/route.ts    fila de treinamento da IA (só admin, admin() em api-auth.ts)
       fichas/route.ts         fichas de roteiro da expert (só admin)
@@ -128,7 +130,7 @@ src/
     contas.ts                 criarConta: usuário + senha temporária + acesso (só servidor)
     email.ts                  e-mail de acesso (link, e-mail e senha temporária) pela Resend
     roteiro.ts                prompt do gerador de roteiros
-    limite.ts                 créditos semanais (40), preço por tokens e aviso (10 ou menos)
+    limite.ts                 créditos semanais (limite pela data da conta) e aviso
     uso.ts  sse.ts            leitura do stream e do custo da OpenRouter
     conhecimento/             material da IA: transcricao.md, dossie.md (só servidor)
     supabase/admin.ts         cliente service role (só servidor)
@@ -159,9 +161,9 @@ docs/superpowers/             design e plano da migração do Enter
 
 ### Créditos semanais
 
-Cada aluna tem, por semana, **15 perguntas** ao assistente e **7 roteiros** no gerador. São dois saldos separados: acabar os roteiros não trava as perguntas. **Cada pedido gasta 1**, do tamanho que for. A semana começa **no domingo à 0h de Brasília**, e o que sobrou não acumula. Admin não gasta créditos. Os números ficam em `LIMITE_SEMANAL` (`src/lib/limite.ts`).
+Cada aluna tem, por semana, um saldo de perguntas ao assistente e outro de roteiros no gerador. **A partir de 16/11/2026 à 0h de Brasília** (antes disso, todo mundo com 15 perguntas e 7 roteiros), **quem tem conta criada até 30/11/2026 (23h59 de Brasília) fica com 20 perguntas e 15 roteiros para sempre; contas a partir de 1/12 têm 15 perguntas e 10 roteiros.** A data é a de criação da conta (que nasce na compra). São dois saldos separados: acabar os roteiros não trava as perguntas. **Cada pedido gasta 1**, do tamanho que for. A semana começa **no domingo à 0h de Brasília**, e o que sobrou não acumula. Admin não gasta créditos. Os números e a data de corte ficam em `limiteSemanal` (`src/lib/limite.ts`).
 
-- **Como conta:** o pedido reserva 1 do saldo do tipo dele antes da IA, numa consulta só na tabela `creditos_semana` (uma linha por aluna, semana e tipo), que só soma se ainda couber no limite. Sem saldo, a resposta é 429 ("Suas 15 perguntas da semana acabaram. Domingo tem mais." ou "Seus 7 roteiros da semana acabaram…"). Se a IA falhar, ou se o roteiro vier cortado ou fora do formato, o crédito volta.
+- **Como conta:** o pedido reserva 1 do saldo do tipo dele antes da IA, numa consulta só na tabela `creditos_semana` (uma linha por aluna, semana e tipo), que só soma se ainda couber no limite. Sem saldo, a resposta é 429 ("Suas 20 perguntas da semana acabaram. Domingo tem mais." ou "Seus 10 roteiros da semana acabaram…", com o limite da conta). Se a IA falhar, ou se o roteiro vier cortado ou fora do formato, o crédito volta.
 - **Na tela:** um cartão perto do botão que gasta (`CartaoDeCredito`, embaixo de "Criar meu roteiro" e em cima do campo do assistente) diz "Cada roteiro usa 1 crédito. Você ainda tem N créditos nesta semana." (ou "Cada pergunta…"). Com 4 perguntas ou menos, ou 2 roteiros ou menos, o cartão fica rosa e troca o saldo por "Restam N perguntas nesta semana. Renova no domingo.". Sem saldo, o campo ou o botão travam. A admin vê "créditos ilimitados". Embaixo do logo (no celular, no topo) fica o contador da semana: "12 perguntas · 5 roteiros".
 - **Histórico:** de 2026-11-11 a 2026-11-12 foi um saldo só de 40 créditos, com meio crédito a mais nos pedidos grandes (pelos tokens de saída). A dona trocou por saldos por tipo e 1 por pedido, para a aluna entender quanto resta.
 
@@ -180,6 +182,9 @@ O gerador e o assistente continuam o trabalho no servidor mesmo quando a aluna s
 - depois do F5, a tela pergunta a `GET /api/pedidos?id=…` a cada 2 s, até vir o resultado (no assistente, a resposta chega inteira de uma vez). Se a IA falhou, aparece o erro de sempre (no assistente, com "Tentar de novo"); sem resultado depois de 90 s, a tela desiste.
 
 Saindo pelo app, depois de confirmar, o pedido é descartado: o crédito fica gasto e o resultado não volta. No assistente, a conversa da aba também sobrevive ao F5; sair da página pelo app ou "Nova conversa" a apagam, como antes.
+
+### Notificações (`/api/notificacoes`)
+A admin publica em **Alunas e avisos → Notificações** (`/app/administracao`, no menu de admin): título, descrição e, se quiser, um link (só `https://`) com um texto ("Ver a aula nova"; sem texto, aparece o endereço) e a **data para aparecer** (vazio = na hora; a agendada fica marcada na lista). **"Ver como fica"** abre o pop-up como a aluna vai ver, sem publicar. Cada aluna vê a notificação a partir da data dela, e só se já tinha conta nessa data: quem chega depois não vê as antigas. Assim que ela abre o app, em qualquer página, aparece um pop-up com o laço do painel e a data ("Novidade · 16 de novembro"), um por notificação ainda não vista (a mais nova primeiro); fechar marca como vista no banco, e ela não volta nem em outro aparelho. Depois, a notificação fica no **sininho** ao lado do logo (no celular, no topo), com um pontinho quando há alguma não vista. A admin apaga pela lixeira (com confirmação), e a notificação some de todas. `POST` e `DELETE` passam por `admin()`; `GET` e `PATCH` (marcar vista) usam o `user_id` do token.
 
 ### Mural das alunas (`/api/resultados`)
 A aluna conta o resultado dela: **resultado em uma linha** (até 80 caracteres), **depoimento** e, se quiser, o **link do vídeo no TikTok** (o link curto do celular também vale). Pelo menos o depoimento ou o vídeo. Não há campo de nome: aparece o nome da conta (Minha conta), ou "Aluna do Shop Studio". Até 10 publicações por dia. Ela apaga só as dela, com confirmação. Quem está em `admins` vê um alfinete em todos os cartões para fixar no topo ou desafixar.
@@ -279,6 +284,8 @@ Migrations em `supabase/migrations/`:
 | `gancho_notas` | nota de 1 a 5 de cada aluna em cada gancho | servidor (`/api/ganchos/nota`) |
 | `ai_perguntas` | perguntas ao assistente e roteiros gerados, tokens e custo | servidor (`/api/assistente`, `/api/roteiro`) |
 | `creditos_semana` | pedidos gastos por aluna em cada semana e tipo (`rota` = assistente ou roteiro; `semana` = o domingo em que ela começou) | servidor (`reservarChamada`) |
+| `notificacoes` | avisos da admin (título, descrição, link opcional com texto, `aparece_em`) | servidor (`/api/notificacoes`, só admin) |
+| `notificacoes_vistas` | quais notificações cada aluna já fechou | servidor (`/api/notificacoes`, `PATCH`) |
 | `admins` | quem acessa o treinamento da IA e cadastra as abas e os vídeos campeões | só service role (painel do Supabase) |
 | `treinamento` | perguntas e respostas da expert, com embedding (pgvector, 1536). Sem `user_id` de aluna | servidor (`/api/treinamento`, só admin; `/api/assistente` grava as conversas) |
 | `gatilhos` | gatilhos do gancho das fichas (slug + rótulo) | servidor (`/api/gatilhos`, só admin) |
@@ -349,7 +356,7 @@ Auditoria feita em 2026-11-04 (detalhes e como cada falha foi reproduzida no [`D
 | Aluna escrever na conversa de outra na fila de treinamento | A conversa é sempre o par (`user_id` do token, id do navegador). A linha do treinamento não tem `user_id`, e a expert não vê quem perguntou. |
 | Aluna liberar o próprio acesso, criar código ou mexer na IA | Essas tabelas não têm política de escrita: só a service role escreve. |
 | Chutar códigos de acesso | `resgatar_codigo` (só o servidor executa) bloqueia depois de 10 erros por hora (tabela `access_code_tentativas`). |
-| Gastar IA sem limite | 15 perguntas e 7 roteiros por semana por aluna, reservados no servidor numa consulta atômica (`creditos_semana`). |
+| Gastar IA sem limite | 20 perguntas e 15 roteiros (contas até 30/11/2026) ou 15 e 10 (depois) por semana por aluna, reservados no servidor numa consulta atômica (`creditos_semana`). |
 | Injetar instruções na IA | O navegador só manda o slug do capítulo; o título vem do conteúdo. O prompt proíbe copiar o material pago. |
 | Roubo do token (a sessão fica no `localStorage`) | CSP com `connect-src` limitado ao app e ao Supabase: um script injetado não consegue mandar o token para fora. Sem `dangerouslySetInnerHTML`; respostas da IA são texto puro. O token vale 15 min. |
 | E-mails de recuperação/link mágico disparados por qualquer um | Os modelos não têm link nem código (`supabase/templates/sem-link.html`). |

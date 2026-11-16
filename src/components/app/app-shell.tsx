@@ -15,6 +15,7 @@ import {
   Plus,
   Sparkles,
   Trophy,
+  Users,
   Wand2,
   type LucideIcon,
 } from "lucide-react";
@@ -22,6 +23,7 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/s
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/brand";
 import { ContadorDeCreditos } from "@/components/cartao-de-credito";
+import { AvisoDeNotificacao, SininhoDeNotificacoes } from "@/components/notificacoes";
 import { useAccess } from "@/hooks/use-access";
 import { useAuth } from "@/hooks/use-auth";
 import { useChapterProgress } from "@/hooks/use-progress";
@@ -49,8 +51,11 @@ const aprender: NavItem[] = [
   { to: "/app/resultados", label: "Mural das alunas", icon: Trophy },
 ];
 
-/** Só aparece para admin; quem bloqueia de verdade é admin() nas rotas de /api/treinamento. */
-const administracao: NavItem[] = [{ to: "/app/treinamento", label: "Treinamento da IA", icon: GraduationCap }];
+/** Só aparece para admin; quem bloqueia de verdade é admin() nas rotas. */
+const administracao: NavItem[] = [
+  { to: "/app/treinamento", label: "Treinamento da IA", icon: GraduationCap },
+  { to: "/app/administracao", label: "Alunas e avisos", icon: Users },
+];
 
 const ativo = (pathname: string, item: NavItem) =>
   // com a barra: /app/roteiros não pode acender em /app/roteiros-expert
@@ -284,6 +289,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
 
   return (
     <div className="flex min-h-dvh w-full max-w-full overflow-x-clip">
+      <AvisoDeNotificacao />
       <aside
         ref={asideRef}
         style={{ width: largura }}
@@ -293,9 +299,12 @@ const AppShell = ({ children }: { children: ReactNode }) => {
         )}
       >
         <div>
-          <Link href="/app" className={cn("block", compacto ? "text-center" : "px-3")} aria-label="Shop Studio, início">
-            <Wordmark className={compacto ? "text-[17px]" : "text-[26px]"} stacked={compacto} />
-          </Link>
+          <div className={cn("flex items-center gap-2", compacto ? "flex-col" : "justify-between px-3")}>
+            <Link href="/app" className={cn("block", compacto && "text-center")} aria-label="Shop Studio, início">
+              <Wordmark className={compacto ? "text-[17px]" : "text-[26px]"} stacked={compacto} />
+            </Link>
+            <SininhoDeNotificacoes />
+          </div>
           <div className={cn("mt-3", compacto ? "text-center" : "px-3")}>
             <ContadorDeCreditos empilhado={compacto} comNomes={!compacto} />
           </div>
@@ -332,6 +341,7 @@ const AppShell = ({ children }: { children: ReactNode }) => {
             <Wordmark className="text-[22px]" />
           </Link>
           <ContadorDeCreditos className="ml-auto mr-2" />
+          <SininhoDeNotificacoes className="mr-2 h-10 w-10" />
           <Sheet open={menuAberto} onOpenChange={setMenuAberto}>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" aria-label="Abrir menu" className="bg-card">

@@ -16,6 +16,7 @@ import { guardarNaConversa } from "@/lib/conversas";
 import { PERSONA } from "@/lib/persona";
 import { uuid } from "@/lib/entrada";
 import { blocoDaExpert, consultarExpert, registrarNaFila } from "@/lib/treinamento";
+import { limiteSemanal } from "@/lib/limite";
 import { comRegistroDeUso } from "@/lib/uso";
 
 export const runtime = "nodejs";
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
     console.error("assistente: falha ao ler admins", e);
     return false;
   });
-  const reserva = await reservarChamada(userId, "assistente", adm, turns.at(-1)!.content, chapterTitle ?? null, pedido);
+  const reserva = await reservarChamada(userId, "assistente", adm ? null : limiteSemanal(auth.user.created_at).assistente, turns.at(-1)!.content, chapterTitle ?? null, pedido);
   if (reserva instanceof Response) return reserva;
   const descontar = () => liberarChamada(reserva);
 
