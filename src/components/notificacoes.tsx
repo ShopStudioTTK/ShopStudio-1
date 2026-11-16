@@ -72,7 +72,7 @@ export const AvisoDeNotificacao = () => {
   );
 };
 
-/** Sininho ao lado do contador de créditos: abre a lista; o pontinho = alguma ainda não vista. */
+/** Sininho ao lado do logo (no celular, no topo): abre a lista; o pontinho = alguma ainda não vista. */
 export const SininhoDeNotificacoes = ({ className }: { className?: string }) => {
   const [aberta, setAberta] = useState(false);
   const lista = useNotificacoes();

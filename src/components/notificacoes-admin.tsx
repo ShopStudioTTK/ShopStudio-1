@@ -83,7 +83,7 @@ export const NotificacoesAdmin = () => {
           </div>
         </div>
         <p className="text-[13px] leading-relaxed text-muted-foreground">
-          Aparece uma vez, num pop-up, para quem já tem conta agora. Depois fica no sininho, ao lado dos créditos.
+          Aparece uma vez, num pop-up, para quem já tem conta agora. Depois fica no sininho, ao lado do logo.
           Quem ganhar conta depois não vê.
         </p>
         <Button type="submit" variant="pop" disabled={publicar.isPending || !form.titulo.trim() || !form.descricao.trim()}>

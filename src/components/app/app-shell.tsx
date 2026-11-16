@@ -295,12 +295,14 @@ const AppShell = ({ children }: { children: ReactNode }) => {
         )}
       >
         <div>
-          <Link href="/app" className={cn("block", compacto ? "text-center" : "px-3")} aria-label="Shop Studio, início">
-            <Wordmark className={compacto ? "text-[17px]" : "text-[26px]"} stacked={compacto} />
-          </Link>
-          <div className={cn("mt-3 flex items-center gap-2", compacto ? "flex-col" : "px-3")}>
-            <ContadorDeCreditos empilhado={compacto} comNomes={!compacto} />
+          <div className={cn("flex items-center gap-2", compacto ? "flex-col" : "justify-between px-3")}>
+            <Link href="/app" className={cn("block", compacto && "text-center")} aria-label="Shop Studio, início">
+              <Wordmark className={compacto ? "text-[17px]" : "text-[26px]"} stacked={compacto} />
+            </Link>
             <SininhoDeNotificacoes />
+          </div>
+          <div className={cn("mt-3", compacto ? "text-center" : "px-3")}>
+            <ContadorDeCreditos empilhado={compacto} comNomes={!compacto} />
           </div>
           <div className="mt-7">{navegacao(undefined, compacto)}</div>
         </div>

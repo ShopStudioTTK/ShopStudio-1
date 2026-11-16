@@ -4,6 +4,27 @@ Diário de desenvolvimento do Shop Studio: o que foi feito, em que ordem e **por
 
 ---
 
+## 2026-11-15: Créditos maiores para quem já tem conta e notificações da admin
+
+**Pedido:**
+- Quem já está no app, ou entrar até o fim do mês, fica com 20 perguntas e 15 roteiros por semana. Quem entrar a partir de dezembro fica com 15 e 10. A dona confirmou que é para sempre, pela data de entrada, e não uma promoção até o fim do mês.
+- A admin cria notificações: título, descrição e um link opcional, com um texto opcional para o link não aparecer cru. Elas aparecem uma vez na tela, quando a aluna chega, e depois ficam numa lista. Só veem as alunas que já tinham conta na hora; quem chega depois não vê. A admin também apaga.
+
+**Como ficou:**
+- **Créditos:** `limiteSemanal(user.created_at)` em `src/lib/limite.ts`, com o corte em 2026-12-01T03:00Z (meia-noite de Brasília). A data vem do usuário do token (conferido no Supabase), sem consulta a mais. `reservarChamada` recebe o limite da rota no lugar do `ilimitada` (null = admin). `/api/creditos` devolve o `limite`, e o cartão ("de 15"), o aviso de saldo esgotado e o hover do "Outra versão" usam o limite da conta.
+- **Notificações:** tabelas `notificacoes` e `notificacoes_vistas`, e uma rota só (`/api/notificacoes`). Quem vê é decidido no `GET` (`criado_em` da notificação > `created_at` da conta), e a admin vê todas, para apagar. O pop-up reaproveita o `Confirmacao`, que ganhou `whitespace-pre-line` e rolagem para descrições longas.
+- **Decisões minhas:** o pop-up aparece na primeira página do app que a aluna abrir, e não só no painel; a vista fica no banco, e não no navegador; quem publica já recebe a própria notificação como vista, para não levar o pop-up dela mesma; o sininho fica ao lado do logo, porque ao lado do contador ele saía cortado no menu largo.
+
+**Verificado:**
+- Testes, lint e build. Os 3 testes de e-mail/Applyfy já falhavam na `main` (vieram dos commits por upload) e continuam falhando; não mexi neles.
+- No navegador (build em `localhost:3005`, 1400 px), com uma admin, uma aluna com conta de 1/11 e uma com conta de 2/12:
+  - créditos de 20 e 15 para a antiga, de 15 e 10 para a de dezembro, e ilimitado para a admin;
+  - a admin publica; a antiga vê o pop-up com quebra de linha e link e, depois de "Entendi", ele não volta ao recarregar e fica no sininho;
+  - a de dezembro não vê nada; a admin apaga, e as vistas somem junto.
+- **Não conferido:** a largura de 375 px (a janela do navegador não diminuiu).
+
+---
+
 ## 2026-11-12: Música viral (sem fala) de volta e página de vendas /checkout
 
 **Pedido:**
