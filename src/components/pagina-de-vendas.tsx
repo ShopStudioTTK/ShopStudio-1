@@ -198,7 +198,7 @@ export const PaginaDeVendas = () => {
                 )}
               >
                 {aluna
-                  ? "Achamos você! 🎉 Como você já é aluna do curso, é só levar a ferramenta por R$ 197."
+                  ? "Achamos você! 🎉 Como você já é aluna do curso, é só levar a ferramenta por R$ 247."
                   : "Não achamos esse e-mail entre as alunas do curso. Confira se é o mesmo e-mail da compra, ou leve o combo com o curso junto."}
               </p>
             ) : null}
